@@ -1,32 +1,9 @@
-# Prerequisites
-*.d
+#VS generated config folder
+.vs
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+#VS local executables folder
+bin
+obj
 
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
-*.exe
-*.out
-*.app
+#VS packages, can be re-downloaded from NuGet
+packages
