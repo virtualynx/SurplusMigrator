@@ -17,7 +17,7 @@ namespace SurplusMigrator {
                     restrictedToMinimumLevel: LogEventLevel.Information,
                     rollingInterval: RollingInterval.Day,
                     rollOnFileSizeLimit: true,
-                    fileSizeLimitBytes: 100000
+                    fileSizeLimitBytes: 50000000
                 )
                 .WriteTo.Console(restrictedToMinimumLevel: LogEventLevel.Information)
                 .CreateLogger();
@@ -39,8 +39,13 @@ namespace SurplusMigrator {
             new MasterAccountReport(connections).run();
             new MasterAccountGroup(connections).run();
             new MasterAccountSubGroup(connections).run();
+            new MasterAccountSubType(connections).run();
+            new MasterAccountType(connections).run();
+            //master_account
+            new MasterAccount(connections).run();
 
-            //Console.ReadLine();
+            Log.Logger.Information("\n\nPress any key to continue ...");
+            Console.ReadLine();
         }
     }
 }

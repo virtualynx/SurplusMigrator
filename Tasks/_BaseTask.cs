@@ -1,38 +1,61 @@
-﻿using Serilog;
-using SurplusMigrator.Models;
-using System;
+﻿using SurplusMigrator.Models;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SurplusMigrator.Tasks {
     abstract class _BaseTask {
-        public TableInfo source = null;
-        public TableInfo destination = null;
+        public TableInfo[] sources = null;
+        public TableInfo[] destinations = null;
 
         public bool run() {
             bool allSuccess = true;
+            Table[] sourceTables;
+            Table[] destinationTables;
 
-            Table sourceTable = new Table() {
-                connection = source.connection,
-                tableName = source.tableName,
-                columns = source.columns,
-                ids = source.ids,
-                batchSize = source.batchSize
-            };
+            List<Table> t = new List<Table>();
 
-            Table destinationTable = new Table() {
-                connection = destination.connection,
-                tableName = destination.tableName,
-                columns = destination.columns,
-                ids = destination.ids,
-                batchSize = destination.batchSize
-            };
+            foreach(TableInfo ti in sources) {
+                t.Add(
+                    new Table() {
+                        connection = ti.connection,
+                        tableName = ti.tableName,
+                        columns = ti.columns,
+                        ids = ti.ids,
+                        batchSize = ti.batchSize
+                    }
+                );
+            }
+            sourceTables = t.ToArray();
 
-            List<RowData<string, object>> fetchedData;
-            while((fetchedData = sourceTable.getDatas()).Count > 0) {
-                List<DbInsertError> errors = destinationTable.insertData(mapData(fetchedData));
+            t = new List<Table>();
+
+            foreach(TableInfo ti in destinations) {
+                t.Add(
+                    new Table() {
+                        connection = ti.connection,
+                        tableName = ti.tableName,
+                        columns = ti.columns,
+                        ids = ti.ids,
+                        batchSize = ti.batchSize
+                    }
+                );
+            }
+            destinationTables = t.ToArray();
+
+            List<RowData<ColumnName, Data>> fetchedData;
+            while((fetchedData = getSourceData(sourceTables)).Count > 0) {
+                MappedData mappedData = mapData(fetchedData);
+                foreach(Table dest in destinationTables) {
+                    List<DbInsertError> errors = dest.insertData(mappedData.getData(dest.tableName));
+                    if(errors.Count > 0) {
+                        allSuccess = false;
+                        break;
+                    }
+                }
+            }
+
+            MappedData staticData = additionalStaticData();
+            foreach(Table dest in destinationTables) {
+                List<DbInsertError> errors = dest.insertData(staticData.getData(dest.tableName));
                 if(errors.Count > 0) {
                     allSuccess = false;
                     break;
@@ -42,6 +65,8 @@ namespace SurplusMigrator.Tasks {
             return allSuccess;
         }
 
-        public abstract List<RowData<string, object>> mapData(List<RowData<string, object>> inputs);
+        public abstract List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables);
+        public abstract MappedData mapData(List<RowData<ColumnName, Data>> inputs);
+        public abstract MappedData additionalStaticData();
     }
 }

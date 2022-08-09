@@ -3,7 +3,10 @@ using System.Collections.Generic;
 
 namespace SurplusMigrator.Models
 {
-    class RowData<String, Object> : Dictionary<string, object> {
+    /// <summary>
+    /// Represents sets of column-data mapping.
+    /// </summary>
+    class RowData<ColumnName, Data> : Dictionary<string, object> {
         public RowData() : base() { }
         public RowData(int capacity) : base(capacity) { }
     }
