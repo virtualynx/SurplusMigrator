@@ -132,72 +132,6 @@ namespace SurplusMigrator.Models
             return result;
         }
 
-        //public List<DbInsertError> insertData(List<RowData<ColumnName, Data>> inputs) {
-        //    List<DbInsertError> errors = new List<DbInsertError>();
-
-        //    if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-        //        throw new System.NotImplementedException();
-        //    } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-        //        NpgsqlConnection conn = (NpgsqlConnection)connection.GetDbConnection();
-
-        //        NpgsqlCommand command = null;
-
-        //        string sql = "INSERT INTO \"" + connection.GetDbLoginInfo().schema + "\"." + tableName + "(\"" + String.Join("\",\"", columns) + "\") VALUES ";
-        //        List<string> sqlParams = new List<string>();
-        //        for(int rowNum = 1; rowNum <= inputs.Count; rowNum++) {
-        //            RowData<ColumnName, Data> rowData = inputs[rowNum - 1];
-
-        //            string p = "";
-        //            foreach(string columnName in columns) {
-        //                object data = rowData[columnName];
-
-        //                string encloser_open = "";
-        //                string encloser_close = "";
-        //                if(
-        //                  data != null
-        //                  && (
-        //                    data.GetType() == typeof(System.String)
-        //                    || data.GetType() == typeof(System.DateTime)
-        //                  )
-        //                ) {
-        //                    encloser_open = "'";
-        //                    encloser_close = "'";
-        //                }
-        //                p += (p.Length > 0 ? "," : "") + encloser_open + (data == null ? "NULL" : data) + encloser_close;
-        //            }
-        //            p = "(" + p + ")";
-
-        //            sqlParams.Add(p);
-        //            if(rowNum % batchSize == 0 || (rowNum == inputs.Count && sqlParams.Count > 0)) {
-        //                command = new NpgsqlCommand(sql + String.Join(',', sqlParams), conn);
-        //                string loggingDetail = String.Join('\n', sqlParams).Replace("'", "");
-        //                try {
-        //                    int affected = command.ExecuteNonQuery();
-        //                } catch(PostgresException e) {
-        //                    if(e.Message.Contains("duplicate key value violates unique constraint")) {
-        //                        Log.Logger.Warning("Duplicated value upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
-        //                    } else {
-        //                        Log.Logger.Warning("SQL error upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
-        //                        errors.Add(new DbInsertError() {
-        //                            exception = e,
-        //                            info = loggingDetail
-        //                        });
-        //                    }
-        //                } catch(Exception e) {
-        //                    Log.Logger.Error(e, "Error upon insert into " + tableName + " values: " + loggingDetail);
-        //                    errors.Add(new DbInsertError() {
-        //                        exception = e,
-        //                        info = loggingDetail
-        //                    });
-        //                }
-        //                sqlParams.Clear();
-        //            }
-        //        }
-        //    }
-
-        //    return errors;
-        //}
-
         public List<DbInsertError> insertData(List<RowData<ColumnName, Data>> inputs) {
             List<DbInsertError> errors = new List<DbInsertError>();
 
@@ -211,16 +145,22 @@ namespace SurplusMigrator.Models
                 string sql = "INSERT INTO \"" + connection.GetDbLoginInfo().schema + "\"." + tableName + "(\"" + String.Join("\",\"", columns) + "\") VALUES ";
                 ColumnType<ColumnName, DataType> columnType = this.getColumnTypes();
                 List<string> sqlParams = new List<string>();
-                List<Dictionary<string, object>> sqlArguments = new List<Dictionary<string, object>>();
+                List<Dictionary<string, TypedData>> sqlArguments = new List<Dictionary<string, TypedData>>();
                 for(int rowNum = 1; rowNum <= inputs.Count; rowNum++) {
                     RowData<ColumnName, Data> rowData = inputs[rowNum - 1];
 
                     string p = "";
-                    Dictionary<string, object> sqlArgument = new Dictionary<string, object>();
+                    Dictionary<string, TypedData> sqlArgument = new Dictionary<string, TypedData>();
                     foreach(string columnName in columns) {
                         object data = rowData[columnName];
                         string paramNotation = "@" + columnName + "_" + rowNum;
-                        sqlArgument.Add(columnName + "_" + rowNum, data == null ? DBNull.Value : data);
+                        sqlArgument.Add(
+                            paramNotation, 
+                            new TypedData() {
+                                data = data == null ? DBNull.Value : data,
+                                type = columnType[columnName]
+                            }
+                        );
                         p += (p.Length > 0 ? "," : "") + paramNotation;
                     }
                     p = "(" + p + ")";
@@ -230,15 +170,18 @@ namespace SurplusMigrator.Models
                     if(rowNum % batchSize == 0 || (rowNum == inputs.Count && sqlParams.Count > 0)) {
                         command = new NpgsqlCommand(sql + String.Join(',', sqlParams), conn);
                         List<string> loggingDetailArray = new List<string>();
-                        foreach(Dictionary<string, object> argument in sqlArguments) {
+                        foreach(Dictionary<string, TypedData> argument in sqlArguments) {
                             string q = "";
-                            foreach(KeyValuePair<string, object> entry in argument) {
-                                if(columnType[entry.Key] == "jsonb") {
-                                    command.Parameters.AddWithValue("@" + entry.Key, NpgsqlDbType.Json, entry.Value);
+                            foreach(KeyValuePair<string, TypedData> entry in argument) {
+                                TypedData typedData = entry.Value;
+                                if(typedData.type == "jsonb") {
+                                    command.Parameters.AddWithValue(entry.Key, NpgsqlDbType.Json, typedData.data);
+                                } else if(typedData.type == "boolean") {
+                                    command.Parameters.AddWithValue(entry.Key, NpgsqlDbType.Boolean, typedData.data);
                                 } else {
-                                    command.Parameters.AddWithValue("@" + entry.Key, entry.Value);
+                                    command.Parameters.AddWithValue(entry.Key, typedData.data);
                                 }
-                                q += (q.Length > 0 ? "," : "") + ( entry.Value!=null? entry.Value.ToString().Replace("'", "\'"): "null" );
+                                q += (q.Length > 0 ? "," : "") + (typedData.data != null? typedData.data.ToString().Replace("'", "\'"): "null" );
                             }
                             q = "(" + q + ")";
                             loggingDetailArray.Add(q);
@@ -246,9 +189,10 @@ namespace SurplusMigrator.Models
                         string loggingDetail = String.Join('\n', loggingDetailArray);
                         try {
                             int affected = command.ExecuteNonQuery();
+                            Log.Logger.Information(affected + " data inserted into " + tableName);
                         } catch(PostgresException e) {
                             if(e.Message.Contains("duplicate key value violates unique constraint")) {
-                                Log.Logger.Warning("Duplicated value upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
+                                //Log.Logger.Warning("Duplicated value upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
                             } else {
                                 Log.Logger.Error(e, "SQL error upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
                                 errors.Add(new DbInsertError() {

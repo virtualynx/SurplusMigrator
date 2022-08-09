@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace SurplusMigrator.Models
 {
   class MappedData {
-        private Dictionary<string, List<RowData<ColumnName, Data>>> mappedData = new Dictionary<string, List<RowData<ColumnName, Data>>>();
+        private Dictionary<TableName, List<RowData<ColumnName, Data>>> mappedData = new Dictionary<TableName, List<RowData<ColumnName, Data>>>();
 
         public void addData(string destinationTablename, RowData<ColumnName, Data> data) {
             if(!mappedData.ContainsKey(destinationTablename)) {
@@ -15,7 +15,14 @@ namespace SurplusMigrator.Models
         }
 
         public List<RowData<ColumnName, Data>> getData(string tablename) {
+            if(!mappedData.ContainsKey(tablename)) {
+                return new List<RowData<string, object>>();
+            }
             return mappedData[tablename];
+        }
+
+        public int Count() {
+            return mappedData.Count;
         }
     }
 }

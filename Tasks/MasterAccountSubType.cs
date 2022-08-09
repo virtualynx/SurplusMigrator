@@ -49,7 +49,7 @@ namespace SurplusMigrator.Models
                     { "accountsubtypeid",  data["acctypetype_id"]},
                     { "name",  data["acctypetype_name"]},
                     { "created_date",  DateTime.Now},
-                    //{ "created_by",  DefaultValues.CREATED_BY},
+                    { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 };
                 result.addData("master_account_sub_type", insertRow);
@@ -59,7 +59,20 @@ namespace SurplusMigrator.Models
         }
 
         public override MappedData additionalStaticData() {
-            return new MappedData();
+            MappedData result = new MappedData();
+
+            result.addData(
+                "master_account_sub_type",
+                new RowData<ColumnName, Data>() {
+                    { "accountsubtypeid",  0},
+                    { "name",  "Unknown"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+
+            return result;
         }
     }
 }

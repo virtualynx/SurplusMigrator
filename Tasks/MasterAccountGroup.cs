@@ -64,10 +64,10 @@ namespace SurplusMigrator.Models {
             result.addData(
                 "master_account_group",
                 new RowData<ColumnName, Data>() {
-                    { "accountsubgroupid",  0},
+                    { "accountgroupid",  0},
                     { "name",  "Unknown"},
                     { "position",  null},
-                    { "accountreporttypeid",  data["accrpt_id"]},
+                    { "accountreporttypeid",  0},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }

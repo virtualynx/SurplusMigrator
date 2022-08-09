@@ -44,6 +44,10 @@ namespace SurplusMigrator {
             //master_account
             new MasterAccount(connections).run();
 
+            //pre-req for TransactionJournal
+            new MasterAccountCa(connections).run();
+            new MasterCurrency(connections).run();
+
             Log.Logger.Information("\n\nPress any key to continue ...");
             Console.ReadLine();
         }

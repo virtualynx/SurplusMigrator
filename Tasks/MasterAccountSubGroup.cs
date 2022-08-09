@@ -62,9 +62,9 @@ namespace SurplusMigrator.Models {
             result.addData(
                 "master_account_sub_group",
                 new RowData<ColumnName, Data>() {
-                    { "accountsubgroupid",  data["accsubgroup_id"]},
-                    { "name",  data["accsubgroup_name"]},
-                    { "accountgroupid",  data["accgroup_id"]},
+                    { "accountsubgroupid",  0},
+                    { "name",  "Unknown"},
+                    { "accountgroupid",  0},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }

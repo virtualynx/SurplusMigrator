@@ -63,7 +63,21 @@ namespace SurplusMigrator.Models
         }
 
         public override MappedData additionalStaticData() {
-            return new MappedData();
+            MappedData result = new MappedData();
+
+            result.addData(
+                "master_account_type",
+                new RowData<ColumnName, Data>() {
+                    { "accounttypeid",  0},
+                    { "name",  "Unknown"},
+                    { "accountsubtypeid",  0},
+                    { "created_date",  DateTime.Now},
+                    //{ "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+
+            return result;
         }
     }
 }
