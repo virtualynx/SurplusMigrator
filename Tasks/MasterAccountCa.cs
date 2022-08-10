@@ -42,7 +42,7 @@ namespace SurplusMigrator.Models
                         "created_date",
                         "is_disabled",
                     },
-                    ids = new string[] { "accountid" }
+                    ids = new string[] { "accountcaid" }
                 }
             };
         }
