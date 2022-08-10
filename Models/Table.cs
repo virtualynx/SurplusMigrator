@@ -5,7 +5,11 @@ using Serilog;
 using SurplusMigrator.Interfaces;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
+using System.Text.RegularExpressions;
+
+using ParamNotation = System.String;
 
 namespace SurplusMigrator.Models
 {
@@ -19,6 +23,9 @@ namespace SurplusMigrator.Models
         private long dataCount = -1;
         private int fetchBatchCounter = 1;
         private int fetchBatchMax = -1;
+
+        private const string OMIT_PATTERN_DUPLICATE = "Key \\((.*)\\)=\\((.*)\\) already exists";
+        private const string OMIT_PATTERN_REFERENCE = "Key \\((.*)\\)=\\((.*)\\) is not present in table";
 
         public Table() { }
 
@@ -132,8 +139,8 @@ namespace SurplusMigrator.Models
             return result;
         }
 
-        public List<DbInsertError> insertData(List<RowData<ColumnName, Data>> inputs) {
-            List<DbInsertError> errors = new List<DbInsertError>();
+        public List<DbInsertFail> insertData(List<RowData<ColumnName, Data>> inputs) {
+            List<DbInsertFail> failures = new List<DbInsertFail>();
 
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 throw new System.NotImplementedException();
@@ -145,15 +152,15 @@ namespace SurplusMigrator.Models
                 string sql = "INSERT INTO \"" + connection.GetDbLoginInfo().schema + "\"." + tableName + "(\"" + String.Join("\",\"", columns) + "\") VALUES ";
                 ColumnType<ColumnName, DataType> columnType = this.getColumnTypes();
                 List<string> sqlParams = new List<string>();
-                List<Dictionary<string, TypedData>> sqlArguments = new List<Dictionary<string, TypedData>>();
+                List<Dictionary<ParamNotation, TypedData>> sqlArguments = new List<Dictionary<ParamNotation, TypedData>>();
                 for(int rowNum = 1; rowNum <= inputs.Count; rowNum++) {
                     RowData<ColumnName, Data> rowData = inputs[rowNum - 1];
 
                     string p = "";
-                    Dictionary<string, TypedData> sqlArgument = new Dictionary<string, TypedData>();
+                    Dictionary<ParamNotation, TypedData> sqlArgument = new Dictionary<ParamNotation, TypedData>();
                     foreach(string columnName in columns) {
                         object data = rowData[columnName];
-                        string paramNotation = "@" + columnName + "_" + rowNum;
+                        ParamNotation paramNotation = "@" + columnName + "_" + rowNum;
                         sqlArgument.Add(
                             paramNotation, 
                             new TypedData() {
@@ -168,52 +175,113 @@ namespace SurplusMigrator.Models
                     sqlArguments.Add(sqlArgument);
 
                     if(rowNum % batchSize == 0 || (rowNum == inputs.Count && sqlParams.Count > 0)) {
-                        command = new NpgsqlCommand(sql + String.Join(',', sqlParams), conn);
-                        List<string> loggingDetailArray = new List<string>();
-                        foreach(Dictionary<string, TypedData> argument in sqlArguments) {
-                            string q = "";
-                            foreach(KeyValuePair<string, TypedData> entry in argument) {
-                                TypedData typedData = entry.Value;
-                                if(typedData.type == "jsonb") {
-                                    command.Parameters.AddWithValue(entry.Key, NpgsqlDbType.Json, typedData.data);
-                                } else if(typedData.type == "boolean") {
-                                    command.Parameters.AddWithValue(entry.Key, NpgsqlDbType.Boolean, typedData.data);
-                                } else {
-                                    command.Parameters.AddWithValue(entry.Key, typedData.data);
-                                }
-                                q += (q.Length > 0 ? "," : "") + (typedData.data != null? typedData.data.ToString().Replace("'", "\'"): "null" );
+                        bool retryInsert;
+                        do {
+                            if(sqlParams.Count==0 && sqlArguments.Count == 0) { //occured when all data are omitted because of errors
+                                break;
                             }
-                            q = "(" + q + ")";
-                            loggingDetailArray.Add(q);
-                        }
-                        string loggingDetail = String.Join('\n', loggingDetailArray);
-                        try {
-                            int affected = command.ExecuteNonQuery();
-                            Log.Logger.Information(affected + " data inserted into " + tableName);
-                        } catch(PostgresException e) {
-                            if(e.Message.Contains("duplicate key value violates unique constraint")) {
-                                //Log.Logger.Warning("Duplicated value upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
-                            } else {
-                                Log.Logger.Error(e, "SQL error upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
-                                errors.Add(new DbInsertError() {
+                            retryInsert = false;
+                            command = new NpgsqlCommand(sql + String.Join(',', sqlParams), conn);
+                            List<string> loggingDetailArray = new List<string>();
+                            foreach(Dictionary<ParamNotation, TypedData> argument in sqlArguments) {
+                                string q = "";
+                                foreach(KeyValuePair<ParamNotation, TypedData> entry in argument) {
+                                    TypedData typedData = entry.Value;
+                                    if(typedData.type == "jsonb") {
+                                        command.Parameters.AddWithValue(entry.Key, NpgsqlDbType.Json, typedData.data);
+                                    } else if(typedData.type == "boolean") {
+                                        command.Parameters.AddWithValue(entry.Key, NpgsqlDbType.Boolean, typedData.data);
+                                    } else {
+                                        command.Parameters.AddWithValue(entry.Key, typedData.data);
+                                    }
+                                    q += (q.Length > 0 ? "," : "") + (typedData.data != null ? typedData.data.ToString().Replace("'", "\'") : "null");
+                                }
+                                q = "(" + q + ")";
+                                loggingDetailArray.Add(q);
+                            }
+                            string loggingDetail = String.Join('\n', loggingDetailArray);
+                            try {
+                                int affected = command.ExecuteNonQuery();
+                                Log.Logger.Information(affected + " data inserted into " + tableName);
+                            } catch(PostgresException e) {
+                                if(e.Message.Contains("duplicate key value violates unique constraint")) {
+                                    //Log.Logger.Warning("Duplicated value upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
+                                    //omitFailedInsertData(e, sqlParams, sqlArguments, OMIT_PATTERN_DUPLICATE);
+                                    //failures.Add(new DbInsertFail() {
+                                    //    exception = e,
+                                    //    info = e.Detail,
+                                    //    severity = Misc.DB_FAIL_SEVERITY_WARNING
+                                    //});
+                                    //retryInsert = true;
+                                    failures.Add(new DbInsertFail() {
+                                        exception = e,
+                                        info = "Insert into " + tableName + " error, " + e.Detail,
+                                        severity = Misc.DB_FAIL_SEVERITY_WARNING
+                                    });
+                                } else if(
+                                    e.Message.Contains("insert or update on table")
+                                    && e.Message.Contains("violates foreign key constraint")
+                                    && e.Detail.Contains("Key")
+                                    && e.Detail.Contains("is not present in table")
+                                ) {
+                                    //Log.Logger.Warning("Duplicated value upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
+                                    omitFailedInsertData(e, sqlParams, sqlArguments, OMIT_PATTERN_REFERENCE);
+                                    failures.Add(new DbInsertFail() {
+                                        exception = e,
+                                        info = "Insert into " + tableName + "error, " + e.Detail,
+                                        severity = Misc.DB_FAIL_SEVERITY_ERROR
+                                    });
+                                    retryInsert = true;
+                                } else {
+                                    Log.Logger.Error(e, "SQL error upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
+                                    failures.Add(new DbInsertFail() {
+                                        exception = e,
+                                        info = loggingDetail,
+                                        severity = Misc.DB_FAIL_SEVERITY_ERROR
+                                    });
+                                }
+                            } catch(Exception e) {
+                                Log.Logger.Error(e, "Error upon insert into " + tableName + " values: " + loggingDetail);
+                                failures.Add(new DbInsertFail() {
                                     exception = e,
-                                    info = loggingDetail
+                                    info = loggingDetail,
+                                    severity = Misc.DB_FAIL_SEVERITY_ERROR
                                 });
                             }
-                        } catch(Exception e) {
-                            Log.Logger.Error(e, "Error upon insert into " + tableName + " values: " + loggingDetail);
-                            errors.Add(new DbInsertError() {
-                                exception = e,
-                                info = loggingDetail
-                            });
-                        }
+                        } while(retryInsert);
                         sqlParams.Clear();
                         sqlArguments.Clear();
                     }
                 }
             }
 
-            return errors;
+            return failures;
+        }
+
+        private void omitFailedInsertData(
+            PostgresException e, 
+            List<string> sqlParams, 
+            List<Dictionary<ParamNotation, TypedData>> sqlArguments,
+            string errorDetailPattern
+        ) {
+            Match match = Regex.Match(e.Detail, errorDetailPattern);
+            string key = match.Groups[1].Value;
+            string id = match.Groups[2].Value;
+
+            Dictionary<ParamNotation, TypedData> duplicatedArgument = sqlArguments.Where(
+                arg => arg.Any(x => x.Key.StartsWith("@" + key + "_") && x.Value.data.ToString() == id)
+            ).FirstOrDefault();
+            string sqlParamKey = null;
+            foreach(string k in duplicatedArgument.Keys) {
+                if(k.StartsWith("@" + key + "_")) {
+                    sqlParamKey = k;
+                    break;
+                }
+            }
+            if(sqlParams.Any()) { //prevent IndexOutOfRangeException for empty list
+                sqlParams.RemoveAll(a => a.Contains(sqlParamKey + ","));
+            }
+            sqlArguments.RemoveAll(arg => arg.Any(x => x.Key == sqlParamKey));
         }
     }
 }

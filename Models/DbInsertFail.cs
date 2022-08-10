@@ -3,8 +3,9 @@ using System.Collections.Generic;
 
 namespace SurplusMigrator.Models
 {
-  class DbInsertError {
+  class DbInsertFail {
         public Exception exception;
         public string info;
+        public string severity;
     }
 }
