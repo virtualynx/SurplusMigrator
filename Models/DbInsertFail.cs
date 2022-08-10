@@ -7,5 +7,6 @@ namespace SurplusMigrator.Models
         public Exception exception;
         public string info;
         public string severity;
+        public bool skipsNextInsertion = false;
     }
 }

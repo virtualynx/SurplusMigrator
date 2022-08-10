@@ -1,3 +1,4 @@
+using LinqKit;
 using Microsoft.Data.SqlClient;
 using Npgsql;
 using NpgsqlTypes;
@@ -8,6 +9,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 
 using ParamNotation = System.String;
 
@@ -76,10 +78,7 @@ namespace SurplusMigrator.Models
 
                 //get data count for first time open
                 if(dataCount == -1) {
-                    command = new SqlCommand(
-                        "SELECT COUNT(*) FROM " + connection.GetDbLoginInfo().schema + "." + tableName
-                        , conn
-                    );
+                    command = new SqlCommand("SELECT COUNT(*) FROM " + connection.GetDbLoginInfo().schema + "." + tableName, conn);
                     dataReader = command.ExecuteReader();
                     dataReader.Read();
                     dataCount = Convert.ToInt64(dataReader.GetValue(0));
@@ -146,9 +145,15 @@ namespace SurplusMigrator.Models
                 throw new System.NotImplementedException();
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                 NpgsqlConnection conn = (NpgsqlConnection)connection.GetDbConnection();
-
                 NpgsqlCommand command = null;
 
+                //check if attempted insert data is already in table
+                omitDuplicatedData(failures, inputs);
+                if(inputs.Count == 0) { //all data are duplicates
+                    return failures;
+                }
+
+                //start inserting data
                 string sql = "INSERT INTO \"" + connection.GetDbLoginInfo().schema + "\"." + tableName + "(\"" + String.Join("\",\"", columns) + "\") VALUES ";
                 ColumnType<ColumnName, DataType> columnType = this.getColumnTypes();
                 List<string> sqlParams = new List<string>();
@@ -174,6 +179,7 @@ namespace SurplusMigrator.Models
                     sqlParams.Add(p);
                     sqlArguments.Add(sqlArgument);
 
+                    //insert upon meeting the batch-quota
                     if(rowNum % batchSize == 0 || (rowNum == inputs.Count && sqlParams.Count > 0)) {
                         bool retryInsert;
                         do {
@@ -205,30 +211,18 @@ namespace SurplusMigrator.Models
                                 Log.Logger.Information(affected + " data inserted into " + tableName);
                             } catch(PostgresException e) {
                                 if(e.Message.Contains("duplicate key value violates unique constraint")) {
-                                    //Log.Logger.Warning("Duplicated value upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
-                                    //omitFailedInsertData(e, sqlParams, sqlArguments, OMIT_PATTERN_DUPLICATE);
-                                    //failures.Add(new DbInsertFail() {
-                                    //    exception = e,
-                                    //    info = e.Detail,
-                                    //    severity = Misc.DB_FAIL_SEVERITY_WARNING
-                                    //});
-                                    //retryInsert = true;
-                                    failures.Add(new DbInsertFail() {
-                                        exception = e,
-                                        info = "Insert into " + tableName + " error, " + e.Detail,
-                                        severity = Misc.DB_FAIL_SEVERITY_WARNING
-                                    });
+                                    throw new System.NotImplementedException("This should not be happened in this point of code");
                                 } else if(
                                     e.Message.Contains("insert or update on table")
                                     && e.Message.Contains("violates foreign key constraint")
                                     && e.Detail.Contains("Key")
                                     && e.Detail.Contains("is not present in table")
                                 ) {
-                                    //Log.Logger.Warning("Duplicated value upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
+                                    Log.Logger.Error("Error upon insert into " + tableName + ", " + e.Detail);
                                     omitFailedInsertData(e, sqlParams, sqlArguments, OMIT_PATTERN_REFERENCE);
                                     failures.Add(new DbInsertFail() {
                                         exception = e,
-                                        info = "Insert into " + tableName + "error, " + e.Detail,
+                                        info = "Insert into " + tableName + " error, " + e.Detail,
                                         severity = Misc.DB_FAIL_SEVERITY_ERROR
                                     });
                                     retryInsert = true;
@@ -237,16 +231,20 @@ namespace SurplusMigrator.Models
                                     failures.Add(new DbInsertFail() {
                                         exception = e,
                                         info = loggingDetail,
-                                        severity = Misc.DB_FAIL_SEVERITY_ERROR
+                                        severity = Misc.DB_FAIL_SEVERITY_ERROR,
+                                        skipsNextInsertion = true
                                     });
                                 }
                             } catch(Exception e) {
-                                Log.Logger.Error(e, "Error upon insert into " + tableName + " values: " + loggingDetail);
+                                Log.Logger.Error(e, "Error upon insert into " + tableName + ", values: " + loggingDetail);
                                 failures.Add(new DbInsertFail() {
                                     exception = e,
                                     info = loggingDetail,
-                                    severity = Misc.DB_FAIL_SEVERITY_ERROR
+                                    severity = Misc.DB_FAIL_SEVERITY_ERROR,
+                                    skipsNextInsertion = true
                                 });
+                            } finally { 
+                                command.Dispose();
                             }
                         } while(retryInsert);
                         sqlParams.Clear();
@@ -256,6 +254,62 @@ namespace SurplusMigrator.Models
             }
 
             return failures;
+        }
+
+        private void omitDuplicatedData(List<DbInsertFail> failures, List<RowData<ColumnName, Data>> inputs) {
+            string sqlSelect = "select " + String.Join(",", ids) + " from " + connection.GetDbLoginInfo().schema + "." + tableName + " where (" + String.Join(",", ids) + ") in";
+            List<string> sqlSelectParams = new List<string>();
+            Dictionary<ParamNotation, Data> sqlSelectArgs = new Dictionary<ParamNotation, Data>();
+            for(int rowNum = 1; rowNum <= inputs.Count; rowNum++) {
+                RowData<ColumnName, Data> rowData = inputs[rowNum - 1];
+                List<string> paramTemp = new List<string>();
+                foreach(string idColumn in ids) {
+                    ParamNotation paramNotation = "@" + idColumn + "_" + rowNum;
+                    paramTemp.Add(paramNotation);
+                    sqlSelectArgs.Add(paramNotation, rowData[idColumn]);
+                }
+                sqlSelectParams.Add("(" + String.Join(",", paramTemp) + ")");
+            }
+            NpgsqlCommand command = new NpgsqlCommand(sqlSelect + "(" + String.Join(',', sqlSelectParams) + ")", (NpgsqlConnection)connection.GetDbConnection());
+            foreach(KeyValuePair<ParamNotation, Data> entry in sqlSelectArgs) {
+                command.Parameters.AddWithValue(entry.Key, entry.Value);
+            }
+            NpgsqlDataReader dataReader = command.ExecuteReader();
+            List<RowData<ColumnName, Data>> selectResults = new List<RowData<ColumnName, Data>>();
+            while(dataReader.Read()) {
+                RowData<ColumnName, Data> rowData = new RowData<ColumnName, Data>();
+                foreach(string id in ids) {
+                    var value = dataReader.GetValue(dataReader.GetOrdinal(id));
+                    if(value.GetType() == typeof(System.DBNull)) {
+                        value = null;
+                    } else if(value.GetType() == typeof(string)) {
+                        value = value.ToString().Trim();
+                    }
+                    rowData.Add(id, value);
+                }
+                selectResults.Add(rowData);
+            }
+            dataReader.Close();
+            command.Dispose();
+
+            List<RowData<ColumnName, Data>> duplicatedDatas = new List<RowData<ColumnName, Data>>();
+            foreach(RowData<ColumnName, Data> rowSelect in selectResults) {
+                var predicate = PredicateBuilder.New<RowData<ParamNotation, Data>>();
+                foreach(string id in ids) {
+                    predicate = predicate.And(rowData => rowData[id].ToString().Trim() == rowSelect[id].ToString().Trim());
+                }
+                RowData<ColumnName, Data> duplicate = inputs.Where(predicate).FirstOrDefault();
+                if(duplicate != null) {
+                    duplicatedDatas.Add(duplicate);
+                    inputs.Remove(duplicate);
+                    DbInsertFail insertfailInfo = new DbInsertFail() {
+                        info = "Data already exists upon insert into " + tableName + ", value: " + JsonSerializer.Serialize(rowSelect),
+                        severity = Misc.DB_FAIL_SEVERITY_WARNING
+                    };
+                    failures.Add(insertfailInfo); 
+                    Log.Logger.Warning(insertfailInfo.info);
+                }
+            }
         }
 
         private void omitFailedInsertData(
