@@ -32,7 +32,7 @@ namespace SurplusMigrator.Models
                         "name",
                         "accountsubtypeid",
                         "created_date",
-                        //"created_by",
+                        "created_by",
                         "is_disabled"
                     },
                     ids = new string[] { "accounttypeid" }
@@ -53,7 +53,7 @@ namespace SurplusMigrator.Models
                     { "name",  data["acctype_name"]},
                     { "accountsubtypeid",  data["acctypetype_id"]},
                     { "created_date",  DateTime.Now},
-                    //{ "created_by",  DefaultValues.CREATED_BY},
+                    { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", !Utils.obj2bool(data["acctype_isactive"]) }
                 };
                 result.addData("master_account_type", insertRow);
@@ -72,7 +72,7 @@ namespace SurplusMigrator.Models
                     { "name",  "Unknown"},
                     { "accountsubtypeid",  0},
                     { "created_date",  DateTime.Now},
-                    //{ "created_by",  DefaultValues.CREATED_BY},
+                    { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );

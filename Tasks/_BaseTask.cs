@@ -7,7 +7,7 @@ namespace SurplusMigrator.Tasks {
         public TableInfo[] sources = null;
         public TableInfo[] destinations = null;
 
-        public bool run() {
+        public bool run(bool autoGenerateId = false) {
             bool allSuccess = true;
             Table[] sourceTables;
             Table[] destinationTables;
@@ -46,7 +46,7 @@ namespace SurplusMigrator.Tasks {
             while((fetchedData = getSourceData(sourceTables)).Count > 0) {
                 MappedData mappedData = mapData(fetchedData);
                 foreach(Table dest in destinationTables) {
-                    List<DbInsertFail> failures = dest.insertData(mappedData.getData(dest.tableName));
+                    List<DbInsertFail> failures = dest.insertData(mappedData.getData(dest.tableName), autoGenerateId);
                     if(failures.Any(a => a.skipsNextInsertion == true)) {
                         allSuccess = false;
                         break;
@@ -55,9 +55,9 @@ namespace SurplusMigrator.Tasks {
             }
 
             MappedData staticData = additionalStaticData();
-            if(staticData.Count() > 0) {
+            if(staticData!=null && staticData.Count() > 0) {
                 foreach(Table dest in destinationTables) {
-                    List<DbInsertFail> failures = dest.insertData(staticData.getData(dest.tableName));
+                    List<DbInsertFail> failures = dest.insertData(staticData.getData(dest.tableName), autoGenerateId);
                     if(failures.Any(a => a.skipsNextInsertion == true)) {
                         allSuccess = false;
                         break;

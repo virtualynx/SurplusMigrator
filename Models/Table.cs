@@ -137,7 +137,7 @@ namespace SurplusMigrator.Models
             return result;
         }
 
-        public List<DbInsertFail> insertData(List<RowData<ColumnName, Data>> inputs) {
+        public List<DbInsertFail> insertData(List<RowData<ColumnName, Data>> inputs, bool autoGenerateId) {
             List<DbInsertFail> failures = new List<DbInsertFail>();
 
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
@@ -147,13 +147,21 @@ namespace SurplusMigrator.Models
                 NpgsqlCommand command = null;
 
                 //check if attempted insert data is already in table
-                omitDuplicatedData(failures, inputs);
-                if(inputs.Count == 0) { //all data are duplicates
-                    return failures;
+                if(!autoGenerateId) {
+                    omitDuplicatedData(failures, inputs);
+                    if(inputs.Count == 0) { //all data are duplicates
+                        return failures;
+                    }
                 }
 
                 //start inserting data
-                string sql = "INSERT INTO \"" + connection.GetDbLoginInfo().schema + "\"." + tableName + "(\"" + String.Join("\",\"", columns) + "\") VALUES ";
+                string[] targetColumns;
+                if(autoGenerateId) {
+                    targetColumns = columns.Where(a => ids.Any(b => b != a)).ToArray();
+                } else {
+                    targetColumns = columns;
+                }
+                string sql = "INSERT INTO \"" + connection.GetDbLoginInfo().schema + "\"." + tableName + "(\"" + String.Join("\",\"", targetColumns) + "\") VALUES ";
                 ColumnType<ColumnName, DataType> columnType = this.getColumnTypes();
                 List<string> sqlParams = new List<string>();
                 List<Dictionary<ParamNotation, TypedData>> sqlArguments = new List<Dictionary<ParamNotation, TypedData>>();
@@ -162,7 +170,7 @@ namespace SurplusMigrator.Models
 
                     string p = "";
                     Dictionary<ParamNotation, TypedData> sqlArgument = new Dictionary<ParamNotation, TypedData>();
-                    foreach(string columnName in columns) {
+                    foreach(string columnName in targetColumns) {
                         object data = rowData[columnName];
                         ParamNotation paramNotation = "@" + columnName + "_" + rowNum;
                         sqlArgument.Add(
@@ -225,6 +233,17 @@ namespace SurplusMigrator.Models
                                         severity = Misc.DB_FAIL_SEVERITY_ERROR
                                     });
                                     retryInsert = true;
+                                } else if(
+                                    e.Message.Contains("null value in column")
+                                    && e.Message.Contains("violates not-null constraint")
+                                ) {
+                                    Log.Logger.Error("Error upon insert into " + tableName + ", " + e.MessageText);
+                                    failures.Add(new DbInsertFail() {
+                                        exception = e,
+                                        info = loggingDetail,
+                                        severity = Misc.DB_FAIL_SEVERITY_ERROR,
+                                        skipsNextInsertion = true
+                                    });
                                 } else {
                                     Log.Logger.Error(e, "SQL error upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
                                     failures.Add(new DbInsertFail() {
@@ -253,6 +272,20 @@ namespace SurplusMigrator.Models
             }
 
             return failures;
+        }
+
+        public bool setSequence(int num) {
+            int affectedRow = 0;
+            string sequenceName = tableName + "_" + ids[0] + "_seq";
+            if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                throw new System.NotImplementedException();
+            } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                NpgsqlCommand command = new NpgsqlCommand("ALTER SEQUENCE " + sequenceName + " RESTART WITH "+num, (NpgsqlConnection)connection.GetDbConnection());
+                affectedRow = command.ExecuteNonQuery();
+                command.Dispose();
+            }
+
+            return affectedRow > 0;
         }
 
         private void omitDuplicatedData(List<DbInsertFail> failures, List<RowData<ColumnName, Data>> inputs) {
