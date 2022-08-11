@@ -7,6 +7,8 @@ using System.Linq;
 using System.Text.Json;
 
 namespace SurplusMigrator {
+    // transaksi_jurnalsaldo => transaction_journal_saldo
+    // transaksi_jurnalkursreval => transaction_journal_reval
     internal class Program {
         static void Main(string[] args) {
             Log.Logger = new LoggerConfiguration()
@@ -28,7 +30,7 @@ namespace SurplusMigrator {
                 string json = r.ReadToEnd();
                 config = JsonSerializer.Deserialize<DbConfig>(json);
             }
-            Log.Logger.Information("Configuration loaded : " + JsonSerializer.Serialize(config));
+            Log.Logger.Information("Configuration loaded : " + JsonSerializer.Serialize(config) + "\n");
 
             DbConnection_[] connections = new DbConnection_[] { 
                 new DbConnection_(config.source),
@@ -47,8 +49,16 @@ namespace SurplusMigrator {
             //pre-req for TransactionJournal
             new MasterAccountCa(connections).run();
             new MasterCurrency(connections).run();
+            new MasterPaymentType(connections).run();
+            new MasterPeriod(connections).run();
+            new MasterTransactionTypeGroup(connections).run();
+            new MasterTransactionType(connections).run();
+            new MasterSource(connections).run();
+            new MasterVendorCategory(connections).run();
+            new MasterVendorType(connections).run();
+            new MasterVendor(connections).run();
 
-            Log.Logger.Information("\n\nPress any key to continue ...");
+            Log.Logger.Information("\n\nPress any key to exit ...");
             Console.ReadLine();
         }
     }
