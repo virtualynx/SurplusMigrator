@@ -9,7 +9,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.Text.Json;
 
 using ParamNotation = System.String;
 
@@ -260,6 +259,7 @@ namespace SurplusMigrator.Models
             string sqlSelect = "select " + String.Join(",", ids) + " from " + connection.GetDbLoginInfo().schema + "." + tableName + " where (" + String.Join(",", ids) + ") in";
             List<string> sqlSelectParams = new List<string>();
             Dictionary<ParamNotation, Data> sqlSelectArgs = new Dictionary<ParamNotation, Data>();
+            List<RowData<ColumnName, Data>> selectResults = new List<RowData<ColumnName, Data>>();
             for(int rowNum = 1; rowNum <= inputs.Count; rowNum++) {
                 RowData<ColumnName, Data> rowData = inputs[rowNum - 1];
                 List<string> paramTemp = new List<string>();
@@ -270,27 +270,31 @@ namespace SurplusMigrator.Models
                 }
                 sqlSelectParams.Add("(" + String.Join(",", paramTemp) + ")");
             }
-            NpgsqlCommand command = new NpgsqlCommand(sqlSelect + "(" + String.Join(',', sqlSelectParams) + ")", (NpgsqlConnection)connection.GetDbConnection());
-            foreach(KeyValuePair<ParamNotation, Data> entry in sqlSelectArgs) {
-                command.Parameters.AddWithValue(entry.Key, entry.Value);
-            }
-            NpgsqlDataReader dataReader = command.ExecuteReader();
-            List<RowData<ColumnName, Data>> selectResults = new List<RowData<ColumnName, Data>>();
-            while(dataReader.Read()) {
-                RowData<ColumnName, Data> rowData = new RowData<ColumnName, Data>();
-                foreach(string id in ids) {
-                    var value = dataReader.GetValue(dataReader.GetOrdinal(id));
-                    if(value.GetType() == typeof(System.DBNull)) {
-                        value = null;
-                    } else if(value.GetType() == typeof(string)) {
-                        value = value.ToString().Trim();
-                    }
-                    rowData.Add(id, value);
+
+            if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                throw new System.NotImplementedException();
+            } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                NpgsqlCommand command = new NpgsqlCommand(sqlSelect + "(" + String.Join(',', sqlSelectParams) + ")", (NpgsqlConnection)connection.GetDbConnection());
+                foreach(KeyValuePair<ParamNotation, Data> entry in sqlSelectArgs) {
+                    command.Parameters.AddWithValue(entry.Key, entry.Value);
                 }
-                selectResults.Add(rowData);
+                NpgsqlDataReader dataReader = command.ExecuteReader();
+                while(dataReader.Read()) {
+                    RowData<ColumnName, Data> rowData = new RowData<ColumnName, Data>();
+                    foreach(string id in ids) {
+                        var value = dataReader.GetValue(dataReader.GetOrdinal(id));
+                        if(value.GetType() == typeof(System.DBNull)) {
+                            value = null;
+                        } else if(value.GetType() == typeof(string)) {
+                            value = value.ToString().Trim();
+                        }
+                        rowData.Add(id, value);
+                    }
+                    selectResults.Add(rowData);
+                }
+                dataReader.Close();
+                command.Dispose();
             }
-            dataReader.Close();
-            command.Dispose();
 
             List<RowData<ColumnName, Data>> duplicatedDatas = new List<RowData<ColumnName, Data>>();
             foreach(RowData<ColumnName, Data> rowSelect in selectResults) {
