@@ -25,18 +25,10 @@ namespace SurplusMigrator.Models
         private int fetchBatchCounter = 1;
         private int fetchBatchMax = -1;
 
-        private const string OMIT_PATTERN_DUPLICATE = "Key \\((.*)\\)=\\((.*)\\) already exists";
-        private const string OMIT_PATTERN_REFERENCE = "Key \\((.*)\\)=\\((.*)\\) is not present in table";
+        private const string OMIT_PATTERN_FOREIGN_KEY = "Key \\((.*)\\)=\\((.*)\\) is not present in table";
+        private const string OMIT_PATTERN_NOT_NULL = "null value in column \"(.*)\" violates not-null constraint";
 
         public Table() { }
-
-        public Table(DbConnection_ connection, string tableName, string[] columns, int batchSize, string[] ids = null) {
-            this.connection = connection;
-            this.tableName = tableName;
-            this.columns = columns;
-            this.batchSize = batchSize;
-            this.ids = ids;
-        }
 
         private ColumnType<ColumnName, DataType> getColumnTypes() {
             ColumnType<ColumnName, string> result = new ColumnType<ColumnName, string>();
@@ -225,25 +217,14 @@ namespace SurplusMigrator.Models
                                     && e.Detail.Contains("Key")
                                     && e.Detail.Contains("is not present in table")
                                 ) {
-                                    Log.Logger.Error("Error upon insert into " + tableName + ", " + e.Detail);
-                                    omitFailedInsertData(e, sqlParams, sqlArguments, OMIT_PATTERN_REFERENCE);
-                                    failures.Add(new DbInsertFail() {
-                                        exception = e,
-                                        info = "Insert into " + tableName + " error, " + e.Detail,
-                                        severity = Misc.DB_FAIL_SEVERITY_ERROR
-                                    });
+                                    omitForeignKeyViolationInsertData(e, failures, sqlParams, sqlArguments);
                                     retryInsert = true;
                                 } else if(
                                     e.Message.Contains("null value in column")
                                     && e.Message.Contains("violates not-null constraint")
                                 ) {
-                                    Log.Logger.Error("Error upon insert into " + tableName + ", " + e.MessageText);
-                                    failures.Add(new DbInsertFail() {
-                                        exception = e,
-                                        info = loggingDetail,
-                                        severity = Misc.DB_FAIL_SEVERITY_ERROR,
-                                        skipsNextInsertion = true
-                                    });
+                                    omitNotNullViolationInsertData(e, failures, sqlParams, sqlArguments);
+                                    retryInsert = true;
                                 } else {
                                     Log.Logger.Error(e, "SQL error upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
                                     failures.Add(new DbInsertFail() {
@@ -343,36 +324,95 @@ namespace SurplusMigrator.Models
                         info = "Data already exists upon insert into " + tableName + ", value: " + JsonSerializer.Serialize(rowSelect),
                         severity = Misc.DB_FAIL_SEVERITY_WARNING
                     };
-                    failures.Add(insertfailInfo); 
-                    Log.Logger.Warning(insertfailInfo.info);
+                    failures.Add(insertfailInfo);
                 }
+            }
+
+            int duplicateCount = failures.Where(a => a.info.StartsWith("Data already exists upon insert into")).ToList().Count;
+            if(duplicateCount > 0) {
+                Log.Logger.Warning("Skipping " + duplicateCount + " duplicated data upon inserting into " + tableName);
             }
         }
 
-        private void omitFailedInsertData(
-            PostgresException e, 
-            List<string> sqlParams, 
-            List<Dictionary<ParamNotation, TypedData>> sqlArguments,
-            string errorDetailPattern
+        private void omitForeignKeyViolationInsertData(
+            PostgresException e,
+            List<DbInsertFail> failures,
+            List<string> sqlParams,
+            List<Dictionary<ParamNotation, TypedData>> sqlArguments
         ) {
-            Match match = Regex.Match(e.Detail, errorDetailPattern);
-            string key = match.Groups[1].Value;
+            Match match = Regex.Match(e.Detail, OMIT_PATTERN_FOREIGN_KEY);
+            string column = match.Groups[1].Value;
             string id = match.Groups[2].Value;
 
-            Dictionary<ParamNotation, TypedData> duplicatedArgument = sqlArguments.Where(
-                arg => arg.Any(x => x.Key.StartsWith("@" + key + "_") && x.Value.data.ToString() == id)
-            ).FirstOrDefault();
-            string sqlParamKey = null;
-            foreach(string k in duplicatedArgument.Keys) {
-                if(k.StartsWith("@" + key + "_")) {
-                    sqlParamKey = k;
-                    break;
+            List<Dictionary<ParamNotation, TypedData>> filteredArguments = sqlArguments.Where(
+                arg => arg.Any(x => x.Key.StartsWith("@" + column + "_") && x.Value.data.ToString() == id)
+            ).ToList();
+
+            foreach(Dictionary<ParamNotation, TypedData> arg in filteredArguments) {
+                string sqlParamKey = null;
+                foreach(string k in arg.Keys) {
+                    if(k.StartsWith("@" + column + "_")) {
+                        sqlParamKey = k;
+                        break;
+                    }
                 }
+                if(sqlParams.Any()) { //prevent IndexOutOfRangeException for empty list
+                    sqlParams.RemoveAll(a => a.Contains(sqlParamKey + ","));
+                }
+                if(sqlArguments.Any()) {
+                    sqlArguments.RemoveAll(arg => arg.Any(x => x.Key == sqlParamKey));
+                }
+                DbInsertFail insertfailInfo = new DbInsertFail() {
+                    info = "Foreignkey constraint violation upon insert into " + tableName + ", " + e.Detail + ", value: " + JsonSerializer.Serialize(arg),
+                    severity = Misc.DB_FAIL_SEVERITY_ERROR
+                };
+                failures.Add(insertfailInfo);
             }
-            if(sqlParams.Any()) { //prevent IndexOutOfRangeException for empty list
-                sqlParams.RemoveAll(a => a.Contains(sqlParamKey + ","));
+
+            int failedCount = failures.Where(a => a.info.StartsWith("Foreignkey constraint violation upon insert into ")).ToList().Count;
+            if(failedCount > 0) {
+                Log.Logger.Error("Error upon insert into " + tableName + ", " + e.Detail + "(" + failedCount + " data)");
             }
-            sqlArguments.RemoveAll(arg => arg.Any(x => x.Key == sqlParamKey));
+        }
+
+        private void omitNotNullViolationInsertData(
+            PostgresException e,
+            List<DbInsertFail> failures,
+            List<string> sqlParams,
+            List<Dictionary<ParamNotation, TypedData>> sqlArguments
+        ) {
+            Match match = Regex.Match(e.MessageText, OMIT_PATTERN_NOT_NULL);
+            string column = match.Groups[1].Value;
+
+            List<Dictionary<ParamNotation, TypedData>> filteredArguments = sqlArguments.Where(
+                arg => arg.Any(x => x.Key.StartsWith("@" + column + "_") && (x.Value.data == DBNull.Value))
+            ).ToList();
+
+            foreach(Dictionary<ParamNotation, TypedData> arg in filteredArguments) {
+                string sqlParamKey = null;
+                foreach(string k in arg.Keys) {
+                    if(k.StartsWith("@" + column + "_")) {
+                        sqlParamKey = k;
+                        break;
+                    }
+                }
+                if(sqlParams.Any()) { //prevent IndexOutOfRangeException for empty list
+                    sqlParams.RemoveAll(a => a.Contains(sqlParamKey + ","));
+                }
+                if(sqlArguments.Any()) {
+                    sqlArguments.RemoveAll(arg => arg.Any(x => x.Key == sqlParamKey));
+                }
+                DbInsertFail insertfailInfo = new DbInsertFail() {
+                    info = "Not-Null constraint violation upon insert into " + tableName + ", " + e.MessageText + ", value: " + JsonSerializer.Serialize(arg),
+                    severity = Misc.DB_FAIL_SEVERITY_ERROR
+                };
+                failures.Add(insertfailInfo);
+            }
+
+            int failedCount = failures.Where(a => a.info.StartsWith("Not-Null constraint violation upon insert into ")).ToList().Count;
+            if(failedCount > 0) {
+                Log.Logger.Error("Error upon insert into " + tableName + ", " + e.MessageText + "(" + failedCount + " data)");
+            }
         }
     }
 }
