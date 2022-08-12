@@ -20,15 +20,30 @@ namespace SurplusMigrator.Models
         public string tableName;
         public string[] columns;
         public string[] ids;
-        public int batchSize;
+        private int lastBatchSize = -1;
         private long dataCount = -1;
-        private int fetchBatchCounter = 1;
         private int fetchBatchMax = -1;
+        private int fetchBatchCounter = 1;
 
         private const string OMIT_PATTERN_FOREIGN_KEY = "Key \\((.*)\\)=\\((.*)\\) is not present in table";
         private const string OMIT_PATTERN_NOT_NULL = "null value in column \"(.*)\" violates not-null constraint";
 
         public Table() { }
+
+        public long getDataCount() {
+            if(dataCount == -1) {
+                SqlConnection conn = (SqlConnection)connection.GetDbConnection();
+                SqlCommand command = new SqlCommand("SELECT COUNT(*) FROM " + connection.GetDbLoginInfo().schema + "." + tableName, conn);
+                SqlDataReader dataReader = command.ExecuteReader();
+                dataReader.Read();
+                dataCount = Convert.ToInt64(dataReader.GetValue(0));
+
+                dataReader.Close();
+                command.Dispose();
+            }
+
+            return dataCount;
+        }
 
         private ColumnType<ColumnName, DataType> getColumnTypes() {
             ColumnType<ColumnName, string> result = new ColumnType<ColumnName, string>();
@@ -52,13 +67,21 @@ namespace SurplusMigrator.Models
             return result;
         }
 
-        public List<RowData<ColumnName, Data>> getDatas() {
+        public List<RowData<ColumnName, Data>> getDatas(int batchSize) {
             List<RowData<ColumnName, Data>> result = new List<RowData<ColumnName, Data>> ();
+
+            //check for first time run/batchSize has changed
+            if(lastBatchSize != batchSize) {
+                lastBatchSize = batchSize;
+                decimal d = Convert.ToDecimal(getDataCount()) / Convert.ToDecimal(batchSize);
+                fetchBatchMax = (int)Math.Ceiling(d);
+                fetchBatchCounter = 1;
+            }
 
             //check if all batch already fetched
             if(fetchBatchMax != -1 && fetchBatchCounter > fetchBatchMax) {
                 fetchBatchCounter = 1;
-                return result;
+                return new List<RowData<ColumnName, Data>>();
             }
 
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
@@ -66,20 +89,6 @@ namespace SurplusMigrator.Models
 
                 SqlCommand command = null;
                 SqlDataReader dataReader = null;
-
-                //get data count for first time open
-                if(dataCount == -1) {
-                    command = new SqlCommand("SELECT COUNT(*) FROM " + connection.GetDbLoginInfo().schema + "." + tableName, conn);
-                    dataReader = command.ExecuteReader();
-                    dataReader.Read();
-                    dataCount = Convert.ToInt64(dataReader.GetValue(0));
-
-                    dataReader.Close();
-                    command.Dispose();
-
-                    decimal d = Convert.ToDecimal(dataCount) / Convert.ToDecimal(batchSize);
-                    fetchBatchMax = (int)Math.Ceiling(d);
-                }
 
                 string sqlString = @"SELECT [selected_columns] 
                     FROM    ( SELECT    ROW_NUMBER() OVER ( ORDER BY [over_orderby] ) AS RowNum, *
@@ -122,14 +131,12 @@ namespace SurplusMigrator.Models
                 throw new System.NotImplementedException();
             }
 
-            if(result.Count > 0) {
-                fetchBatchCounter++;
-            }
+            fetchBatchCounter++;
 
             return result;
         }
 
-        public List<DbInsertFail> insertData(List<RowData<ColumnName, Data>> inputs, bool autoGenerateId) {
+        public List<DbInsertFail> insertData(List<RowData<ColumnName, Data>> inputs, int batchSize, bool autoGenerateId) {
             List<DbInsertFail> failures = new List<DbInsertFail>();
 
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {

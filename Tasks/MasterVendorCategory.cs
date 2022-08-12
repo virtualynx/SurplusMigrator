@@ -24,7 +24,7 @@ namespace SurplusMigrator.Models
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables) {
+        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
             return new List<RowData<string, object>>();
         }
 

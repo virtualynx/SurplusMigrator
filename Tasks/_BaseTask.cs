@@ -6,8 +6,9 @@ namespace SurplusMigrator.Tasks {
     abstract class _BaseTask {
         public TableInfo[] sources = null;
         public TableInfo[] destinations = null;
+        private const int defaultBatchSize = 5000;
 
-        public bool run(bool autoGenerateId = false) {
+        public bool run(int batchSize = 5000, bool autoGenerateId = false) {
             bool allSuccess = true;
             Table[] sourceTables;
             Table[] destinationTables;
@@ -21,7 +22,6 @@ namespace SurplusMigrator.Tasks {
                         tableName = ti.tableName,
                         columns = ti.columns,
                         ids = ti.ids,
-                        batchSize = ti.batchSize
                     }
                 );
             }
@@ -36,7 +36,6 @@ namespace SurplusMigrator.Tasks {
                         tableName = ti.tableName,
                         columns = ti.columns,
                         ids = ti.ids,
-                        batchSize = ti.batchSize
                     }
                 );
             }
@@ -46,7 +45,7 @@ namespace SurplusMigrator.Tasks {
             while((fetchedData = getSourceData(sourceTables)).Count > 0) {
                 MappedData mappedData = mapData(fetchedData);
                 foreach(Table dest in destinationTables) {
-                    List<DbInsertFail> failures = dest.insertData(mappedData.getData(dest.tableName), autoGenerateId);
+                    List<DbInsertFail> failures = dest.insertData(mappedData.getData(dest.tableName), batchSize, autoGenerateId);
                     if(failures.Any(a => a.skipsNextInsertion == true)) {
                         allSuccess = false;
                         break;
@@ -57,7 +56,7 @@ namespace SurplusMigrator.Tasks {
             MappedData staticData = additionalStaticData();
             if(staticData!=null && staticData.Count() > 0) {
                 foreach(Table dest in destinationTables) {
-                    List<DbInsertFail> failures = dest.insertData(staticData.getData(dest.tableName), autoGenerateId);
+                    List<DbInsertFail> failures = dest.insertData(staticData.getData(dest.tableName), batchSize, autoGenerateId);
                     if(failures.Any(a => a.skipsNextInsertion == true)) {
                         allSuccess = false;
                         break;
@@ -68,7 +67,7 @@ namespace SurplusMigrator.Tasks {
             return allSuccess;
         }
 
-        public abstract List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables);
+        public abstract List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = defaultBatchSize);
         public abstract MappedData mapData(List<RowData<ColumnName, Data>> inputs);
         public abstract MappedData additionalStaticData();
     }

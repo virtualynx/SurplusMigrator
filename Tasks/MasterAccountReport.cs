@@ -16,7 +16,6 @@ namespace SurplusMigrator.Models
                     tableName = "master_accrpt",
                     columns = new string[] { "accrpt_id", "accrpt_name" },
                     ids = new string[] { "accrpt_id" },
-                    batchSize = 2
                 }
             };
             destinations = new TableInfo[] {
@@ -31,13 +30,12 @@ namespace SurplusMigrator.Models
                         "is_disabled"
                     },
                     ids = new string[] { "accountreporttypeid" },
-                    batchSize = 2
                 }
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables) {
-            return sourceTables.Where(a => a.tableName == "master_accrpt").FirstOrDefault().getDatas();
+        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+            return sourceTables.Where(a => a.tableName == "master_accrpt").FirstOrDefault().getDatas(batchSize);
         }
 
         public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {

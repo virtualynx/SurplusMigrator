@@ -47,8 +47,8 @@ namespace SurplusMigrator.Models
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables) {
-            return sourceTables.Where(a => a.tableName == "master_acc_ca").FirstOrDefault().getDatas();
+        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+            return sourceTables.Where(a => a.tableName == "master_acc_ca").FirstOrDefault().getDatas(batchSize);
         }
 
         public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {

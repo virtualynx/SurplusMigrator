@@ -7,6 +7,5 @@ namespace SurplusMigrator.Models
         public string tableName;
         public string[] columns;
         public string[] ids;
-        public int batchSize = 1000;
     }
 }
