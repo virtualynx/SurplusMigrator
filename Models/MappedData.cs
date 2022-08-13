@@ -1,3 +1,4 @@
+using SurplusMigrator.Exceptions;
 using System;
 using System.Collections.Generic;
 
@@ -16,7 +17,7 @@ namespace SurplusMigrator.Models
 
         public List<RowData<ColumnName, Data>> getData(string tablename) {
             if(!mappedData.ContainsKey(tablename)) {
-                return new List<RowData<string, object>>();
+                throw new TaskConfigException("No mapped-data for tablename " + tablename + " found");
             }
             return mappedData[tablename];
         }

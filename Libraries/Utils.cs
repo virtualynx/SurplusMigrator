@@ -16,5 +16,9 @@ namespace SurplusMigrator.Interfaces {
             if(o == null) return false;
             return Utils.obj2int(o) == 0 ? false : true;
         }
+        public static string obj2str(object o) {
+            if(o == null) return null;
+            return o.ToString();
+        }
     }
 }

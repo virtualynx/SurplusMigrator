@@ -136,8 +136,10 @@ namespace SurplusMigrator.Models
             return result;
         }
 
-        public List<DbInsertFail> insertData(List<RowData<ColumnName, Data>> inputs, int batchSize, bool autoGenerateId) {
+        public TaskInsertStatus insertData(List<RowData<ColumnName, Data>> inputs, int batchSize, bool autoGenerateId) {
+            TaskInsertStatus result = new TaskInsertStatus();
             List<DbInsertFail> failures = new List<DbInsertFail>();
+            result.failures = failures;
 
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 throw new System.NotImplementedException();
@@ -149,7 +151,7 @@ namespace SurplusMigrator.Models
                 if(!autoGenerateId) {
                     omitDuplicatedData(failures, inputs);
                     if(inputs.Count == 0) { //all data are duplicates
-                        return failures;
+                        return result;
                     }
                 }
 
@@ -214,10 +216,11 @@ namespace SurplusMigrator.Models
                             string loggingDetail = String.Join('\n', loggingDetailArray);
                             try {
                                 int affected = command.ExecuteNonQuery();
+                                result.successCount += affected;
                                 Log.Logger.Information(affected + " data inserted into " + tableName);
                             } catch(PostgresException e) {
                                 if(e.Message.Contains("duplicate key value violates unique constraint")) {
-                                    throw new System.NotImplementedException("This should not be happened in this point of code");
+                                    throw new System.NotImplementedException("This should not be happened, check the code for more detail");
                                 } else if(
                                     e.Message.Contains("insert or update on table")
                                     && e.Message.Contains("violates foreign key constraint")
@@ -234,21 +237,10 @@ namespace SurplusMigrator.Models
                                     retryInsert = true;
                                 } else {
                                     Log.Logger.Error(e, "SQL error upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
-                                    failures.Add(new DbInsertFail() {
-                                        exception = e,
-                                        info = loggingDetail,
-                                        severity = Misc.DB_FAIL_SEVERITY_ERROR,
-                                        skipsNextInsertion = true
-                                    });
+                                    throw;
                                 }
-                            } catch(Exception e) {
-                                Log.Logger.Error(e, "Error upon insert into " + tableName + ", values: " + loggingDetail);
-                                failures.Add(new DbInsertFail() {
-                                    exception = e,
-                                    info = loggingDetail,
-                                    severity = Misc.DB_FAIL_SEVERITY_ERROR,
-                                    skipsNextInsertion = true
-                                });
+                            } catch(Exception) {
+                                throw;
                             } finally { 
                                 command.Dispose();
                             }
@@ -259,7 +251,7 @@ namespace SurplusMigrator.Models
                 }
             }
 
-            return failures;
+            return result;
         }
 
         public bool setSequence(int num) {

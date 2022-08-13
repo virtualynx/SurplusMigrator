@@ -1,4 +1,7 @@
-﻿using SurplusMigrator.Models;
+﻿using Serilog;
+using SurplusMigrator.Exceptions;
+using SurplusMigrator.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -41,27 +44,35 @@ namespace SurplusMigrator.Tasks {
             }
             destinationTables = t.ToArray();
 
-            List<RowData<ColumnName, Data>> fetchedData;
-            while((fetchedData = getSourceData(sourceTables)).Count > 0) {
-                MappedData mappedData = mapData(fetchedData);
-                foreach(Table dest in destinationTables) {
-                    List<DbInsertFail> failures = dest.insertData(mappedData.getData(dest.tableName), batchSize, autoGenerateId);
-                    if(failures.Any(a => a.skipsNextInsertion == true)) {
-                        allSuccess = false;
-                        break;
-                    }
-                }
-            }
+            try {
+                int successCount = 0;
+                int failureCount = 0;
 
-            MappedData staticData = additionalStaticData();
-            if(staticData!=null && staticData.Count() > 0) {
-                foreach(Table dest in destinationTables) {
-                    List<DbInsertFail> failures = dest.insertData(staticData.getData(dest.tableName), batchSize, autoGenerateId);
-                    if(failures.Any(a => a.skipsNextInsertion == true)) {
-                        allSuccess = false;
-                        break;
+                List<RowData<ColumnName, Data>> fetchedData;
+                while((fetchedData = getSourceData(sourceTables)).Count > 0) {
+                    MappedData mappedData = mapData(fetchedData);
+                    foreach(Table dest in destinationTables) {
+                        TaskInsertStatus status = dest.insertData(mappedData.getData(dest.tableName), batchSize, autoGenerateId);
+                        successCount += status.successCount;
+                        failureCount += status.failures.Count;
                     }
                 }
+
+                MappedData staticData = additionalStaticData();
+                if(staticData != null && staticData.Count() > 0) {
+                    foreach(Table dest in destinationTables) {
+                        TaskInsertStatus status = dest.insertData(staticData.getData(dest.tableName), batchSize, autoGenerateId);
+                        successCount += status.successCount;
+                        failureCount += status.failures.Count;
+                    }
+                }
+
+                Log.Logger.Information("Task " + this.GetType().Name + " finished. (success: " + successCount + ", fails: " + failureCount + ")");
+            } catch(TaskConfigException e) {
+                Log.Logger.Error("Error occured within code on task " + this.GetType() + ", " + e.Message);
+                throw;
+            } catch(Exception) {
+                throw;  
             }
 
             return allSuccess;
