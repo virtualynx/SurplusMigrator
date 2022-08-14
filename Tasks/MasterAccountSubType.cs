@@ -1,13 +1,13 @@
 using Microsoft.Data.SqlClient;
 using Npgsql;
 using SurplusMigrator.Interfaces;
+using SurplusMigrator.Models;
 using SurplusMigrator.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace SurplusMigrator.Models
-{
+namespace SurplusMigrator.Tasks {
   class MasterAccountSubType : _BaseTask {
         public MasterAccountSubType(DbConnection_[] connections) {
             sources = new TableInfo[] {

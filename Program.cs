@@ -1,6 +1,7 @@
 ﻿using Serilog;
 using Serilog.Events;
 using SurplusMigrator.Models;
+using SurplusMigrator.Tasks;
 using System;
 using System.IO;
 using System.Linq;
@@ -59,7 +60,7 @@ namespace SurplusMigrator {
                 new MasterSource(connections).run();
                 new MasterVendorCategory(connections).run();
                 new MasterVendorType(connections).run();
-                new MasterVendor(connections).run();
+                //new MasterVendor(connections).run();
 
                 //---pre-req for TransactionBudget
                 new MasterProdType(connections).run();
@@ -72,7 +73,7 @@ namespace SurplusMigrator {
                 //end for TransactionJournal
             } catch(Exception) { }
 
-            Log.Logger.Information("\n\nPress any key to exit ...");
+            Console.WriteLine("\n\nPress any key to exit ...");
             Console.ReadLine();
         }
     }
