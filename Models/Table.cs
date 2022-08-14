@@ -3,6 +3,7 @@ using Microsoft.Data.SqlClient;
 using Npgsql;
 using NpgsqlTypes;
 using Serilog;
+using SurplusMigrator.Exceptions;
 using SurplusMigrator.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -53,7 +54,7 @@ namespace SurplusMigrator.Models
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                 NpgsqlConnection conn = (NpgsqlConnection)connection.GetDbConnection();
 
-                NpgsqlCommand command = new NpgsqlCommand("select " + String.Join(',', columns) + " from " + connection.GetDbLoginInfo().schema + "." + tableName, conn); ;
+                NpgsqlCommand command = new NpgsqlCommand("select " + String.Join(',', columns) + " from \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"", conn); ;
                 NpgsqlDataReader reader = command.ExecuteReader();
 
                 foreach(string columnName in columns) {
@@ -162,7 +163,7 @@ namespace SurplusMigrator.Models
                 } else {
                     targetColumns = columns;
                 }
-                string sql = "INSERT INTO \"" + connection.GetDbLoginInfo().schema + "\"." + tableName + "(\"" + String.Join("\",\"", targetColumns) + "\") VALUES ";
+                string sql = "INSERT INTO \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"(\"" + String.Join("\",\"", targetColumns) + "\") VALUES ";
                 ColumnType<ColumnName, DataType> columnType = this.getColumnTypes();
                 List<string> sqlParams = new List<string>();
                 List<Dictionary<ParamNotation, TypedData>> sqlArguments = new List<Dictionary<ParamNotation, TypedData>>();
@@ -220,7 +221,7 @@ namespace SurplusMigrator.Models
                                 Log.Logger.Information(affected + " data inserted into " + tableName);
                             } catch(PostgresException e) {
                                 if(e.Message.Contains("duplicate key value violates unique constraint")) {
-                                    throw new System.NotImplementedException("This should not be happened, check the code for more detail");
+                                    throw new TaskConfigException("There might be duplicated id upon implementing method \"additionalStaticData()\"");
                                 } else if(
                                     e.Message.Contains("insert or update on table")
                                     && e.Message.Contains("violates foreign key constraint")
@@ -269,7 +270,7 @@ namespace SurplusMigrator.Models
         }
 
         private void omitDuplicatedData(List<DbInsertFail> failures, List<RowData<ColumnName, Data>> inputs) {
-            string sqlSelect = "select " + String.Join(",", ids) + " from " + connection.GetDbLoginInfo().schema + "." + tableName + " where (" + String.Join(",", ids) + ") in";
+            string sqlSelect = "select " + String.Join(",", ids) + " from \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" where (" + String.Join(",", ids) + ") in";
             List<string> sqlSelectParams = new List<string>();
             Dictionary<ParamNotation, Data> sqlSelectArgs = new Dictionary<ParamNotation, Data>();
             List<RowData<ColumnName, Data>> selectResults = new List<RowData<ColumnName, Data>>();
