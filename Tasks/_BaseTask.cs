@@ -47,6 +47,7 @@ namespace SurplusMigrator.Tasks {
             try {
                 int successCount = 0;
                 int failureCount = 0;
+                int duplicateCount = 0;
 
                 List<RowData<ColumnName, Data>> fetchedData;
                 while((fetchedData = getSourceData(sourceTables)).Count > 0) {
@@ -54,7 +55,8 @@ namespace SurplusMigrator.Tasks {
                     foreach(Table dest in destinationTables) {
                         TaskInsertStatus status = dest.insertData(mappedData.getData(dest.tableName), batchSize, autoGenerateId);
                         successCount += status.successCount;
-                        failureCount += status.failures.Count;
+                        failureCount += status.failures.Where(a => !a.info.StartsWith("Data already exists upon insert into")).ToList().Count;
+                        duplicateCount += status.failures.Where(a => a.info.StartsWith("Data already exists upon insert into")).ToList().Count;
                     }
                 }
 
@@ -63,15 +65,17 @@ namespace SurplusMigrator.Tasks {
                     foreach(Table dest in destinationTables) {
                         TaskInsertStatus status = dest.insertData(staticData.getData(dest.tableName), batchSize, autoGenerateId);
                         successCount += status.successCount;
-                        failureCount += status.failures.Count;
+                        failureCount += status.failures.Where(a => !a.info.StartsWith("Data already exists upon insert into")).ToList().Count;
+                        duplicateCount += status.failures.Where(a => a.info.StartsWith("Data already exists upon insert into")).ToList().Count;
                     }
                 }
 
-                Log.Logger.Information("Task " + this.GetType().Name + " finished. (success: " + successCount + ", fails: " + failureCount + ")");
+                Log.Logger.Information("Task " + this.GetType().Name + " finished. (success: " + successCount + ", fails: " + failureCount + ", duplicate: " + duplicateCount + ")");
             } catch(TaskConfigException e) {
-                Log.Logger.Error("Error occured within code on task " + this.GetType() + ", " + e.Message);
+                Log.Logger.Error("Code-config error occured on task " + this.GetType() + ", " + e.Message);
                 throw;
-            } catch(Exception) {
+            } catch(Exception e) {
+                Log.Logger.Error(e, "Error occured on task " + this.GetType() + ", " + e.Message);
                 throw;  
             }
 
