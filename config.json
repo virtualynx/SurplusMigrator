@@ -1,60 +1,22 @@
 {
-  "source": {
-    "host": "172.16.20.179",
-    "port": 1433,
-    "username": "sa",
-    "password": "controlroom",
-    "dbname": "E_FRM",
-    "schema": "dbo",
-    "type": "MSSQL"
-  },
-  "destination": {
-    "host": "172.16.123.121",
-    "port": 5432,
-    "username": "postgres",
-    "password": "initrans7",
-    "dbname": "insosys",
-    "schema": "migrate_yandoy",
-    "type": "POSTGRESQL"
-  },
-  "tables":[
+  "databases": [
     {
-      "from":"master_periode",
-      "to":"master_period",
-      "columns":[
-        {
-          "from":"periode_id",
-          "to":"Id"
-        },
-        {
-          "from":"periode_name",
-          "to":"Name"
-        },
-        {
-          "from":"periode_datestart",
-          "to":"DateStart"
-        },
-        {
-          "from":"periode_dateend",
-          "to":"DateEnd"
-        },
-        {
-          "from":"periode_isclosed",
-          "to":"IsClosed"
-        },
-        {
-          "from":"periode_createby",
-          "to":"CreatedBy"
-        },
-        {
-          "from":"periode_createdate",
-          "to":"CreatedDate"
-        },
-        {
-          "from":"periode_allowsaldoawalentry",
-          "to":"AllowSaldoAwalEntry"
-        }
-      ]
+      "host": "172.16.20.179",
+      "port": 1433,
+      "username": "sa",
+      "password": "controlroom",
+      "dbname": "E_FRM",
+      "schema": "dbo",
+      "type": "MSSQL"
+    },
+    {
+      "host": "172.16.123.121",
+      "port": 5432,
+      "username": "postgres",
+      "password": "initrans7",
+      "dbname": "insosys",
+      "schema": "migrate_yandoy",
+      "type": "POSTGRESQL"
     }
   ]
 }

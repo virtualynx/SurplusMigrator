@@ -3,6 +3,7 @@ using Serilog.Events;
 using SurplusMigrator.Models;
 using SurplusMigrator.Tasks;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -33,10 +34,13 @@ namespace SurplusMigrator {
             }
             Log.Logger.Information("Configuration loaded : " + JsonSerializer.Serialize(config) + "\n");
 
-            DbConnection_[] connections = new DbConnection_[] { 
-                new DbConnection_(config.source),
-                new DbConnection_(config.destination)
-            };
+            List<DbConnection_> connList = new List<DbConnection_>();
+
+            foreach(DbLoginInfo loginInfo in config.databases) {
+                connList.Add(new DbConnection_(loginInfo));
+            }
+
+            DbConnection_[] connections = connList.ToArray();
 
             try {
                 { //master_account

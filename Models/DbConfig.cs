@@ -6,7 +6,6 @@ namespace SurplusMigrator.Models
 
         }
 
-        public DbLoginInfo source{get;set;}
-        public DbLoginInfo destination{get;set;}
+        public DbLoginInfo[] databases { get; set; }
     }
 }
