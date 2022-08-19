@@ -39,39 +39,66 @@ namespace SurplusMigrator {
             };
 
             try {
-                //pre-req for MasterAccount
-                new MasterAccountReport(connections).run();
-                new MasterAccountGroup(connections).run();
-                new MasterAccountSubGroup(connections).run();
-                new MasterAccountSubType(connections).run();
-                new MasterAccountType(connections).run();
-                //master_account
-                new MasterAccount(connections).run();
+                { //master_account
+                    {//pre-req for MasterAccount
+                        new MasterAccountReport(connections).run();
+                        new MasterAccountGroup(connections).run();
+                        new MasterAccountSubGroup(connections).run();
+                        new MasterAccountSubType(connections).run();
+                        new MasterAccountType(connections).run();
+                    }
+                    new MasterAccount(connections).run();
+                }
 
+                { //start of TransactionJournal 
+                    {//--pre-req for TransactionJournal
+                        new MasterAccountCa(connections).run();
+                        new MasterAdvertiser(connections).run();
+                        new MasterAdvertiserBrand(connections).run();
+                        new MasterCurrency(connections).run();
+                        new MasterPaymentType(connections).run();
+                        new MasterPeriod(connections).run();
+                        new MasterTransactionTypeGroup(connections).run();
+                        new MasterTransactionType(connections).run();
+                        new MasterSource(connections).run();
+                        new MasterVendorCategory(connections).run();
+                        new MasterVendorType(connections).run();
+                        new MasterVendor(connections).run();
+                        {//---pre-req for TransactionBudget
+                            new MasterProdType(connections).run();
+                            new MasterProjectType(connections).run();
+                            new MasterShowInventoryCategory(connections).run();
+                            new MasterShowInventoryDepartment(connections).run();
+                            new MasterShowInventoryTimezone(connections).run();
+                            new MasterTvProgramType(connections).run();
+                            {//----pre-req for TransactionProgramBudget
+                                new MasterProgramBudgetContenttype(connections).run();
+                                new MasterProgramBudgetType(connections).run();
+                            }
+                            new TransactionProgramBudget(connections).run(false, 1925);
+                        }
+                        new TransactionBudget(connections).run(true, 1169);
+                    }
+                    //new TransactionJournal(connections).run(true, 2183);
+                }
 
-                //start of TransactionJournal
-                //--pre-req for TransactionJournal
-                new MasterAccountCa(connections).run();
-                new MasterCurrency(connections).run();
-                new MasterPaymentType(connections).run();
-                new MasterPeriod(connections).run();
-                new MasterTransactionTypeGroup(connections).run();
-                new MasterTransactionType(connections).run();
-                new MasterSource(connections).run();
-                new MasterVendorCategory(connections).run();
-                new MasterVendorType(connections).run();
-                //new MasterVendor(connections).run();
-
-                //---pre-req for TransactionBudget
-                new MasterProdType(connections).run();
-                new MasterProjectType(connections).run();
-                new MasterShowInventoryCategory(connections).run();
-                new MasterShowInventoryDepartment(connections).run();
-                //---end of pre-req for TransactionBudget
-
-                //--end of pre-req for TransactionJournal
-                //end for TransactionJournal
-            } catch(Exception) { }
+                { //start of TransactionJournalDetail
+                    {//--pre-req for TransactionJournalDetail
+                        {//pre-req for MasterBankAccount
+                            new MasterBank(connections).run();
+                        }
+                        new MasterBankAccount(connections).run();
+                        new MasterJournalReferenceType(connections).run();
+                        {//---pre-req for TransactionBudgetDetail
+                            new MasterBudgetAccount(connections).run();
+                        }
+                        new TransactionBudgetDetail(connections).run(true, 3855);
+                    }
+                }
+                
+            } catch(Exception e) {
+                Log.Logger.Error(e, e.Message);
+            }
 
             Console.WriteLine("\n\nPress any key to exit ...");
             Console.ReadLine();

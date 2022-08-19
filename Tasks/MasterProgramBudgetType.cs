@@ -8,21 +8,23 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-  class MasterTransactionTypeGroup : _BaseTask {
-        public MasterTransactionTypeGroup(DbConnection_[] connections) : base(connections) {
+  class MasterProgramBudgetType : _BaseTask {
+        public MasterProgramBudgetType(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
-                    tableName = "master_transaction_type_group",
+                    tableName = "master_program_budget_type",
                     columns = new string[] {
-                        "transactiontypegroupid",
+                        "programbudgettypeid",
                         "name",
+                        "isapprovedbyprogramming",
+                        "isreported",
                         "created_date",
                         "created_by",
                         "is_disabled"
                     },
-                    ids = new string[] { "transactiontypegroupid" }
+                    ids = new string[] { "programbudgettypeid" }
                 }
             };
         }
@@ -37,82 +39,74 @@ namespace SurplusMigrator.Tasks {
 
         public override MappedData additionalStaticData() {
             MappedData result = new MappedData();
-            
+
             result.addData(
-                "master_transaction_type_group",
+                "master_program_budget_type",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  1},
-                    { "name",  "Request"},
+                    { "programbudgettypeid",  0},
+                    { "name",  "NON PILOT"},
+                    { "isapprovedbyprogramming",  true},
+                    { "isreported",  true},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_program_budget_type",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  2},
-                    { "name",  "Order"},
+                    { "programbudgettypeid",  1},
+                    { "name",  "PILOT"},
+                    { "isapprovedbyprogramming",  true},
+                    { "isreported",  true},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_program_budget_type",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  3},
-                    { "name",  "Good Receipt"},
+                    { "programbudgettypeid",  2},
+                    { "name",  "NON EPISODE"},
+                    { "isapprovedbyprogramming",  true},
+                    { "isreported",  true},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_program_budget_type",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  4},
-                    { "name",  "Journal"},
+                    { "programbudgettypeid",  3},
+                    { "name",  "REPACKAGE"},
+                    { "isapprovedbyprogramming",  true},
+                    { "isreported",  true},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_program_budget_type",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  5},
-                    { "name",  "Advance"},
+                    { "programbudgettypeid",  4},
+                    { "name",  "REPACKAGE (BIAYA)"},
+                    { "isapprovedbyprogramming",  false},
+                    { "isreported",  false},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_program_budget_type",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  6},
-                    { "name",  "Invoice"},
-                    { "created_date",  DateTime.Now},
-                    { "created_by",  DefaultValues.CREATED_BY},
-                    { "is_disabled", false }
-                }
-            );
-            result.addData(
-                "master_transaction_type_group",
-                new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  7},
-                    { "name",  "Budget"},
-                    { "created_date",  DateTime.Now},
-                    { "created_by",  DefaultValues.CREATED_BY},
-                    { "is_disabled", false }
-                }
-            );
-            result.addData(
-                "master_transaction_type_group",
-                new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  8},
-                    { "name",  "Inventory"},
+                    { "programbudgettypeid",  5},
+                    { "name",  "FILLER"},
+                    { "isapprovedbyprogramming",  false},
+                    { "isreported",  false},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }

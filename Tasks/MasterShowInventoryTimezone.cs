@@ -8,21 +8,23 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-  class MasterTransactionTypeGroup : _BaseTask {
-        public MasterTransactionTypeGroup(DbConnection_[] connections) : base(connections) {
+  class MasterShowInventoryTimezone : _BaseTask {
+        public MasterShowInventoryTimezone(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
-                    tableName = "master_transaction_type_group",
+                    tableName = "master_show_inventory_timezone",
                     columns = new string[] {
-                        "transactiontypegroupid",
+                        "showinventorytimezoneid",
                         "name",
+                        "starttime",
+                        "endtime",
                         "created_date",
                         "created_by",
                         "is_disabled"
                     },
-                    ids = new string[] { "transactiontypegroupid" }
+                    ids = new string[] { "showinventorytimezoneid" }
                 }
             };
         }
@@ -39,80 +41,120 @@ namespace SurplusMigrator.Tasks {
             MappedData result = new MappedData();
             
             result.addData(
-                "master_transaction_type_group",
+                "master_show_inventory_timezone",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  1},
-                    { "name",  "Request"},
+                    { "showinventorytimezoneid",  1},
+                    { "name",  "Any Zones"},
+                    { "starttime",  null},
+                    { "endtime",  null},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_show_inventory_timezone",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  2},
-                    { "name",  "Order"},
+                    { "showinventorytimezoneid",  2},
+                    { "name",  "Fringe 1"},
+                    { "starttime",  null},
+                    { "endtime",  null},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_show_inventory_timezone",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  3},
-                    { "name",  "Good Receipt"},
+                    { "showinventorytimezoneid",  3},
+                    { "name",  "Fringe 2"},
+                    { "starttime",  null},
+                    { "endtime",  null},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_show_inventory_timezone",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  4},
-                    { "name",  "Journal"},
+                    { "showinventorytimezoneid",  4},
+                    { "name",  "Fringe 3"},
+                    { "starttime",  null},
+                    { "endtime",  null},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_show_inventory_timezone",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  5},
-                    { "name",  "Advance"},
+                    { "showinventorytimezoneid",  5},
+                    { "name",  "Prime 1"},
+                    { "starttime",  null},
+                    { "endtime",  null},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_show_inventory_timezone",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  6},
-                    { "name",  "Invoice"},
+                    { "showinventorytimezoneid",  6},
+                    { "name",  "Prime 2"},
+                    { "starttime",  null},
+                    { "endtime",  null},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_show_inventory_timezone",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  7},
-                    { "name",  "Budget"},
+                    { "showinventorytimezoneid",  7},
+                    { "name",  "Prime 3"},
+                    { "starttime",  null},
+                    { "endtime",  null},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_show_inventory_timezone",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  8},
-                    { "name",  "Inventory"},
+                    { "showinventorytimezoneid",  8},
+                    { "name",  "Prime 4"},
+                    { "starttime",  null},
+                    { "endtime",  null},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_show_inventory_timezone",
+                new RowData<ColumnName, Data>() {
+                    { "showinventorytimezoneid",  9},
+                    { "name",  "Shoulder 1"},
+                    { "starttime",  null},
+                    { "endtime",  null},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_show_inventory_timezone",
+                new RowData<ColumnName, Data>() {
+                    { "showinventorytimezoneid",  10},
+                    { "name",  "Shoulder 2"},
+                    { "starttime",  null},
+                    { "endtime",  null},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }

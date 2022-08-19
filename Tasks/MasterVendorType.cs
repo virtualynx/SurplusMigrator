@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace SurplusMigrator.Tasks {
   class MasterVendorType : _BaseTask {
-        public MasterVendorType(DbConnection_[] connections) {
+        public MasterVendorType(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
@@ -76,8 +76,34 @@ namespace SurplusMigrator.Tasks {
                     { "is_disabled", false }
                 }
             );
+            result.addData(
+                "master_vendor_type",
+                new RowData<ColumnName, Data>() {
+                    { "vendortypeid",  14},
+                    { "name",  "Unknown 14"},
+                    { "descr",  "Anomalies upon migrating master_vendor, found in master_vendor id= 11040, 11054, 11521, 11522, 11523, 11524, 11613, 11629"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_vendor_type",
+                new RowData<ColumnName, Data>() {
+                    { "vendortypeid",  711},
+                    { "name",  "Unknown 711"},
+                    { "descr",  "Anomalies upon migrating master_vendor, found in master_vendor id= 8355"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
 
             return result;
+        }
+
+        public override void runDependencies() {
+            throw new NotImplementedException();
         }
     }
 }

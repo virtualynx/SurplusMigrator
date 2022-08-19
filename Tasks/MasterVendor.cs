@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace SurplusMigrator.Tasks {
   class MasterVendor : _BaseTask {
-        public MasterVendor(DbConnection_[] connections) {
+        public MasterVendor(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
@@ -128,6 +128,9 @@ namespace SurplusMigrator.Tasks {
 
         public override MappedData additionalStaticData() {
             return null;
+        }
+
+        public override void runDependencies() {
         }
     }
 }

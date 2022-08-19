@@ -5,6 +5,6 @@ using System.Diagnostics;
 namespace SurplusMigrator.Models {
     class TaskInsertStatus {
         public List<DbInsertFail> failures { get; set; } = new List<DbInsertFail>();
-        public int successCount = 0;
+        public long successCount = 0;
     }
 }

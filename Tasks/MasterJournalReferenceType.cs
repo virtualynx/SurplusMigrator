@@ -1,33 +1,29 @@
-using Microsoft.Data.SqlClient;
-using Npgsql;
-using SurplusMigrator.Interfaces;
 using SurplusMigrator.Models;
-using SurplusMigrator.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-  class MasterTransactionTypeGroup : _BaseTask {
-        public MasterTransactionTypeGroup(DbConnection_[] connections) : base(connections) {
+    class MasterJournalReferenceType : _BaseTask {
+        public MasterJournalReferenceType(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
-                    tableName = "master_transaction_type_group",
+                    tableName = "master_journal_reference_type",
                     columns = new string[] {
-                        "transactiontypegroupid",
+                        "journalreferencetypeid",
                         "name",
                         "created_date",
                         "created_by",
                         "is_disabled"
                     },
-                    ids = new string[] { "transactiontypegroupid" }
+                    ids = new string[] { "journalreferencetypeid" }
                 }
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = defaultBatchSize) {
             return new List<RowData<string, object>>();
         }
 
@@ -37,82 +33,92 @@ namespace SurplusMigrator.Tasks {
 
         public override MappedData additionalStaticData() {
             MappedData result = new MappedData();
-            
+
             result.addData(
-                "master_transaction_type_group",
+                "master_journal_reference_type",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  1},
-                    { "name",  "Request"},
+                    { "journalreferencetypeid", "ChangeUser"},
+                    { "name",  "ChangeUser"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_journal_reference_type",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  2},
-                    { "name",  "Order"},
+                    { "journalreferencetypeid", "Jurnal AP"},
+                    { "name",  "Jurnal AP"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_journal_reference_type",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  3},
-                    { "name",  "Good Receipt"},
+                    { "journalreferencetypeid", "jurnal BPB"},
+                    { "name",  "jurnal BPB"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_journal_reference_type",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  4},
-                    { "name",  "Journal"},
+                    { "journalreferencetypeid", "jurnal BPJ"},
+                    { "name",  "jurnal BPJ"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_journal_reference_type",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  5},
-                    { "name",  "Advance"},
+                    { "journalreferencetypeid", "Jurnal JV"},
+                    { "name",  "Jurnal JV"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_journal_reference_type",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  6},
-                    { "name",  "Invoice"},
+                    { "journalreferencetypeid", "PAYMENT"},
+                    { "name",  "PAYMENT"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_journal_reference_type",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  7},
-                    { "name",  "Budget"},
+                    { "journalreferencetypeid", "RECEIPT"},
+                    { "name",  "RECEIPT"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_transaction_type_group",
+                "master_journal_reference_type",
                 new RowData<ColumnName, Data>() {
-                    { "transactiontypegroupid",  8},
-                    { "name",  "Inventory"},
+                    { "journalreferencetypeid", "SALES"},
+                    { "name",  "SALES"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_journal_reference_type",
+                new RowData<ColumnName, Data>() {
+                    { "journalreferencetypeid", "SETTLEMENT"},
+                    { "name",  "SETTLEMENT"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }

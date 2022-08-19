@@ -3,6 +3,7 @@ using SurplusMigrator.Exceptions;
 using SurplusMigrator.Models;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
@@ -21,6 +22,8 @@ namespace SurplusMigrator.Tasks {
             if(isAlreadyRun()) return true;
             bool allSuccess = true;
 
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
             try {
                 try {
                     runDependencies();
@@ -57,9 +60,9 @@ namespace SurplusMigrator.Tasks {
                 }
                 destinationTables = t.ToArray();
 
-                int successCount = 0;
-                int failureCount = 0;
-                int duplicateCount = 0;
+                long successCount = 0;
+                long failureCount = 0;
+                long duplicateCount = 0;
 
                 List<RowData<ColumnName, Data>> fetchedData;
                 while((fetchedData = getSourceData(sourceTables, readBatchSize)).Count > 0) {
@@ -84,14 +87,20 @@ namespace SurplusMigrator.Tasks {
                     }
                 }
 
-                Log.Logger.Information("Task " + this.GetType().Name + " finished. (success: " + successCount + ", fails: " + failureCount + ", duplicate: " + duplicateCount + ")");
+                stopwatch.Stop();
+                string elapsedTime = TimeSpan.FromMilliseconds(stopwatch.ElapsedMilliseconds).ToString(@"hh\:mm\:ss\.FFF");
+                Log.Logger.Information("Task " + this.GetType().Name + " finished. (elapsed: "+ elapsedTime + ", success: " + successCount + ", fails: " + failureCount + ", duplicate: " + duplicateCount + ")");
                 setAlreadyRun();
             } catch(TaskConfigException e) {
-                Log.Logger.Error("Code-config error occured on task " + this.GetType() + ", " + e.Message);
+                stopwatch.Stop();
+                string elapsedTime = TimeSpan.FromMilliseconds(stopwatch.ElapsedMilliseconds).ToString(@"hh\:mm\:ss\.FFF");
+                Log.Logger.Error("Code-config error occured on task " + this.GetType() + " (elapsed: " + elapsedTime + "), " + e.Message);
                 throw;
             } catch(Exception e) {
-                Log.Logger.Error(e, "Error occured on task " + this.GetType() + ", " + e.Message);
-                throw;  
+                stopwatch.Stop();
+                string elapsedTime = TimeSpan.FromMilliseconds(stopwatch.ElapsedMilliseconds).ToString(@"hh\:mm\:ss\.FFF");
+                Log.Logger.Error(e, "Error occured on task " + this.GetType() + " (elapsed: " + elapsedTime + "), " + e.Message);
+                throw;
             }
 
             return allSuccess;

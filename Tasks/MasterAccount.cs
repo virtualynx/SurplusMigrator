@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace SurplusMigrator.Tasks {
   class MasterAccount : _BaseTask {
-        public MasterAccount(DbConnection_[] connections) {
+        public MasterAccount(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
@@ -54,7 +54,7 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = defaultBatchSize) {
             return sourceTables.Where(a => a.tableName == "master_acc").FirstOrDefault().getDatas(batchSize);
         }
 
@@ -84,7 +84,72 @@ namespace SurplusMigrator.Tasks {
         }
 
         public override MappedData additionalStaticData() {
-            return new MappedData();
+            MappedData result = new MappedData();
+
+            result.addData(
+                "master_account",
+                new RowData<ColumnName, Data>() {
+                    { "accountid",  "1234358"},
+                    { "name",  "Missing data 1234358"},
+                    { "nameshort",  "Missing data 1234358"},
+                    { "descr",  "Missing data referenced in master_budget_account(former-name master_projectacc) id 5012103550"},
+                    { "isgroup",  false},
+                    { "parent",  null},
+                    { "path",  null},
+                    { "ismonetary", false},
+                    { "accountsubgroupid",  null},
+                    { "accounttypeid",  null},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_account",
+                new RowData<ColumnName, Data>() {
+                    { "accountid",  "7060044"},
+                    { "name",  "Missing data 7060044"},
+                    { "nameshort",  "Missing data 7060044"},
+                    { "descr",  "Missing data referenced in master_budget_account(former-name master_projectacc) id 6070000030"},
+                    { "isgroup",  false},
+                    { "parent",  null},
+                    { "path",  null},
+                    { "ismonetary", false},
+                    { "accountsubgroupid",  null},
+                    { "accounttypeid",  null},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_account",
+                new RowData<ColumnName, Data>() {
+                    { "accountid",  "15"},
+                    { "name",  "Missing data 15"},
+                    { "nameshort",  "Missing data 15"},
+                    { "descr",  "Missing data referenced in transaction_budget_detail id: 163582, 154647, 160161, 157309"},
+                    { "isgroup",  false},
+                    { "parent",  null},
+                    { "path",  null},
+                    { "ismonetary", false},
+                    { "accountsubgroupid",  null},
+                    { "accounttypeid",  null},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+
+            return result;
+        }
+
+        public override void runDependencies() {
+            new MasterAccountReport(connections).run();
+            new MasterAccountGroup(connections).run();
+            new MasterAccountSubGroup(connections).run();
+            new MasterAccountSubType(connections).run();
+            new MasterAccountType(connections).run();
         }
     }
 }

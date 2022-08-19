@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace SurplusMigrator.Tasks {
   class MasterTransactionType : _BaseTask {
-        public MasterTransactionType(DbConnection_[] connections) {
+        public MasterTransactionType(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
                 new TableInfo() {
@@ -360,6 +360,9 @@ namespace SurplusMigrator.Tasks {
             );
 
             return result;
+        }
+
+        public override void runDependencies() {
         }
     }
 }

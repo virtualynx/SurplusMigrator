@@ -107,6 +107,7 @@ namespace SurplusMigrator.Models
                 return new List<RowData<ColumnName, Data>>();
             }
 
+            Console.Write("Batch-"+ fetchBatchCounter + ", fetch data from "+tableName+" ... ");
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 SqlConnection conn = (SqlConnection)connection.GetDbConnection();
 
@@ -153,6 +154,7 @@ namespace SurplusMigrator.Models
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                 throw new System.NotImplementedException();
             }
+            Console.WriteLine("Done (" + result.Count + " data fetched)");
 
             fetchBatchCounter++;
 
@@ -237,9 +239,9 @@ namespace SurplusMigrator.Models
                             }
                             //string loggingDetail = String.Join('\n', loggingDetailArray);
                             try {
-                                int affected = command.ExecuteNonQuery();
+                                long affected = command.ExecuteNonQuery();
                                 result.successCount += affected;
-                                Log.Logger.Information(affected + " data inserted into " + tableName);
+                                Console.WriteLine(affected + " data inserted into " + tableName);
                             } catch(PostgresException e) {
                                 if(
                                     e.Message.Contains("insert or update on table")
@@ -269,7 +271,7 @@ namespace SurplusMigrator.Models
                                     Log.Logger.Error("SQL error upon insert into " + tableName + ": " + e.Message + " (" + rowCount + " rows, " + paramCount + " params each row, " +(rowCount*paramCount)+ " total params)");
                                 }
                                 throw;
-                            } catch(Exception) {
+                            } catch(Exception e) {
                                 throw;
                             } finally { 
                                 command.Dispose();
@@ -347,7 +349,7 @@ namespace SurplusMigrator.Models
                 throw new System.NotImplementedException();
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                 Console.Write("Truncating \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + options + " ... ");
-                Console.WriteLine("completed");
+                Console.WriteLine("Done");
                 NpgsqlCommand command = new NpgsqlCommand("TRUNCATE TABLE \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + options, (NpgsqlConnection)connection.GetDbConnection());
                 command.CommandTimeout = 300;
                 command.ExecuteNonQuery();
@@ -415,7 +417,8 @@ namespace SurplusMigrator.Models
             }
 
             if(duplicatedDatas.Count > 0) {
-                Log.Logger.Warning("Skipping " + duplicatedDatas.Count + " duplicated data upon inserting into " + tableName);
+                //Log.Logger.Warning("Skipping " + duplicatedDatas.Count + " duplicated data upon inserting into " + tableName);
+                Console.WriteLine("Skipping " + duplicatedDatas.Count + " duplicated data upon inserting into " + tableName);
             }
         }
 

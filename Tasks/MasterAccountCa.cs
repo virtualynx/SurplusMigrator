@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace SurplusMigrator.Tasks {
   class MasterAccountCa : _BaseTask {
-        public MasterAccountCa(DbConnection_[] connections) {
+        public MasterAccountCa(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
@@ -47,7 +47,7 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = defaultBatchSize) {
             return sourceTables.Where(a => a.tableName == "master_acc_ca").FirstOrDefault().getDatas(batchSize);
         }
 
@@ -73,6 +73,9 @@ namespace SurplusMigrator.Tasks {
 
         public override MappedData additionalStaticData() {
             return new MappedData();
+        }
+
+        public override void runDependencies() {
         }
     }
 }

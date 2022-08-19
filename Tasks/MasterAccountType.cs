@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace SurplusMigrator.Tasks {
   class MasterAccountType : _BaseTask {
-        public MasterAccountType(DbConnection_[] connections) {
+        public MasterAccountType(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
@@ -40,7 +40,7 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = defaultBatchSize) {
             return sourceTables.Where(a => a.tableName == "master_acctype").FirstOrDefault().getDatas(batchSize);
         }
 
@@ -76,8 +76,33 @@ namespace SurplusMigrator.Tasks {
                     { "is_disabled", false }
                 }
             );
+            result.addData(
+                "master_account_type",
+                new RowData<ColumnName, Data>() {
+                    { "accounttypeid",  1},
+                    { "name",  "Aktiva Lancar (Possibly)"},
+                    { "accountsubtypeid",  10},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_account_type",
+                new RowData<ColumnName, Data>() {
+                    { "accounttypeid",  2},
+                    { "name",  "Harta Tetap (Possibly)"},
+                    { "accountsubtypeid",  10},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
 
             return result;
+        }
+
+        public override void runDependencies() {
         }
     }
 }

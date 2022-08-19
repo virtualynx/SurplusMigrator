@@ -8,18 +8,21 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-  class MasterVendorCategory : _BaseTask {
-        public MasterVendorCategory(DbConnection_[] connections) : base(connections) {
+  class MasterTvProgramType : _BaseTask {
+        public MasterTvProgramType(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
-                    tableName = "master_vendor_category",
+                    tableName = "master_tv_program_type",
                     columns = new string[] {
-                        "vendorcategoryid",
+                        "tvprogramtypeid",
                         "name",
+                        "created_date",
+                        "created_by",
+                        "is_disabled"
                     },
-                    ids = new string[] { "vendorcategoryid" }
+                    ids = new string[] { "tvprogramtypeid" }
                 }
             };
         }
@@ -36,17 +39,23 @@ namespace SurplusMigrator.Tasks {
             MappedData result = new MappedData();
             
             result.addData(
-                "master_vendor_category",
+                "master_tv_program_type",
                 new RowData<ColumnName, Data>() {
-                    { "vendorcategoryid",  1},
-                    { "name",  "Individual"},
+                    { "tvprogramtypeid",  "PG"},
+                    { "name",  "Program"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_vendor_category",
+                "master_tv_program_type",
                 new RowData<ColumnName, Data>() {
-                    { "vendorcategoryid",  2},
-                    { "name",  "Company"},
+                    { "tvprogramtypeid",  "NP"},
+                    { "name",  "Non Program"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
                 }
             );
 
@@ -54,7 +63,6 @@ namespace SurplusMigrator.Tasks {
         }
 
         public override void runDependencies() {
-            throw new NotImplementedException();
         }
     }
 }

@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace SurplusMigrator.Tasks {
   class MasterCurrency : _BaseTask {
-        public MasterCurrency(DbConnection_[] connections) {
+        public MasterCurrency(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
@@ -62,7 +62,23 @@ namespace SurplusMigrator.Tasks {
         }
 
         public override MappedData additionalStaticData() {
-            return new MappedData();
+            MappedData result = new MappedData();
+
+            result.addData(
+                "master_currency",
+                new RowData<ColumnName, Data>() {
+                    { "currencyid",  0},
+                    { "shortname",  "UNKWN"},
+                    { "name",  "Unknown"},
+                    { "country",  "Unknown"},
+                    { "is_disabled",  false},
+                }
+            );
+
+            return result;
+        }
+
+        public override void runDependencies() {
         }
     }
 }

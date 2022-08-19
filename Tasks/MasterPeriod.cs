@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace SurplusMigrator.Tasks {
   class MasterPeriod : _BaseTask {
-        public MasterPeriod(DbConnection_[] connections) {
+        public MasterPeriod(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
@@ -80,6 +80,9 @@ namespace SurplusMigrator.Tasks {
 
         public override MappedData additionalStaticData() {
             return new MappedData();
+        }
+
+        public override void runDependencies() {
         }
     }
 }

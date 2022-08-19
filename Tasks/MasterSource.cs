@@ -1,15 +1,11 @@
-using Microsoft.Data.SqlClient;
-using Npgsql;
-using SurplusMigrator.Interfaces;
 using SurplusMigrator.Models;
-using SurplusMigrator.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-  class MasterSource : _BaseTask {
-        public MasterSource(DbConnection_[] connections) {
+    class MasterSource : _BaseTask {
+        public MasterSource(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
@@ -62,7 +58,101 @@ namespace SurplusMigrator.Tasks {
         }
 
         public override MappedData additionalStaticData() {
-            return new MappedData();
+            MappedData result = new MappedData();
+
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "AP-Migrasi"},
+                    { "description",  "AP-Migrasi"},
+                    { "transactiontypeid",  "AP"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "AP-ListManual"},
+                    { "description",  "AP-ListManual"},
+                    { "transactiontypeid",  "AP"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "AP-ListPV"},
+                    { "description",  "AP-ListPV"},
+                    { "transactiontypeid",  "AP"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "AP-ListSA"},
+                    { "description",  "AP-ListSA"},
+                    { "transactiontypeid",  "AP"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "PV-ListST"},
+                    { "description",  "PV-ListST"},
+                    { "transactiontypeid",  "PV"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "PV-ListOR"},
+                    { "description",  "PV-ListOR"},
+                    { "transactiontypeid",  "PV"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "RV-ListBPJ"},
+                    { "description",  "RV-ListBPJ"},
+                    { "transactiontypeid",  "RV"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "RV-ListBPB"},
+                    { "description",  "RV-ListBPB"},
+                    { "transactiontypeid",  "RV"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+
+            return result;
+        }
+
+        public override void runDependencies() {
         }
     }
 }
