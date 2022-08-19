@@ -75,6 +75,28 @@ namespace SurplusMigrator.Tasks {
             result.addData(
                 "master_transaction_type",
                 new RowData<ColumnName, Data>() {
+                    { "transactiontypeid",  "CD"},
+                    { "name",  "Cancelation Digital"},
+                    { "transactiontypegroupid",  9},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_transaction_type",
+                new RowData<ColumnName, Data>() {
+                    { "transactiontypeid",  "CE"},
+                    { "name",  "Cancelation Episode"},
+                    { "transactiontypegroupid",  9},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_transaction_type",
+                new RowData<ColumnName, Data>() {
                     { "transactiontypeid",  "CN"},
                     { "name",  "CN"},
                     { "transactiontypegroupid",  1},
@@ -276,6 +298,28 @@ namespace SurplusMigrator.Tasks {
                     { "transactiontypeid",  "SA"},
                     { "name",  "Jurnal SA"},
                     { "transactiontypegroupid",  6},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_transaction_type",
+                new RowData<ColumnName, Data>() {
+                    { "transactiontypeid",  "SD"},
+                    { "name",  "Settlement Digital"},
+                    { "transactiontypegroupid",  9},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_transaction_type",
+                new RowData<ColumnName, Data>() {
+                    { "transactiontypeid",  "SE"},
+                    { "name",  "Settlement Episode"},
+                    { "transactiontypegroupid",  9},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }

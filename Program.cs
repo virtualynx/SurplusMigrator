@@ -96,8 +96,8 @@ namespace SurplusMigrator {
                     }
                 }
                 
-            } catch(Exception e) {
-                Log.Logger.Error(e, e.Message);
+            } catch(Exception) {
+                Log.Logger.Error("Program stopped abnormally due to some error");
             }
 
             Console.WriteLine("\n\nPress any key to exit ...");
