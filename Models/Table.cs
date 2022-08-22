@@ -81,11 +81,18 @@ namespace SurplusMigrator.Models
                     command.Dispose();
                 } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                     NpgsqlConnection conn = (NpgsqlConnection)connection.GetDbConnection();
-                    NpgsqlCommand command = new NpgsqlCommand("select " + String.Join(",", columns) + " from \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"", conn); ;
+                    //NpgsqlCommand command = new NpgsqlCommand("select " + String.Join(",", columns) + " from \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" limit 1", conn); ;
+                    NpgsqlCommand command = new NpgsqlCommand("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema='" + connection.GetDbLoginInfo().schema + "' AND table_name = '" + tableName + "'", conn); ;
                     NpgsqlDataReader reader = command.ExecuteReader();
 
-                    foreach(string columnName in columns) {
-                        columnTypes.Add(columnName, reader.GetDataTypeName(reader.GetOrdinal(columnName)));
+                    //foreach(string columnName in columns) {
+                    //    columnTypes.Add(columnName, reader.GetDataTypeName(reader.GetOrdinal(columnName)));
+                    //}
+
+                    while(reader.Read()) {
+                        string column_name = reader.GetValue(reader.GetOrdinal("column_name")).ToString();
+                        string data_type = reader.GetValue(reader.GetOrdinal("data_type")).ToString();
+                        columnTypes[column_name] = data_type;
                     }
 
                     reader.Close();
@@ -302,7 +309,7 @@ namespace SurplusMigrator.Models
                 result = NpgsqlDbType.Integer;
             } else if(columnTypes[columnName] == "numeric") {
                 result = NpgsqlDbType.Numeric;
-            } else if(columnTypes[columnName].StartsWith("character varying(")) {
+            } else if(columnTypes[columnName] == "character varying") {
                 result = NpgsqlDbType.Varchar;
             } else if(columnTypes[columnName] == "text") {
                 result = NpgsqlDbType.Text;
@@ -357,7 +364,7 @@ namespace SurplusMigrator.Models
                 throw new System.NotImplementedException();
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                 MyConsole.Write("Truncating \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + options + " ... ");
-                MyConsole.WriteLine("Done");
+                Console.WriteLine("Done");
                 NpgsqlCommand command = new NpgsqlCommand("TRUNCATE TABLE \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + options, (NpgsqlConnection)connection.GetDbConnection());
                 command.CommandTimeout = 300;
                 command.ExecuteNonQuery();

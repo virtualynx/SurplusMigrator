@@ -12,9 +12,10 @@ using BudgetId = System.Int64;
 using BudgetAccountId = System.String;
 using BudgetDetailId = System.Int64;
 using JournalIdLine = System.String;
+using SurplusMigrator.Interfaces;
 
 namespace SurplusMigrator.Tasks {
-    class TransactionBudgetDetail : _BaseTask {
+    class TransactionBudgetDetail : _BaseTask, RemappableId {
         /**
          * here holds ids of the missing TransactionBudget data
          * these TransactionBudget data also does not referred anywhere on TransactionJournal
@@ -347,6 +348,10 @@ namespace SurplusMigrator.Tasks {
             }
 
             return missingCreationDateIds;
+        }
+
+        public void clearRemapping() {
+            IdRemapper.clearMapping("tbudget_detailid");
         }
     }
 }

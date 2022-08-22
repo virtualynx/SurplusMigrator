@@ -7,20 +7,9 @@ using System.Text.Json;
 
 namespace SurplusMigrator.Libraries {
     class IdRemapper {
-        //private static Dictionary<IdColumnNameTag, Dictionary<object, object>> _idMaps = new Dictionary<IdColumnNameTag, Dictionary<object, object>>();
         private static List<RemappedId> _maps = new List<RemappedId>();
+        private static string savePath = System.Environment.CurrentDirectory + "\\" + @"_remapped_id_cache.json";
 
-        //public static bool add(string idColumnName, object oldIdValue, object newIdValue) {
-        //    if(!_idMaps.ContainsKey(idColumnName)) {
-        //        _idMaps[idColumnName] = new Dictionary<object, object>();
-        //    }
-        //    if(!_idMaps[idColumnName].ContainsKey(oldIdValue)) {
-        //        _idMaps[idColumnName][oldIdValue] = newIdValue;
-        //        return true;
-        //    }
-
-        //    return false;
-        //}
         public static bool add(string idColumnName, object oldIdValue, object newIdValue) {
             RemappedId rmap = _maps.Where(a => a.name == idColumnName).FirstOrDefault();
             if(rmap == null) {
@@ -28,6 +17,7 @@ namespace SurplusMigrator.Libraries {
                     name = idColumnName,
                     dataType = newIdValue.GetType().Name,
                 };
+                _maps.Add(rmap);
             }
             if(!rmap.maps.ContainsKey(oldIdValue.ToString())) {
                 rmap.maps[oldIdValue.ToString()] = newIdValue;
@@ -37,16 +27,6 @@ namespace SurplusMigrator.Libraries {
             return false;
         }
 
-        //public static object get(string idColumnName, object oldIdValue) {
-        //    if(!_idMaps.ContainsKey(idColumnName)) {
-        //        throw new Exception("RemappedId map does not have mapping for id-columnname: "+ idColumnName);
-        //    }
-        //    if(!_idMaps[idColumnName].ContainsKey(oldIdValue)) {
-        //        throw new Exception("RemappedId map for id-columnname: " + idColumnName + ", does not have mapping for old-value: " + oldIdValue);
-        //    }
-
-        //    return _idMaps[idColumnName][oldIdValue];
-        //}
         public static dynamic get(string idColumnName, object oldIdValue) {
             RemappedId rmap = _maps.Where(a => a.name == idColumnName).FirstOrDefault();
             if(rmap == null) {
@@ -72,12 +52,23 @@ namespace SurplusMigrator.Libraries {
             return result;
         }
 
-        public static void loadMap(string filepath) {
-            using(StreamReader r = new StreamReader(filepath)) {
+        public static void loadMap() {
+            if(!File.Exists(savePath)) return;
+            using(StreamReader r = new StreamReader(savePath)) {
                 string jsonText = r.ReadToEnd();
                 _maps = JsonSerializer.Deserialize<List<RemappedId>>(jsonText);
             }
-            int a = 1;
+        }
+
+        public static void saveMap() {
+            File.WriteAllText(savePath, JsonSerializer.Serialize(_maps));
+        }
+
+        public static void clearMapping(string idColumnName) {
+            RemappedId rmap = _maps.Where(a => a.name == idColumnName).FirstOrDefault();
+            if(rmap != null) {
+                rmap.maps.Clear();
+            }
         }
     }
 }

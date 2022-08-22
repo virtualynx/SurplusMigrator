@@ -16,33 +16,6 @@ namespace SurplusMigrator {
     // transaksi_jurnalkursreval => transaction_journal_reval
     internal class Program {
         static void Main(string[] args) {
-            List<RemappedId> save = new List<RemappedId>() {
-                new RemappedId() {
-                    name = "key1",
-                    dataType = typeof(long).Name,
-                    maps = new Dictionary<string, object>() {
-                        { "11111", 99999 },
-                        { "22222", 88888 },
-                    }
-                },
-                new RemappedId() {
-                    name = "key2",
-                    dataType = typeof(string).Name,
-                    maps = new Dictionary<string, object>() {
-                        { "ID111", "IDN11" },
-                        { "ID222", "IDN22" },
-                    }
-                }
-            };
-            string filename = "log_test.json";
-            string savePath = System.Environment.CurrentDirectory + "\\" + filename;
-            File.WriteAllText(savePath, JsonSerializer.Serialize(save));
-
-            IdRemapper.loadMap(savePath);
-
-            long id1 = IdRemapper.get("key1", 11111);
-            string id2 = IdRemapper.get("key2", "ID111");
-
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
             MyConsole.stopwatch = stopwatch;
@@ -78,14 +51,16 @@ namespace SurplusMigrator {
 
             DbConnection_[] connections = connList.ToArray();
 
+            IdRemapper.loadMap();
+
             try {
                 { //master_account
                     {//pre-req for MasterAccount
-                        new MasterAccountReport(connections).run();
-                        new MasterAccountGroup(connections).run();
-                        new MasterAccountSubGroup(connections).run();
-                        new MasterAccountSubType(connections).run();
-                        new MasterAccountType(connections).run();
+                        //new MasterAccountReport(connections).run();
+                        //new MasterAccountGroup(connections).run();
+                        //new MasterAccountSubGroup(connections).run();
+                        //new MasterAccountSubType(connections).run();
+                        //new MasterAccountType(connections).run();
                     }
                     new MasterAccount(connections).run();
                 }
@@ -117,7 +92,7 @@ namespace SurplusMigrator {
                             }
                             new TransactionProgramBudget(connections).run(false, 1925);
                         }
-                        new TransactionBudget(connections).run(true, 1169);
+                        //new TransactionBudget(connections).run(true, 1169);
                     }
                     new TransactionJournal(connections).run(true, 2183);
                 }
@@ -132,13 +107,15 @@ namespace SurplusMigrator {
                         {//---pre-req for TransactionBudgetDetail
                             new MasterBudgetAccount(connections).run();
                         }
-                        new TransactionBudgetDetail(connections).run(true, 3855);
+                        //new TransactionBudgetDetail(connections).run(true, 3855);
                     }
                     new TransactionJournalDetail(connections).run(true, 2114);
                 }
             } catch(Exception) {
                 //Log.Logger.Error("Program stopped abnormally due to some error");
                 MyConsole.Error("Program stopped abnormally due to some error");
+            } finally { 
+                IdRemapper.saveMap();
             }
 
             stopwatch.Stop();

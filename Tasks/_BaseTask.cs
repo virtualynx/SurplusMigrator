@@ -1,6 +1,7 @@
 ﻿using Microsoft.Data.SqlClient;
 //using Serilog;
 using SurplusMigrator.Exceptions;
+using SurplusMigrator.Interfaces;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using SurplusMigrator.Models.Others;
@@ -29,9 +30,19 @@ namespace SurplusMigrator.Tasks {
             _started = DateTime.Now;
             bool allSuccess = true;
 
+            if(new StackFrame(1).GetMethod().Name == "runDependencies") {
+                string parentTaskName = new StackFrame(1).GetMethod().DeclaringType.Name;
+                MyConsole.WriteLine("Run "+ parentTaskName+" dependency - "+ this.GetType().Name);
+            }
+
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
             try {
+                if(truncateBeforeInsert && this.GetType().GetInterfaces().Contains(typeof(RemappableId))) {
+                    var method = ((object)this).GetType().GetMethod("clearRemapping");
+                    method.Invoke(this, new object[] { });
+                }
+
                 try {
                     runDependencies();
                 } catch(NotImplementedException) { }
@@ -227,8 +238,8 @@ namespace SurplusMigrator.Tasks {
                 if(queriedReferencedIds.Contains(data)) continue;
                 if(!missingDataIds.Contains(data)) {
                     missingDataIds.Add(data);
-                    row[foreignColumnName] = null;
                 }
+                row[foreignColumnName] = null;
             }
 
             if(missingDataIds.Count > 0) {

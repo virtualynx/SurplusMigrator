@@ -175,6 +175,7 @@ namespace SurplusMigrator.Tasks {
         }
 
         public override void runDependencies() {
+            //new TransactionBudgetDetail(connections).run(true, 3855);
         }
 
         private string getJournalIdPrefix(string tjournalid) {

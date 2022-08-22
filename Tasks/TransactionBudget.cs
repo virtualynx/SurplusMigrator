@@ -1,6 +1,7 @@
 using Microsoft.Data.SqlClient;
 using Npgsql;
 using Serilog;
+using SurplusMigrator.Interfaces;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using SurplusMigrator.Tasks;
@@ -9,7 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-  class TransactionBudget : _BaseTask {
+  class TransactionBudget : _BaseTask, RemappableId{
         public TransactionBudget(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
@@ -237,6 +238,10 @@ namespace SurplusMigrator.Tasks {
             new MasterShowInventoryTimezone(connections).run();
             new MasterTvProgramType(connections).run();
             new TransactionProgramBudget(connections).run(false, 1925);
+        }
+
+        public void clearRemapping() {
+            IdRemapper.clearMapping("tbudgetid");
         }
     }
 }

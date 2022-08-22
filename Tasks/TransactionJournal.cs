@@ -5,6 +5,7 @@ using SurplusMigrator.Models;
 using SurplusMigrator.Tasks;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -174,7 +175,7 @@ namespace SurplusMigrator.Tasks {
             new MasterVendorCategory(connections).run();
             new MasterVendorType(connections).run();
             new MasterVendor(connections).run();
-            new TransactionBudget(connections).run(true, 1169);
+            new TransactionBudget(connections).run(false, 1169);
         }
     }
 }
