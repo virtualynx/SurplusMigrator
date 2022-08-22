@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using Prefixtag = System.String;
 using Datetag = System.String;
 
-namespace SurplusMigrator.Interfaces {
+namespace SurplusMigrator.Libraries {
     class Sequencer {
         private static Dictionary<Prefixtag, Dictionary<Datetag, int>> _sequencerMap = new Dictionary<Prefixtag, Dictionary<Datetag, int>>();
 

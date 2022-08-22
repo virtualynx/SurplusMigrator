@@ -1,4 +1,4 @@
-using SurplusMigrator.Interfaces;
+using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System;
 using System.Collections.Generic;
@@ -86,7 +86,7 @@ namespace SurplusMigrator.Tasks {
                 string budgetaccountid = data["projectacc_id"].ToString();
                 if(remappedIdNames.ContainsKey(idNameTag)) {
                     budgetaccountid = remappedIdNames[idNameTag];
-                    RemappedId.add("budgetaccountid", data["projectacc_id"], budgetaccountid);
+                    IdRemapper.add("budgetaccountid", data["projectacc_id"], budgetaccountid);
                 }
 
                 result.addData(

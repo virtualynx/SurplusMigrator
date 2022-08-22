@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace SurplusMigrator.Interfaces {
+namespace SurplusMigrator.Libraries {
     interface TaskInterface {
         void run(DbConnection_[] connections, int batchSize = 5000);
     }

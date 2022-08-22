@@ -17,6 +17,15 @@
       "dbname": "insosys",
       "schema": "migrate_yandoy",
       "type": "POSTGRESQL"
+    },
+    {
+      "host": "172.16.21.172",
+      "port": 1433,
+      "username": "sa",
+      "password": "gaada",
+      "dbname": "HRIS",
+      "schema": "dbo",
+      "type": "MSSQL"
     }
   ]
 }

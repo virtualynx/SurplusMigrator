@@ -1,6 +1,6 @@
 using Microsoft.Data.SqlClient;
 using Npgsql;
-using SurplusMigrator.Interfaces;
+using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using SurplusMigrator.Tasks;
 using System;
@@ -103,10 +103,12 @@ namespace SurplusMigrator.Tasks {
         public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
             MappedData result = new MappedData();
 
+            nullifyMissingReferences("rekanan_id", "master_rekanan", "rekanan_id", connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(), inputs);
+
             foreach(RowData<ColumnName, Data> data in inputs) {
                 string tbudgetid = null;
                 if(Utils.obj2int(data["budget_id"]) > 0) {
-                    tbudgetid = RemappedId.get("tbudgetid", data["budget_id"]).ToString();
+                    tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
                 }
 
                 result.addData(
@@ -119,7 +121,7 @@ namespace SurplusMigrator.Tasks {
                         { "description",  data["jurnal_descr"]},
                         { "invoiceid",  data["jurnal_invoice_id"]},
                         { "invoicedescription",  data["jurnal_invoice_descr"]},
-                        { "sourceid",  data["jurnal_source"]},
+                        { "sourceid",  Utils.obj2str(data["jurnal_source"])},
                         { "currencyid",  data["currency_id"]==null? 0: data["currency_id"]},
                         { "foreignrate",  data["currency_rate"]},
                         { "accountexecutive_nik",  data["ae_id"]},
@@ -156,7 +158,7 @@ namespace SurplusMigrator.Tasks {
         private string getTransactionType(string tjournalid) {
             Match match = Regex.Match(tjournalid, @"[a-zA-Z]+");
 
-            return match.Groups[0].Value;
+            return match.Groups[0].Value.ToUpper();
         }
 
         public override void runDependencies() {

@@ -1,6 +1,6 @@
 using Microsoft.Data.SqlClient;
 using Npgsql;
-using SurplusMigrator.Interfaces;
+using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using SurplusMigrator.Tasks;
 using System;
@@ -56,7 +56,18 @@ namespace SurplusMigrator.Tasks {
         }
 
         public override MappedData additionalStaticData() {
-            return new MappedData();
+            MappedData result = new MappedData();
+
+            result.addData(
+                "master_payment_type",
+                new RowData<ColumnName, Data>() {
+                    { "paymenttypeid",  0},
+                    { "name",  "Unknown"},
+                    { "is_disabled",  false},
+                }
+            );
+
+            return result;
         }
 
         public override void runDependencies() {

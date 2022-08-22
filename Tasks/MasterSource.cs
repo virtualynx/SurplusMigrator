@@ -63,8 +63,8 @@ namespace SurplusMigrator.Tasks {
             result.addData(
                 "master_source",
                 new RowData<ColumnName, Data>() {
-                    { "sourceid",  "AP-Migrasi"},
-                    { "description",  "AP-Migrasi"},
+                    { "sourceid",  "AP-ListManual"},
+                    { "description",  "AP-ListManual"},
                     { "transactiontypeid",  "AP"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
@@ -74,8 +74,8 @@ namespace SurplusMigrator.Tasks {
             result.addData(
                 "master_source",
                 new RowData<ColumnName, Data>() {
-                    { "sourceid",  "AP-ListManual"},
-                    { "description",  "AP-ListManual"},
+                    { "sourceid",  "AP-ListPayment"},
+                    { "description",  "AP-ListPayment"},
                     { "transactiontypeid",  "AP"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
@@ -107,9 +107,141 @@ namespace SurplusMigrator.Tasks {
             result.addData(
                 "master_source",
                 new RowData<ColumnName, Data>() {
-                    { "sourceid",  "PV-ListST"},
-                    { "description",  "PV-ListST"},
-                    { "transactiontypeid",  "PV"},
+                    { "sourceid",  "AP-Migrasi"},
+                    { "description",  "AP-Migrasi"},
+                    { "transactiontypeid",  "AP"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "CN-ListSA"},
+                    { "description",  "CN-ListSA"},
+                    { "transactiontypeid",  "CN"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "JV-Asset"},
+                    { "description",  "JV-Asset"},
+                    { "transactiontypeid",  "JV"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "JV-ListAP"},
+                    { "description",  "JV-ListAP"},
+                    { "transactiontypeid",  "JV"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "JV-ListPV"},
+                    { "description",  "JV-ListPV"},
+                    { "transactiontypeid",  "JV"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "JV-Migrasi"},
+                    { "description",  "JV-Migrasi"},
+                    { "transactiontypeid",  "JV"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "JV-NettOff"},
+                    { "description",  "JV-NettOff"},
+                    { "transactiontypeid",  "JV"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "JV-Payment"},
+                    { "description",  "JV-Payment"},
+                    { "transactiontypeid",  "JV"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "JV-Reval"},
+                    { "description",  "JV-Reval"},
+                    { "transactiontypeid",  "JV"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "OC-Migrasi"},
+                    { "description",  "OC-Migrasi"},
+                    { "transactiontypeid",  "OC"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "OR-Billing"},
+                    { "description",  "OR-Billing"},
+                    { "transactiontypeid",  "OR"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "OR-FullRefund"},
+                    { "description",  "OR-FullRefund"},
+                    { "transactiontypeid",  "OR"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "OR-Migrasi"},
+                    { "description",  "OR-Migrasi"},
+                    { "transactiontypeid",  "OR"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
@@ -129,9 +261,20 @@ namespace SurplusMigrator.Tasks {
             result.addData(
                 "master_source",
                 new RowData<ColumnName, Data>() {
-                    { "sourceid",  "RV-ListBPJ"},
-                    { "description",  "RV-ListBPJ"},
-                    { "transactiontypeid",  "RV"},
+                    { "sourceid",  "PV-ListST"},
+                    { "description",  "PV-ListST"},
+                    { "transactiontypeid",  "PV"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "PV-Migrasi"},
+                    { "description",  "PV-Migrasi"},
+                    { "transactiontypeid",  "PV"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
@@ -143,6 +286,28 @@ namespace SurplusMigrator.Tasks {
                     { "sourceid",  "RV-ListBPB"},
                     { "description",  "RV-ListBPB"},
                     { "transactiontypeid",  "RV"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            //result.addData(
+            //    "master_source",
+            //    new RowData<ColumnName, Data>() {
+            //        { "sourceid",  "RV-ListBPJ"},
+            //        { "description",  "RV-ListBPJ"},
+            //        { "transactiontypeid",  "RV"},
+            //        { "created_date",  DateTime.Now},
+            //        { "created_by",  DefaultValues.CREATED_BY},
+            //        { "is_disabled", false }
+            //    }
+            //);
+            result.addData(
+                "master_source",
+                new RowData<ColumnName, Data>() {
+                    { "sourceid",  "ST-ListPV-Manual"},
+                    { "description",  "ST-ListPV-Manual"},
+                    { "transactiontypeid",  "ST"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }

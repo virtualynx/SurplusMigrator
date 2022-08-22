@@ -1,9 +1,12 @@
 ﻿using Serilog;
 using Serilog.Events;
+using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
+using SurplusMigrator.Models.Others;
 using SurplusMigrator.Tasks;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -13,6 +16,37 @@ namespace SurplusMigrator {
     // transaksi_jurnalkursreval => transaction_journal_reval
     internal class Program {
         static void Main(string[] args) {
+            List<RemappedId> save = new List<RemappedId>() {
+                new RemappedId() {
+                    name = "key1",
+                    dataType = typeof(long).Name,
+                    maps = new Dictionary<string, object>() {
+                        { "11111", 99999 },
+                        { "22222", 88888 },
+                    }
+                },
+                new RemappedId() {
+                    name = "key2",
+                    dataType = typeof(string).Name,
+                    maps = new Dictionary<string, object>() {
+                        { "ID111", "IDN11" },
+                        { "ID222", "IDN22" },
+                    }
+                }
+            };
+            string filename = "log_test.json";
+            string savePath = System.Environment.CurrentDirectory + "\\" + filename;
+            File.WriteAllText(savePath, JsonSerializer.Serialize(save));
+
+            IdRemapper.loadMap(savePath);
+
+            long id1 = IdRemapper.get("key1", 11111);
+            string id2 = IdRemapper.get("key2", "ID111");
+
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+            MyConsole.stopwatch = stopwatch;
+
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
                 .WriteTo.File(
@@ -23,16 +57,18 @@ namespace SurplusMigrator {
                     rollOnFileSizeLimit: true,
                     fileSizeLimitBytes: 50000000
                 )
-                .WriteTo.Console(restrictedToMinimumLevel: LogEventLevel.Information)
+                //.WriteTo.Console(restrictedToMinimumLevel: LogEventLevel.Information)
                 .CreateLogger();
 
-            Log.Logger.Information("Reading configuration at " + System.Environment.CurrentDirectory + @"\config.json");
+            //Log.Logger.Information("Reading configuration at " + System.Environment.CurrentDirectory + @"\config.json");
+            MyConsole.Information("Reading configuration at " + System.Environment.CurrentDirectory + @"\config.json");
             DbConfig config = null;
             using(StreamReader r = new StreamReader(System.Environment.CurrentDirectory + @"\config.json")) {
                 string json = r.ReadToEnd();
                 config = JsonSerializer.Deserialize<DbConfig>(json);
             }
-            Log.Logger.Information("Configuration loaded : " + JsonSerializer.Serialize(config) + "\n");
+            //Log.Logger.Information("Configuration loaded : " + JsonSerializer.Serialize(config) + "\n");
+            MyConsole.Information("Configuration loaded : " + JsonSerializer.Serialize(config) + "\n");
 
             List<DbConnection_> connList = new List<DbConnection_>();
 
@@ -83,7 +119,7 @@ namespace SurplusMigrator {
                         }
                         new TransactionBudget(connections).run(true, 1169);
                     }
-                    //new TransactionJournal(connections).run(true, 2183);
+                    new TransactionJournal(connections).run(true, 2183);
                 }
 
                 { //start of TransactionJournalDetail
@@ -98,11 +134,16 @@ namespace SurplusMigrator {
                         }
                         new TransactionBudgetDetail(connections).run(true, 3855);
                     }
+                    new TransactionJournalDetail(connections).run(true, 2114);
                 }
-                
             } catch(Exception) {
-                Log.Logger.Error("Program stopped abnormally due to some error");
+                //Log.Logger.Error("Program stopped abnormally due to some error");
+                MyConsole.Error("Program stopped abnormally due to some error");
             }
+
+            stopwatch.Stop();
+            //Log.Logger.Information("Program finished in " + Utils.getElapsedTimeString(stopwatch.ElapsedMilliseconds));
+            MyConsole.Information("Program finished in " + Utils.getElapsedTimeString(stopwatch.ElapsedMilliseconds));
 
             Console.WriteLine("\n\nPress any key to exit ...");
             Console.ReadLine();

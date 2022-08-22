@@ -1,7 +1,7 @@
 using Microsoft.Data.SqlClient;
 using Npgsql;
 using Serilog;
-using SurplusMigrator.Interfaces;
+using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using SurplusMigrator.Tasks;
 using System;
@@ -157,7 +157,7 @@ namespace SurplusMigrator.Tasks {
 
             foreach(RowData<ColumnName, Data> data in inputs) {
                 string tbudgetid = Sequencer.getId("BGT", Utils.obj2datetime(data["budget_entrydt"]));
-                RemappedId.add("tbudgetid", data["budget_id"], tbudgetid);
+                IdRemapper.add("tbudgetid", data["budget_id"], tbudgetid);
 
                 result.addData(
                     "transaction_budget",

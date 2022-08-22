@@ -1,5 +1,5 @@
 using Serilog;
-using SurplusMigrator.Interfaces;
+using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System;
 using System.Collections.Generic;
@@ -156,7 +156,7 @@ namespace SurplusMigrator.Tasks {
             foreach(RowData<ColumnName, Data> data in inputs) {
                 string tbudgetid = null;
                 if(Utils.obj2long(data["budget_id"]) > 0) {
-                    tbudgetid = RemappedId.get("tbudgetid", data["budget_id"]).ToString();
+                    tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
                 }
 
                 string budgetaccountid = Utils.obj2long(data["projectacc_id"])!=0? data["projectacc_id"].ToString(): null;
@@ -167,7 +167,7 @@ namespace SurplusMigrator.Tasks {
 
                 DateTime created_date = Utils.obj2datetime(data["budgetdetil_date"]);
                 string tbudget_detailid = Sequencer.getId("BGTD", (DateTime)created_date);
-                RemappedId.add("tbudget_detailid", budgetdetil_id, tbudget_detailid);
+                IdRemapper.add("tbudget_detailid", budgetdetil_id, tbudget_detailid);
 
                 result.addData(
                     "transaction_budget_detail",
@@ -326,14 +326,14 @@ namespace SurplusMigrator.Tasks {
             SqlCommand command = new SqlCommand("select budget_id, budget_entrydt from [dbo].[transaksi_budget] where budget_id in (" + String.Join(",", budgetIdRefs) + ")", conn);
             SqlDataReader dataReader = command.ExecuteReader();
 
-            List<RowData<ColumnName, Data>> queriedBudgets = new List<RowData<ColumnName, Data>>();
+            Dictionary<BudgetId, RowData<ColumnName, Data>> queriedBudgets = new Dictionary<BudgetId, RowData<ColumnName, Data>>();
             while(dataReader.Read()) {
                 long budget_id = Utils.obj2long(dataReader.GetValue(dataReader.GetOrdinal("budget_id")));
                 DateTime budget_entrydt = Utils.obj2datetime(dataReader.GetValue(dataReader.GetOrdinal("budget_entrydt")));
-                queriedBudgets.Add(new RowData<ColumnName, Data>() {
+                queriedBudgets[budget_id] = new RowData<ColumnName, Data>() {
                     { "budget_id", budget_id },
                     { "budget_entrydt", budget_entrydt },
-                });
+                };
             }
             dataReader.Close();
             command.Dispose();
@@ -342,8 +342,7 @@ namespace SurplusMigrator.Tasks {
                 DateTime? budgetdetil_date = Utils.obj2datetimeNullable(row["budgetdetil_date"]);
                 if(budgetdetil_date == null) {
                     long budget_id = Utils.obj2long(row["budget_id"]);
-                    RowData<ColumnName, Data> budget = queriedBudgets.Where(row => row.Any(map => map.Key == "budget_id" && Utils.obj2long(map.Value) == budget_id)).FirstOrDefault();
-                    row["budgetdetil_date"] = budget["budget_entrydt"];
+                    row["budgetdetil_date"] = queriedBudgets[budget_id]["budget_entrydt"];
                 }
             }
 

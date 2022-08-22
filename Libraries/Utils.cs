@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace SurplusMigrator.Interfaces {
+namespace SurplusMigrator.Libraries {
     class Utils {
         public static int obj2int(object o) {
             if(o == null) return 0;
@@ -9,6 +9,10 @@ namespace SurplusMigrator.Interfaces {
         public static long obj2long(object o) {
             if(o == null) return 0;
             return Int64.Parse(o.ToString());
+        }
+        public static decimal obj2decimal(object o) {
+            if(o == null) return 0;
+            return Decimal.Parse(o.ToString());
         }
         public static bool obj2bool(object o) {
             if(o == null) return false;
@@ -27,6 +31,10 @@ namespace SurplusMigrator.Interfaces {
         public static DateTime? obj2datetimeNullable(object o) {
             if(o == null) return null;
             return Convert.ToDateTime(o);
+        }
+        public static string getElapsedTimeString(long milliseconds) {
+            //return TimeSpan.FromMilliseconds(milliseconds).ToString(@"hh\:mm\:ss\.fff");
+            return TimeSpan.FromMilliseconds(milliseconds).ToString(@"hh\:mm\:ss");
         }
     }
 }
