@@ -1,14 +1,10 @@
-using Microsoft.Data.SqlClient;
-using Npgsql;
-using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
-using SurplusMigrator.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-  class MasterShowInventoryTimezone : _BaseTask {
+    class MasterShowInventoryTimezone : _BaseTask {
         public MasterShowInventoryTimezone(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
@@ -29,15 +25,7 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
-            return new List<RowData<string, object>>();
-        }
-
-        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
-            return new MappedData();
-        }
-
-        public override MappedData additionalStaticData() {
+        protected override MappedData getStaticData() {
             MappedData result = new MappedData();
             
             result.addData(
@@ -162,9 +150,6 @@ namespace SurplusMigrator.Tasks {
             );
 
             return result;
-        }
-
-        public override void runDependencies() {
         }
     }
 }

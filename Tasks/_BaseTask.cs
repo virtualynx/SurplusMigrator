@@ -41,15 +41,15 @@ namespace SurplusMigrator.Tasks {
             bool allSuccess = true;
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
+            List<string> printedLogFilename = new List<string>();
+            List<DbInsertFail> allErrors = new List<DbInsertFail>();
             try {
                 if(truncateBeforeInsert && this.GetType().GetInterfaces().Contains(typeof(RemappableId))) {
                     var method = ((object)this).GetType().GetMethod("clearRemapping");
                     method.Invoke(this, new object[] { });
                 }
 
-                try {
-                    runDependencies();
-                } catch(NotImplementedException) { }
+                runDependencies();
 
                 Table[] sourceTables;
                 Table[] destinationTables;
@@ -90,30 +90,27 @@ namespace SurplusMigrator.Tasks {
                 while((fetchedData = getSourceData(sourceTables, readBatchSize)).Count > 0) {
                     MappedData mappedData = mapData(fetchedData);
                     foreach(Table dest in destinationTables) {
-                        TaskInsertStatus status = dest.insertData(mappedData.getData(dest.tableName), truncateBeforeInsert, autoGenerateId);
-                        successCount += status.successCount;
-                        failureCount += status.errors.Where(a =>
-                            a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR
-                            && !a.info.StartsWith("Data already exists upon insert into")
-                        ).ToList().Count;
-                        failureCount += mappedData.getError(dest.tableName).Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
-                        duplicateCount += status.errors.Where(a => a.info.StartsWith("Data already exists upon insert into")).ToList().Count;
+                        TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), truncateBeforeInsert, autoGenerateId);
+                        successCount += taskStatus.successCount;
+                        failureCount += taskStatus.errors.Where(a => a.status == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
+                        failureCount += mappedData.getError(dest.tableName).Where(a => a.status == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
+                        duplicateCount += taskStatus.errors.Where(a => a.status == DbInsertFail.DB_FAIL_DUPLICATE).ToList().Count;
+                        allErrors.AddRange(taskStatus.errors);
+                        allErrors.AddRange(mappedData.getError(dest.tableName));
                         MyConsole.EraseLine();
                         MyConsole.WriteLine("Total " + (successCount + failureCount + duplicateCount) + " data processed");
                     }
                 }
 
-                MappedData staticData = additionalStaticData();
-                if(staticData != null && staticData.Count() > 0) {
-                    MyConsole.WriteLine(this.GetType().Name + " has " + staticData.Count() + " static data to be inserted");
+                MappedData staticDatas = getStaticData();
+                if(staticDatas.Count() > 0) {
+                    MyConsole.WriteLine(this.GetType().Name + " has " + staticDatas.Count() + " static data to be inserted");
                     foreach(Table dest in destinationTables) {
-                        TaskInsertStatus status = dest.insertData(staticData.getData(dest.tableName), truncateBeforeInsert, autoGenerateId);
-                        successCount += status.successCount;
-                        failureCount += status.errors.Where(a =>
-                            a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR
-                            && !a.info.StartsWith("Data already exists upon insert into")
-                        ).ToList().Count;
-                        duplicateCount += status.errors.Where(a => a.info.StartsWith("Data already exists upon insert into")).ToList().Count;
+                        TaskInsertStatus taskStatus = dest.insertData(staticDatas.getData(dest.tableName), truncateBeforeInsert, autoGenerateId);
+                        successCount += taskStatus.successCount;
+                        failureCount += taskStatus.errors.Where(a => a.status == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
+                        duplicateCount += taskStatus.errors.Where(a => a.status == DbInsertFail.DB_FAIL_DUPLICATE).ToList().Count;
+                        allErrors.AddRange(taskStatus.errors);
                         MyConsole.EraseLine();
                         MyConsole.WriteLine("Total " + (successCount + failureCount + duplicateCount) + " data processed");
                     }
@@ -128,6 +125,12 @@ namespace SurplusMigrator.Tasks {
                 MyConsole.Error(e, "Error occured on task " + this.GetType().Name + ": " + e.Message);
                 throw;
             } finally {
+                List<DbInsertFail> errorWithLogfiles = allErrors.Where(a => a.loggedInFilename != null).ToList();
+                foreach(DbInsertFail err in errorWithLogfiles) {
+                    if(printedLogFilename.Contains(err.loggedInFilename)) continue;
+                    printedLogFilename.Add(err.loggedInFilename);
+                    MyConsole.Warning(err.info + ", see "+ err.loggedInFilename + " for more info");
+                }
                 stopwatch.Stop();
                 MyConsole.Information("Task " + this.GetType().Name + " finished-time: " + Utils.getElapsedTimeString(stopwatch.ElapsedMilliseconds, true));
             }
@@ -246,7 +249,7 @@ namespace SurplusMigrator.Tasks {
                 }
                 result.Add(new DbInsertFail() {
                     info = "Missing reference in table (" + referencedTableName + "), value (" + referencedColumnName + ")=(" + data + ") is not exist",
-                    severity = DbInsertFail.DB_FAIL_SEVERITY_WARNING
+                    status = DbInsertFail.DB_FAIL_SEVERITY_WARNING,
                 });
                 row[foreignColumnName] = null;
             }
@@ -271,7 +274,9 @@ namespace SurplusMigrator.Tasks {
 
                 missingRefs.referencedIds.AddRange(missingRefIds);
                 File.WriteAllText(savePath, JsonSerializer.Serialize(missingRefs));
-                MyConsole.Warning("Missing reference in table ("+ referencedTableName + ") is found, see " + filename + " for more info");
+                foreach(DbInsertFail fail in result) {
+                    fail.loggedInFilename = filename;
+                }
             }
 
             return result;
@@ -395,27 +400,37 @@ namespace SurplusMigrator.Tasks {
                 missingRefs.referencedIds.AddRange(missingRefIds);
 
                 List<RowData<ColumnName, object>> ignoredDatas = inputs.Where(row => missingRefIds.Any(missingId => row.Any(map => map.Key == foreignColumnName && Utils.obj2str(map.Value) == Utils.obj2str(missingId)))).ToList();
-                //inputs = inputs.Where(row => !missingRefIds.Any(missingId => row.Any(map => map.Key == foreignColumnName && Utils.obj2str(map.Value) == Utils.obj2str(missingId)))).ToList();
                 inputs.RemoveAll(row => missingRefIds.Any(missingId => row.Any(map => map.Key == foreignColumnName && Utils.obj2str(map.Value) == Utils.obj2str(missingId))));
 
                 foreach(RowData<ColumnName, object> row in ignoredDatas) {
                     result.Add(new DbInsertFail() {
                         info = "Missing data in table ["+ referencedTableName + "], key ("+ referencedColumnName + ")=(" + row[foreignColumnName] + ")",
-                        severity = DbInsertFail.DB_FAIL_SEVERITY_ERROR
+                        status = DbInsertFail.DB_FAIL_SEVERITY_ERROR
                     });
                     missingRefs.skippedIds.Add(row[foreignColumnName]);
                 }
 
                 File.WriteAllText(savePath, JsonSerializer.Serialize(missingRefs));
-                MyConsole.Warning("Missing reference in table (" + referencedTableName + ") is found, see " + filename + " for more info");
+                foreach(DbInsertFail fail in result) {
+                    fail.loggedInFilename = filename;
+                }
             }
 
             return result;
         }
 
-        public abstract List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize);
-        public abstract MappedData mapData(List<RowData<ColumnName, object>> inputs);
-        public abstract MappedData additionalStaticData();
-        public abstract void runDependencies();
+        protected virtual List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
+            return new List<RowData<ColumnName, object>>();
+        }
+
+        protected virtual MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+            return new MappedData();
+        }
+
+        protected virtual MappedData getStaticData() {
+            return new MappedData();
+        }
+
+        protected virtual void runDependencies() { }
     }
 }

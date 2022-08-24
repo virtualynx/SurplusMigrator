@@ -1,5 +1,5 @@
 ﻿namespace SurplusMigrator.Interfaces {
     interface RemappableId {
-        void clearRemapping();
+        void clearRemappingCache();
     }
 }

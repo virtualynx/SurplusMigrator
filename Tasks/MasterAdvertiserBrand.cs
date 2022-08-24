@@ -49,11 +49,11 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
             return sourceTables.Where(a => a.tableName == "master_advertiserbrand").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             foreach(RowData<ColumnName, object> data in inputs) {
@@ -77,13 +77,6 @@ namespace SurplusMigrator.Tasks {
             }
 
             return result;
-        }
-
-        public override MappedData additionalStaticData() {
-            return null;
-        }
-
-        public override void runDependencies() {
         }
     }
 }

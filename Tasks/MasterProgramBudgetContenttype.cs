@@ -23,15 +23,7 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
-            return new List<RowData<string, object>>();
-        }
-
-        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
-            return new MappedData();
-        }
-
-        public override MappedData additionalStaticData() {
+        protected override MappedData getStaticData() {
             MappedData result = new MappedData();
 
             result.addData(
@@ -76,9 +68,6 @@ namespace SurplusMigrator.Tasks {
             );
 
             return result;
-        }
-
-        public override void runDependencies() {
         }
     }
 }

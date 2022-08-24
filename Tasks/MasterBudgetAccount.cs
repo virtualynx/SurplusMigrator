@@ -68,11 +68,11 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
+        protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
             return sourceTables.Where(a => a.tableName == "master_projectacc").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             Dictionary<idNameTag, newId> remappedIdNames = new Dictionary<idNameTag, newId>() {
@@ -116,8 +116,7 @@ namespace SurplusMigrator.Tasks {
             return result;
         }
 
-        public override MappedData additionalStaticData() {
-            
+        protected override MappedData getStaticData() {
             MappedData result = new MappedData();
 
             result.addData(
@@ -144,9 +143,6 @@ namespace SurplusMigrator.Tasks {
             );
 
             return result;
-        }
-
-        public override void runDependencies() {
         }
     }
 }

@@ -90,9 +90,9 @@ namespace SurplusMigrator {
                             }
                             new TransactionProgramBudget(connections).run();
                         }
-                        //new TransactionBudget(connections).run(true);
+                        new TransactionBudget(connections).run(true);
                     }
-                    //new TransactionJournal(connections).run(true);
+                    new TransactionJournal(connections).run(true);
                 }
 
                 { //start of TransactionJournalDetail

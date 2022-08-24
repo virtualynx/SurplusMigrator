@@ -94,11 +94,11 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
             return sourceTables.Where(a => a.tableName == "transaksi_jurnaldetil").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             addTrackingFields(inputs);
@@ -190,11 +190,7 @@ namespace SurplusMigrator.Tasks {
             return result;
         }
 
-        public override MappedData additionalStaticData() {
-            return null;
-        }
-
-        public override void runDependencies() {
+        protected override void runDependencies() {
             new MasterBankAccount(connections).run();
             new MasterJournalReferenceType(connections).run();
             new TransactionBudgetDetail(connections).run(true);

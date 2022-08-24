@@ -95,7 +95,7 @@ namespace SurplusMigrator.Models
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                 throw new System.NotImplementedException();
             }
-            Console.WriteLine("Done (" + result.Count + " data fetched)");
+            Console.WriteLine("Done (" + result.Count + " data)");
 
             fetchBatchCounter++;
 
@@ -219,7 +219,7 @@ namespace SurplusMigrator.Models
                                     MyConsole.Error("SQL error upon insert into " + tableName + ": " + e.Message + " (" + rowCount + " rows, " + paramCount + " params each row, " + (rowCount * paramCount) + " total params)");
                                 }
                                 throw;
-                            } catch(Exception e) {
+                            } catch(Exception) {
                                 throw;
                             } finally {
                                 command.Dispose();
@@ -245,29 +245,14 @@ namespace SurplusMigrator.Models
             if(dataCount == -1) {
                 if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                     SqlConnection conn = (SqlConnection)connection.GetDbConnection();
-                    SqlCommand command = new SqlCommand("SELECT COUNT(*) FROM " + connection.GetDbLoginInfo().schema + "." + tableName, conn);
-                    SqlDataReader reader = command.ExecuteReader();
-                    reader.Read();
-                    dataCount = Convert.ToInt64(reader.GetValue(0));
-
-                    reader.Close();
+                    SqlCommand command = new SqlCommand("SELECT COUNT(1) FROM [" + connection.GetDbLoginInfo().schema + "].[" + tableName + "]", conn);
+                    dataCount = Convert.ToInt64(command.ExecuteScalar());
                     command.Dispose();
                 } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                     NpgsqlConnection conn = (NpgsqlConnection)connection.GetDbConnection();
-                    //NpgsqlCommand command = new NpgsqlCommand("SELECT reltuples::bigint AS estimate FROM pg_class WHERE oid = '" + connection.GetDbLoginInfo().schema + "." + tableName + "'::regclass", conn);
-                    //NpgsqlDataReader reader = command.ExecuteReader();
-                    //reader.Read();
-                    //dataCount = Convert.ToInt64(reader.GetValue(0));
-
-                    //NpgsqlCommand command = new NpgsqlCommand("VACUUM(ANALYZE, VERBOSE, FULL) \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"", conn);
-                    //command.ExecuteNonQuery();
-                    //command.Dispose();
-                    //command = new NpgsqlCommand("SELECT COUNT(*) FROM " + connection.GetDbLoginInfo().schema + "." + tableName, conn);
-                    
-                    NpgsqlCommand command = new NpgsqlCommand("SELECT n_live_tup FROM pg_stat_user_tables WHERE schemaname = '" + connection.GetDbLoginInfo().schema + "' AND relname = '" + tableName + "'", conn);
-                    dataCount = (Int64)command.ExecuteScalar();
-
-                    //reader.Close();
+                    //NpgsqlCommand command = new NpgsqlCommand("SELECT n_live_tup FROM pg_stat_user_tables WHERE schemaname = '" + connection.GetDbLoginInfo().schema + "' AND relname = '" + tableName + "'", conn);
+                    NpgsqlCommand command = new NpgsqlCommand("SELECT COUNT(1) FROM \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"", conn);
+                    dataCount = Convert.ToInt64(command.ExecuteScalar());
                     command.Dispose();
                 }
             }
@@ -373,7 +358,6 @@ namespace SurplusMigrator.Models
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                 MyConsole.Information("Truncate \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + options);
                 NpgsqlCommand command = new NpgsqlCommand("TRUNCATE TABLE \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + options, (NpgsqlConnection)connection.GetDbConnection());
-                command.CommandTimeout = 300;
                 command.ExecuteNonQuery();
                 command.Dispose();
             }
@@ -432,7 +416,7 @@ namespace SurplusMigrator.Models
                     inputs.Remove(duplicate);
                     DbInsertFail insertfailInfo = new DbInsertFail() {
                         info = "Data already exists upon insert into " + tableName + ", value: " + JsonSerializer.Serialize(rowSelect),
-                        severity = DbInsertFail.DB_FAIL_SEVERITY_WARNING
+                        status = DbInsertFail.DB_FAIL_DUPLICATE
                     };
                     failures.Add(insertfailInfo);
                 }
@@ -475,7 +459,7 @@ namespace SurplusMigrator.Models
                 DbInsertFail insertfailInfo = new DbInsertFail() {
                     exception = e,
                     info = "Foreignkey constraint violation upon insert into " + tableName + ", " + e.Detail + ", value: " + JsonSerializer.Serialize(arg),
-                    severity = DbInsertFail.DB_FAIL_SEVERITY_ERROR
+                    status = DbInsertFail.DB_FAIL_SEVERITY_ERROR
                 };
                 failures.Add(insertfailInfo);
             }
@@ -516,7 +500,7 @@ namespace SurplusMigrator.Models
                 DbInsertFail insertfailInfo = new DbInsertFail() {
                     exception = e,
                     info = "Not-Null constraint violation upon insert into " + tableName + ", " + e.MessageText + ", value: " + JsonSerializer.Serialize(arg),
-                    severity = DbInsertFail.DB_FAIL_SEVERITY_ERROR
+                    status = DbInsertFail.DB_FAIL_SEVERITY_ERROR
                 };
                 failures.Add(insertfailInfo);
             }

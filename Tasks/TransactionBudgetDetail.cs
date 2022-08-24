@@ -26,21 +26,11 @@ namespace SurplusMigrator.Tasks {
         private static List<long> allMissingBudgetIds = new List<long>();
 
         /**
-         * Total count of ignored data caused by missing TransactionBudget
-         */
-        //private static long totalMissingBudgetData = 0;
-
-        /**
          * here holds ids of the TransactionBudgetDetail data which has null reference to budget_id and also has null creation-date
          * these TransactionBudgetDetail data also does not referred anywhere on TransactionJournalDetail
          * so we can safely assumed that theyre safe to be ignored
          */
         private static List<long> allUnreferencedDataIds = new List<long>();
-
-        /**
-         * Total count of ignored data caused by having null reference to budget_id and also null creation-date
-         */
-        //private static long totalUnreferencedData = 0;
 
         public TransactionBudgetDetail(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
@@ -108,11 +98,11 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
+        protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
             return sourceTables.Where(a => a.tableName == "transaksi_budgetdetil").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             ///*
@@ -124,56 +114,37 @@ namespace SurplusMigrator.Tasks {
                 { 709454, "5040601001" },
             };
 
-            //List<long> missingBudgetIds = getMissingTransactionBudgetIds(inputs);
-            //if(missingBudgetIds.Count > 0) {
-            //    allMissingBudgetIds.AddRange(missingBudgetIds);
-            //    List<RowData<ColumnName, object>> ignoredDatas = inputs.Where(row => missingBudgetIds.Any(missingId => row.Any(map => map.Key == "budget_id" && Utils.obj2long(map.Value) == missingId))).ToList();
-            //    inputs = inputs.Where(row => !missingBudgetIds.Any(missingId => row.Any(map => map.Key == "budget_id" && Utils.obj2long(map.Value) == missingId))).ToList();
-            //    totalMissingBudgetData += ignoredDatas.Count;
-            //    foreach(RowData<ColumnName, object> data in ignoredDatas) {
-            //        result.addError("transaction_budget_detail", new DbInsertFail() {
-            //            info = "Missing data in table [transaksi_budget], key (budget_id)=("+ data["budget_id"] + ")",
-            //            severity = DbInsertFail.DB_FAIL_SEVERITY_ERROR
-            //        });
-            //    }
-            //}
-            List<DbInsertFail> errors = skipsIfMissingReferences(
+            List<DbInsertFail> missingRefErrors = skipsIfMissingReferences(
                 "budget_id",
                 "transaksi_budget",
                 "budget_id",
                 connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
                 inputs
             );
-            if(errors.Count > 0) {
-                foreach(DbInsertFail err in errors) {
+            if(missingRefErrors.Count > 0) {
+                foreach(DbInsertFail err in missingRefErrors) {
                     Match match = Regex.Match(err.info, "(.*)key \\((.*)\\)=\\((.*)\\)");
                     string column = match.Groups[2].Value;
                     string id = match.Groups[3].Value;
                     allMissingBudgetIds.Add(Utils.obj2long(id));
                     result.addError("transaction_budget_detail", err);
                 }
-                //totalMissingBudgetData += errors.Count;
             }
             if(allMissingBudgetIds.Count > 0) {
-                //MyConsole.Warning("Total count of ignored data caused by \"missing data in table [transaksi_budget]\": " + totalMissingBudgetData);
                 MyConsole.Warning("Total count of ignored data caused by \"missing data in table [transaksi_budget]\": " + allMissingBudgetIds.Count);
             }
-            
-            List<long> unreferencedDataIds = getUnreferencedDataIds(inputs);
-            if(unreferencedDataIds.Count > 0) {
-                allUnreferencedDataIds.AddRange(unreferencedDataIds);
-                List<RowData<ColumnName, object>> ignoredDatas = inputs.Where(row => unreferencedDataIds.Any(unreferencedId => row.Any(map => map.Key == "budgetdetil_id" && Utils.obj2long(map.Value) == unreferencedId))).ToList();
-                inputs = inputs.Where(row => !unreferencedDataIds.Any(unreferencedId => row.Any(map => map.Key == "budgetdetil_id" && Utils.obj2long(map.Value) == unreferencedId))).ToList();
-                //totalUnreferencedData += ignoredDatas.Count;
-                foreach(RowData<ColumnName, object> data in ignoredDatas) {
-                    result.addError("transaction_budget_detail", new DbInsertFail() {
-                        info = "Having null column [budget_id] & [budgetdetil_date], key (budgetdetil_id)=(" + data["budgetdetil_id"] + ")",
-                        severity = DbInsertFail.DB_FAIL_SEVERITY_ERROR
-                    });
+
+            List<DbInsertFail> unreferencedErrors = skipsIfUnreferenced(inputs);
+            if(unreferencedErrors.Count > 0) {
+                foreach(DbInsertFail err in unreferencedErrors) {
+                    Match match = Regex.Match(err.info, "Data of \\[transaksi_budgetdetil\\] Key \\((.*)\\)=\\((.*)\\)(.*)");
+                    string column = match.Groups[1].Value;
+                    string id = match.Groups[2].Value;
+                    allUnreferencedDataIds.Add(Utils.obj2long(id));
+                    result.addError("transaction_budget_detail", err);
                 }
             }
             if(allUnreferencedDataIds.Count > 0) {
-                //MyConsole.Warning("Total count of ignored data caused by \"having null column [budget_id] & [budgetdetil_date]\": " + totalUnreferencedData);
                 MyConsole.Warning("Total count of ignored data caused by \"having null column [budget_id] & [budgetdetil_date]\": " + allUnreferencedDataIds.Count);
             }
 
@@ -222,26 +193,24 @@ namespace SurplusMigrator.Tasks {
             return result;
         }
 
-        public override MappedData additionalStaticData() {
-            return null;
-        }
-
-        public override void runDependencies() {
+        protected override void runDependencies() {
             new MasterBudgetAccount(connections).run();
         }
 
-        private List<long> getUnreferencedDataIds(List<RowData<ColumnName, object>> inputs) {
+        private List<DbInsertFail> skipsIfUnreferenced(List<RowData<ColumnName, object>> inputs) {
+            List<DbInsertFail> result = new List<DbInsertFail>();
             List<long> nullBudgetAndDateIds = new List<long>();
 
             foreach(RowData<ColumnName, object> row in inputs) {
                 long budget_id = Utils.obj2long(row["budget_id"]);
                 DateTime? budgetdetil_date = Utils.obj2datetimeNullable(row["budgetdetil_date"]);
-                if(budget_id==0 && budgetdetil_date == null) {
+                if(budget_id == 0 && budgetdetil_date == null) {
                     nullBudgetAndDateIds.Add(Utils.obj2long(row["budgetdetil_id"]));
                 }
             }
 
             if(nullBudgetAndDateIds.Count > 0) {
+                //check if the data is actually being referenced in skipsIfUnreferenced
                 SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault().GetDbConnection();
                 SqlCommand command = new SqlCommand("select jurnal_id, jurnaldetil_line, budgetdetil_id from [dbo].[transaksi_jurnaldetil] where budgetdetil_id in (" + String.Join(",", nullBudgetAndDateIds) + ")", conn);
                 SqlDataReader dataReader = command.ExecuteReader();
@@ -264,6 +233,7 @@ namespace SurplusMigrator.Tasks {
                 if(referencedDatas.Count > 0) {
                     throw new Exception("Some of transaksi_budgetdetil has budget_id=null and budgetdetil_date=null, but being referenced in transaksi_jurnaldetil([budgetdetil_id -> list of jurnal_id;jurnaldetil_line] map): " + JsonSerializer.Serialize(referencedDatas));
                 }
+                //end of - check if the data is actually being referenced in skipsIfUnreferenced
 
                 string filename = "log_(" + this.GetType().Name + ")_skipped_unreferenced_data_" + _startedAt.ToString("yyyyMMdd_HHmmss") + ".json";
                 string savePath = System.Environment.CurrentDirectory + "\\" + filename;
@@ -277,71 +247,20 @@ namespace SurplusMigrator.Tasks {
 
                 savedNullBudgetAndDateIds.AddRange(nullBudgetAndDateIds);
                 File.WriteAllText(savePath, JsonSerializer.Serialize(savedNullBudgetAndDateIds));
-                MyConsole.Warning("Skipped unreferenced data is found, see " + filename + " for more info");
+                //MyConsole.Warning("Skipped unreferenced data is found, see " + filename + " for more info");
+                inputs.RemoveAll(row => nullBudgetAndDateIds.Any(nullId => row.Any(map => map.Key == "budgetdetil_id" && Utils.obj2long(map.Value) == Utils.obj2long(nullId))));
+
+                foreach(long id in nullBudgetAndDateIds) {
+                    result.Add(new DbInsertFail() {
+                        info = "Data of [transaksi_budgetdetil] Key (budgetdetil_id)=("+id+") has budget_id=null, budgetdetil_date=null, and also not referenced in [transaksi_jurnaldetil]",
+                        status = DbInsertFail.DB_FAIL_SEVERITY_ERROR,
+                        loggedInFilename = filename
+                    });
+                }
             }
 
-            return nullBudgetAndDateIds;
+            return result;
         }
-
-        //private List<long> getMissingTransactionBudgetIds(List<RowData<ColumnName, object>> inputs) {
-        //    List<long> budgetIdsOfInputs = new List<long>();
-        //    foreach(RowData<ColumnName, object> row in inputs) {
-        //        long budget_id = Utils.obj2long(row["budget_id"]);
-        //        if(budget_id == 0) continue;
-        //        if(!budgetIdsOfInputs.Contains(budget_id)) {
-        //            budgetIdsOfInputs.Add(budget_id);
-        //        }
-        //    }
-
-        //    SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault().GetDbConnection();
-        //    SqlCommand command = new SqlCommand("select budget_id from [dbo].[transaksi_budget] where budget_id in (" +String.Join(",", budgetIdsOfInputs)+ ")", conn);
-        //    SqlDataReader dataReader = command.ExecuteReader();
-
-        //    List<long> queriedBudgetIds = new List<long>();
-        //    while(dataReader.Read()) {
-        //        long value = Utils.obj2long(dataReader.GetValue(dataReader.GetOrdinal("budget_id")));
-        //        queriedBudgetIds.Add(value);
-        //    }
-        //    dataReader.Close();
-        //    command.Dispose();
-
-        //    List<long> missingBudgetIds = new List<long>();
-        //    foreach(RowData<ColumnName, object> row in inputs) {
-        //        long budget_id = Utils.obj2long(row["budget_id"]);
-        //        if(budget_id == 0) continue;
-        //        if(queriedBudgetIds.Contains(budget_id)) continue;
-        //        if(!missingBudgetIds.Contains(budget_id)) {
-        //            missingBudgetIds.Add(budget_id);
-        //        }
-        //    }
-
-        //    if(missingBudgetIds.Count > 0) {
-        //        command = new SqlCommand("select jurnal_id, budget_id from [dbo].[transaksi_jurnal] where budget_id in (" + String.Join(",", missingBudgetIds) + ")", conn);
-        //        dataReader = command.ExecuteReader();
-
-        //        Dictionary<long, List<string>> missingBudgetReferencedIds = new Dictionary<long, List<string>>();
-        //        while(dataReader.Read()) {
-        //            string jurnal_id = Utils.obj2str(dataReader.GetValue(dataReader.GetOrdinal("jurnal_id")));
-        //            long budget_id = Utils.obj2long(dataReader.GetValue(dataReader.GetOrdinal("budget_id")));
-        //            if(missingBudgetIds.Contains(budget_id)) {
-        //                if(!missingBudgetReferencedIds.ContainsKey(budget_id)) {
-        //                    missingBudgetReferencedIds[budget_id] = new List<string>();
-        //                }
-        //                missingBudgetReferencedIds[budget_id].Add(jurnal_id);
-        //            }
-        //        }
-        //        dataReader.Close();
-        //        command.Dispose();
-
-        //        if(missingBudgetReferencedIds.Count > 0) {
-        //            throw new Exception("Some of transaksi_budget is missing, but being referenced in transaksi_jurnal ([budget_id -> list of jurnal_id] map): " + JsonSerializer.Serialize(missingBudgetReferencedIds));
-        //        }
-
-        //        MyConsole.Warning("Missing transaction_budget(ids): " + JsonSerializer.Serialize(missingBudgetIds));
-        //    }
-
-        //    return missingBudgetIds;
-        //}
 
         private List<long> fillsMissingCreationDate(List<RowData<ColumnName, object>> inputs) {
             List<long> missingCreationDateIds = new List<long>();
@@ -387,7 +306,7 @@ namespace SurplusMigrator.Tasks {
             return missingCreationDateIds;
         }
 
-        public void clearRemapping() {
+        public void clearRemappingCache() {
             IdRemapper.clearMapping("tbudget_detailid");
         }
     }
