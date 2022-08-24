@@ -23,11 +23,11 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = defaultBatchSize) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
             return new List<RowData<string, object>>();
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             return new MappedData();
         }
 
@@ -36,9 +36,9 @@ namespace SurplusMigrator.Tasks {
 
             result.addData(
                 "master_journal_reference_type",
-                new RowData<ColumnName, Data>() {
-                    { "journalreferencetypeid", "ChangeUser"},
-                    { "name",  "ChangeUser"},
+                new RowData<ColumnName, object>() {
+                    { "journalreferencetypeid", "change_user"},
+                    { "name",  "Change User"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
@@ -46,8 +46,8 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_journal_reference_type",
-                new RowData<ColumnName, Data>() {
-                    { "journalreferencetypeid", "Jurnal AP"},
+                new RowData<ColumnName, object>() {
+                    { "journalreferencetypeid", "jurnal_ap"},
                     { "name",  "Jurnal AP"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
@@ -56,8 +56,8 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_journal_reference_type",
-                new RowData<ColumnName, Data>() {
-                    { "journalreferencetypeid", "jurnal BPB"},
+                new RowData<ColumnName, object>() {
+                    { "journalreferencetypeid", "jurnal_bpb"},
                     { "name",  "jurnal BPB"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
@@ -66,8 +66,8 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_journal_reference_type",
-                new RowData<ColumnName, Data>() {
-                    { "journalreferencetypeid", "jurnal BPJ"},
+                new RowData<ColumnName, object>() {
+                    { "journalreferencetypeid", "jurnal_bpj"},
                     { "name",  "jurnal BPJ"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
@@ -76,8 +76,8 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_journal_reference_type",
-                new RowData<ColumnName, Data>() {
-                    { "journalreferencetypeid", "Jurnal JV"},
+                new RowData<ColumnName, object>() {
+                    { "journalreferencetypeid", "jurnal_jv"},
                     { "name",  "Jurnal JV"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
@@ -86,8 +86,8 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_journal_reference_type",
-                new RowData<ColumnName, Data>() {
-                    { "journalreferencetypeid", "PAYMENT"},
+                new RowData<ColumnName, object>() {
+                    { "journalreferencetypeid", "payment"},
                     { "name",  "PAYMENT"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
@@ -96,8 +96,8 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_journal_reference_type",
-                new RowData<ColumnName, Data>() {
-                    { "journalreferencetypeid", "RECEIPT"},
+                new RowData<ColumnName, object>() {
+                    { "journalreferencetypeid", "receipt"},
                     { "name",  "RECEIPT"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
@@ -106,8 +106,8 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_journal_reference_type",
-                new RowData<ColumnName, Data>() {
-                    { "journalreferencetypeid", "SALES"},
+                new RowData<ColumnName, object>() {
+                    { "journalreferencetypeid", "sales"},
                     { "name",  "SALES"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
@@ -116,8 +116,8 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_journal_reference_type",
-                new RowData<ColumnName, Data>() {
-                    { "journalreferencetypeid", "SETTLEMENT"},
+                new RowData<ColumnName, object>() {
+                    { "journalreferencetypeid", "settlement"},
                     { "name",  "SETTLEMENT"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},

@@ -68,11 +68,11 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = defaultBatchSize) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
             return sourceTables.Where(a => a.tableName == "master_projectacc").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             Dictionary<idNameTag, newId> remappedIdNames = new Dictionary<idNameTag, newId>() {
@@ -81,7 +81,7 @@ namespace SurplusMigrator.Tasks {
                 { "5040602300;Di EO Promotion - Umbul-Umbul", "5040602301" },
             };
 
-            foreach(RowData<ColumnName, Data> data in inputs) {
+            foreach(RowData<ColumnName, object> data in inputs) {
                 string idNameTag = data["projectacc_id"].ToString()+";"+ data["projectacc_name"];
                 string budgetaccountid = data["projectacc_id"].ToString();
                 if(remappedIdNames.ContainsKey(idNameTag)) {
@@ -91,7 +91,7 @@ namespace SurplusMigrator.Tasks {
 
                 result.addData(
                     "master_budget_account",
-                    new RowData<ColumnName, Data>() {
+                    new RowData<ColumnName, object>() {
                         { "budgetaccountid",  budgetaccountid},
                         { "name",  data["projectacc_name"]},
                         { "isgroup",  Utils.obj2bool(data["projectacc_isgroup"]) },
@@ -122,7 +122,7 @@ namespace SurplusMigrator.Tasks {
 
             result.addData(
                 "master_budget_account",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                         { "budgetaccountid",  "7074010"},
                         { "name",  "Unkown-7074010"},
                         { "isgroup",  false },

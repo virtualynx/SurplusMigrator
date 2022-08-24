@@ -2,7 +2,6 @@ using LinqKit;
 using Microsoft.Data.SqlClient;
 using Npgsql;
 using NpgsqlTypes;
-//using Serilog;
 using SurplusMigrator.Libraries;
 using System;
 using System.Collections.Generic;
@@ -32,79 +31,8 @@ namespace SurplusMigrator.Models
 
         public Table() { }
 
-        public long getDataCount() {
-            if(dataCount == -1) {
-                if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                    SqlConnection conn = (SqlConnection)connection.GetDbConnection();
-                    SqlCommand command = new SqlCommand("SELECT COUNT(*) FROM " + connection.GetDbLoginInfo().schema + "." + tableName, conn);
-                    SqlDataReader reader = command.ExecuteReader();
-                    reader.Read();
-                    dataCount = Convert.ToInt64(reader.GetValue(0));
-
-                    reader.Close();
-                    command.Dispose();
-                } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                    NpgsqlConnection conn = (NpgsqlConnection)connection.GetDbConnection();
-                    NpgsqlCommand command = new NpgsqlCommand("SELECT reltuples::bigint AS estimate FROM pg_class WHERE oid = '" + connection.GetDbLoginInfo().schema + "." + tableName + "'::regclass", conn);
-                    //NpgsqlDataReader reader = command.ExecuteReader();
-                    //reader.Read();
-                    //dataCount = Convert.ToInt64(reader.GetValue(0));
-
-                    //NpgsqlCommand command = new NpgsqlCommand("VACUUM(ANALYZE, VERBOSE, FULL) \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"", conn);
-                    //command.ExecuteNonQuery();
-                    //command.Dispose();
-                    //command = new NpgsqlCommand("SELECT COUNT(*) FROM " + connection.GetDbLoginInfo().schema + "." + tableName, conn);
-                    dataCount = (Int64)command.ExecuteScalar();
-
-                    //reader.Close();
-                    command.Dispose();
-                }
-            }
-
-            return dataCount;
-        }
-
-        public ColumnType<ColumnName, DataType> getColumnTypes() {
-            if(columnTypes == null) {
-                columnTypes = new ColumnType<ColumnName, string>();
-
-                if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                    SqlConnection conn = (SqlConnection)connection.GetDbConnection();
-                    SqlCommand command = new SqlCommand("select [" + String.Join("],[", columns) + "] from [" + connection.GetDbLoginInfo().schema + "].[" + tableName + "]", conn);
-                    SqlDataReader reader = command.ExecuteReader();
-
-                    foreach(string columnName in columns) {
-                        columnTypes.Add(columnName, reader.GetDataTypeName(reader.GetOrdinal(columnName)));
-                    }
-
-                    reader.Close();
-                    command.Dispose();
-                } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                    NpgsqlConnection conn = (NpgsqlConnection)connection.GetDbConnection();
-                    //NpgsqlCommand command = new NpgsqlCommand("select " + String.Join(",", columns) + " from \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" limit 1", conn); ;
-                    NpgsqlCommand command = new NpgsqlCommand("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema='" + connection.GetDbLoginInfo().schema + "' AND table_name = '" + tableName + "'", conn); ;
-                    NpgsqlDataReader reader = command.ExecuteReader();
-
-                    //foreach(string columnName in columns) {
-                    //    columnTypes.Add(columnName, reader.GetDataTypeName(reader.GetOrdinal(columnName)));
-                    //}
-
-                    while(reader.Read()) {
-                        string column_name = reader.GetValue(reader.GetOrdinal("column_name")).ToString();
-                        string data_type = reader.GetValue(reader.GetOrdinal("data_type")).ToString();
-                        columnTypes[column_name] = data_type;
-                    }
-
-                    reader.Close();
-                    command.Dispose();
-                }
-            }
-
-            return columnTypes;
-        }
-
-        public List<RowData<ColumnName, Data>> getDatas(int batchSize) {
-            List<RowData<ColumnName, Data>> result = new List<RowData<ColumnName, Data>> ();
+        public List<RowData<ColumnName, object>> getDatas(int batchSize) {
+            List<RowData<ColumnName, object>> result = new List<RowData<ColumnName, object>> ();
 
             //check for first time run/batchSize has changed
             if(lastBatchSize != batchSize) {
@@ -117,10 +45,10 @@ namespace SurplusMigrator.Models
             //check if all batch already fetched
             if(fetchBatchMax != -1 && fetchBatchCounter > fetchBatchMax) {
                 fetchBatchCounter = 1;
-                return new List<RowData<ColumnName, Data>>();
+                return new List<RowData<ColumnName, object>>();
             }
 
-            MyConsole.Write("Batch-"+ fetchBatchCounter + "/"+ fetchBatchMax + ", fetch data from "+tableName+" ... ");
+            MyConsole.Write("Batch-"+ fetchBatchCounter + "/"+ fetchBatchMax + "("+getProgressPercentage().ToString("0.0") + "%), fetch data from "+tableName+" ... ");
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 SqlConnection conn = (SqlConnection)connection.GetDbConnection();
 
@@ -149,7 +77,7 @@ namespace SurplusMigrator.Models
                 dataReader = command.ExecuteReader();
 
                 while(dataReader.Read()) {
-                    RowData<ColumnName, Data> rowData = new RowData<ColumnName, Data>();
+                    RowData<ColumnName, object> rowData = new RowData<ColumnName, object>();
                     for(int a = 0; a < columns.Length; a++) {
                         var value = dataReader.GetValue(dataReader.GetOrdinal(columns[a]));
                         if(value.GetType() == typeof(System.DBNull)) {
@@ -174,72 +102,79 @@ namespace SurplusMigrator.Models
             return result;
         }
 
-        public TaskInsertStatus insertData(List<RowData<ColumnName, Data>> inputs, bool truncateBeforeInsert, int batchSize, bool autoGenerateId) {
+        public TaskInsertStatus insertData(List<RowData<ColumnName, object>> inputs, bool truncateBeforeInsert, bool autoGenerateId = false) {
             TaskInsertStatus result = new TaskInsertStatus();
             List<DbInsertFail> failures = new List<DbInsertFail>();
-            result.failures = failures;
+            result.errors = failures;
 
-            if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                throw new System.NotImplementedException();
-            } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                NpgsqlConnection conn = (NpgsqlConnection)connection.GetDbConnection();
-                NpgsqlCommand command = null;
+            if(truncateBeforeInsert && !isAlreadyTruncated && getDataCount() > 0) {
+                truncate();
+                isAlreadyTruncated = true;
+            }
 
-                if(truncateBeforeInsert && !isAlreadyTruncated && getDataCount() > 0) {
-                    truncate();
-                    isAlreadyTruncated = true;
+            //check & omit if attempted insert data is already in table
+            if(!autoGenerateId) {
+                omitDuplicatedData(failures, inputs);
+                if(inputs.Count == 0) { //all data are duplicates
+                    return result;
+                }
+            }
+
+            //start inserting data
+            string[] targetColumns;
+            if(autoGenerateId) {
+                targetColumns = columns.Where(a => ids.Any(b => b != a)).ToArray();
+            } else {
+                targetColumns = columns;
+            }
+
+            ColumnType<ColumnName, DataType> columnType = getColumnTypes();
+
+            List<string> sqlParams = new List<string>();
+            List<Dictionary<ParamNotation, TypedData>> sqlArguments = new List<Dictionary<ParamNotation, TypedData>>();
+            long insertedCount = 0;
+            int batchSize = 0;
+            for(int rowNum = 1; rowNum <= inputs.Count; rowNum++) {
+                RowData<ColumnName, object> rowData = inputs[rowNum - 1];
+
+                string param = "";
+                Dictionary<ParamNotation, TypedData> arg = new Dictionary<ParamNotation, TypedData>();
+                foreach(string columnName in targetColumns) {
+                    object data = rowData[columnName];
+                    ParamNotation paramNotation = "@" + columnName + "_" + rowNum;
+                    arg[paramNotation] = new TypedData() {
+                        data = data == null ? DBNull.Value : data,
+                        type = columnType[columnName]
+                    };
+                    param += (param.Length > 0 ? "," : "") + paramNotation;
+                }
+                param = "(" + param + ")";
+                sqlParams.Add(param);
+                sqlArguments.Add(arg);
+
+                if(batchSize == 0) {
+                    batchSize = 65535 / sqlArguments[0].Count;
                 }
 
-                //check if attempted insert data is already in table
-                if(!autoGenerateId) {
-                    omitDuplicatedData(failures, inputs);
-                    if(inputs.Count == 0) { //all data are duplicates
-                        return result;
-                    }
-                }
+                //insert upon meeting the batch-quota
+                if(rowNum % batchSize == 0 || (rowNum == inputs.Count && sqlParams.Count > 0)) {
+                    bool retryInsert;
+                    do {
+                        if(sqlParams.Count == 0 && sqlArguments.Count == 0) { //occured when all data are omitted because of errors
+                            break;
+                        }
+                        retryInsert = false;
+                        long affectedRowCount = 0;
 
-                //start inserting data
-                string[] targetColumns;
-                if(autoGenerateId) {
-                    targetColumns = columns.Where(a => ids.Any(b => b != a)).ToArray();
-                } else {
-                    targetColumns = columns;
-                }
-                string sql = "INSERT INTO \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"(\"" + String.Join("\",\"", targetColumns) + "\") VALUES ";
-                ColumnType<ColumnName, DataType> columnType = getColumnTypes();
-                List<string> sqlParams = new List<string>();
-                List<Dictionary<ParamNotation, TypedData>> sqlArguments = new List<Dictionary<ParamNotation, TypedData>>();
-                for(int rowNum = 1; rowNum <= inputs.Count; rowNum++) {
-                    RowData<ColumnName, Data> rowData = inputs[rowNum - 1];
+                        //List<string> loggingDetailArray = new List<string>();
+                        if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                            throw new System.NotImplementedException();
+                        } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                            NpgsqlConnection conn = (NpgsqlConnection)connection.GetDbConnection();
 
-                    string p = "";
-                    Dictionary<ParamNotation, TypedData> sqlArgument = new Dictionary<ParamNotation, TypedData>();
-                    foreach(string columnName in targetColumns) {
-                        object data = rowData[columnName];
-                        ParamNotation paramNotation = "@" + columnName + "_" + rowNum;
-                        sqlArgument.Add(
-                            paramNotation, 
-                            new TypedData() {
-                                data = data == null ? DBNull.Value : data,
-                                type = columnType[columnName]
-                            }
-                        );
-                        p += (p.Length > 0 ? "," : "") + paramNotation;
-                    }
-                    p = "(" + p + ")";
-                    sqlParams.Add(p);
-                    sqlArguments.Add(sqlArgument);
+                            string sql = "INSERT INTO \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"(\"" + String.Join("\",\"", targetColumns) + "\") VALUES ";
+                            NpgsqlCommand command = new NpgsqlCommand(sql + String.Join(',', sqlParams), conn);
 
-                    //insert upon meeting the batch-quota
-                    if(rowNum % batchSize == 0 || (rowNum == inputs.Count && sqlParams.Count > 0)) {
-                        bool retryInsert;
-                        do {
-                            if(sqlParams.Count==0 && sqlArguments.Count == 0) { //occured when all data are omitted because of errors
-                                break;
-                            }
-                            retryInsert = false;
-                            command = new NpgsqlCommand(sql + String.Join(',', sqlParams), conn);
-                            //List<string> loggingDetailArray = new List<string>();
                             foreach(Dictionary<ParamNotation, TypedData> argument in sqlArguments) {
                                 //string q = "";
                                 foreach(KeyValuePair<ParamNotation, TypedData> entry in argument) {
@@ -251,10 +186,10 @@ namespace SurplusMigrator.Models
                                 //loggingDetailArray.Add(q);
                             }
                             //string loggingDetail = String.Join('\n', loggingDetailArray);
+
                             try {
-                                long affected = command.ExecuteNonQuery();
-                                result.successCount += affected;
-                                MyConsole.WriteLine(affected + " data inserted into " + tableName);
+                                affectedRowCount = command.ExecuteNonQuery();
+                                insertedCount += affectedRowCount;
                             } catch(PostgresException e) {
                                 if(
                                     e.Message.Contains("insert or update on table")
@@ -274,7 +209,6 @@ namespace SurplusMigrator.Models
                                     throw new Exception("Unique constraint violation upon insert into " + tableName + ": " + e.Detail);
                                 } else {
                                     //Log.Logger.Error(e, "SQL error upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
-                                    //Log.Logger.Error(e, "SQL error upon insert into " + tableName + ": " + e.Detail);
                                     MyConsole.Error(e, "SQL error upon insert into " + tableName + ": " + e.Detail);
                                     throw;
                                 }
@@ -282,23 +216,97 @@ namespace SurplusMigrator.Models
                                 if(e.Message == "A statement cannot have more than 65535 parameters") {
                                     int rowCount = sqlArguments.Count;
                                     int paramCount = sqlArguments[0].Count;
-                                    //Log.Logger.Error("SQL error upon insert into " + tableName + ": " + e.Message + " (" + rowCount + " rows, " + paramCount + " params each row, " +(rowCount*paramCount)+ " total params)");
                                     MyConsole.Error("SQL error upon insert into " + tableName + ": " + e.Message + " (" + rowCount + " rows, " + paramCount + " params each row, " + (rowCount * paramCount) + " total params)");
                                 }
                                 throw;
                             } catch(Exception e) {
                                 throw;
-                            } finally { 
+                            } finally {
                                 command.Dispose();
                             }
-                        } while(retryInsert);
-                        sqlParams.Clear();
-                        sqlArguments.Clear();
-                    }
+                        }
+                        result.successCount += affectedRowCount;
+                        MyConsole.EraseLine();
+                        MyConsole.Write(insertedCount + "/"+inputs.Count+" data inserted into " + tableName);
+                    } while(retryInsert);
+                    sqlParams.Clear();
+                    sqlArguments.Clear();
                 }
             }
 
             return result;
+        }
+
+        public double getProgressPercentage() {
+            return (Convert.ToDouble(fetchBatchCounter) / Convert.ToDouble(fetchBatchMax)) * 100.00;
+        }
+
+        public long getDataCount() {
+            if(dataCount == -1) {
+                if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                    SqlConnection conn = (SqlConnection)connection.GetDbConnection();
+                    SqlCommand command = new SqlCommand("SELECT COUNT(*) FROM " + connection.GetDbLoginInfo().schema + "." + tableName, conn);
+                    SqlDataReader reader = command.ExecuteReader();
+                    reader.Read();
+                    dataCount = Convert.ToInt64(reader.GetValue(0));
+
+                    reader.Close();
+                    command.Dispose();
+                } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                    NpgsqlConnection conn = (NpgsqlConnection)connection.GetDbConnection();
+                    //NpgsqlCommand command = new NpgsqlCommand("SELECT reltuples::bigint AS estimate FROM pg_class WHERE oid = '" + connection.GetDbLoginInfo().schema + "." + tableName + "'::regclass", conn);
+                    //NpgsqlDataReader reader = command.ExecuteReader();
+                    //reader.Read();
+                    //dataCount = Convert.ToInt64(reader.GetValue(0));
+
+                    //NpgsqlCommand command = new NpgsqlCommand("VACUUM(ANALYZE, VERBOSE, FULL) \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"", conn);
+                    //command.ExecuteNonQuery();
+                    //command.Dispose();
+                    //command = new NpgsqlCommand("SELECT COUNT(*) FROM " + connection.GetDbLoginInfo().schema + "." + tableName, conn);
+                    
+                    NpgsqlCommand command = new NpgsqlCommand("SELECT n_live_tup FROM pg_stat_user_tables WHERE schemaname = '" + connection.GetDbLoginInfo().schema + "' AND relname = '" + tableName + "'", conn);
+                    dataCount = (Int64)command.ExecuteScalar();
+
+                    //reader.Close();
+                    command.Dispose();
+                }
+            }
+
+            return dataCount;
+        }
+
+        public ColumnType<ColumnName, DataType> getColumnTypes() {
+            if(columnTypes == null) {
+                columnTypes = new ColumnType<ColumnName, string>();
+
+                if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                    SqlConnection conn = (SqlConnection)connection.GetDbConnection();
+                    SqlCommand command = new SqlCommand("select [" + String.Join("],[", columns) + "] from [" + connection.GetDbLoginInfo().schema + "].[" + tableName + "]", conn);
+                    SqlDataReader reader = command.ExecuteReader();
+
+                    foreach(string columnName in columns) {
+                        columnTypes.Add(columnName, reader.GetDataTypeName(reader.GetOrdinal(columnName)));
+                    }
+
+                    reader.Close();
+                    command.Dispose();
+                } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                    NpgsqlConnection conn = (NpgsqlConnection)connection.GetDbConnection();
+                    NpgsqlCommand command = new NpgsqlCommand("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema='" + connection.GetDbLoginInfo().schema + "' AND table_name = '" + tableName + "'", conn); ;
+                    NpgsqlDataReader reader = command.ExecuteReader();
+
+                    while(reader.Read()) {
+                        string column_name = reader.GetValue(reader.GetOrdinal("column_name")).ToString();
+                        string data_type = reader.GetValue(reader.GetOrdinal("data_type")).ToString();
+                        columnTypes[column_name] = data_type;
+                    }
+
+                    reader.Close();
+                    command.Dispose();
+                }
+            }
+
+            return columnTypes;
         }
 
         private NpgsqlDbType getPostgreColumnType(string columnName) {
@@ -328,7 +336,7 @@ namespace SurplusMigrator.Models
             string columnName = getColumnNameFromParamNotation(paramNotation);
             NpgsqlDbType columnDbType = getPostgreColumnType(columnName);
 
-            if(data.GetType() == typeof(Decimal) && (columnDbType == NpgsqlDbType.Varchar || columnDbType == NpgsqlDbType.Text)) {
+            if(data.GetType() == typeof(decimal) && (columnDbType == NpgsqlDbType.Varchar || columnDbType == NpgsqlDbType.Text)) {
                 data = data.ToString();
             }
 
@@ -363,8 +371,7 @@ namespace SurplusMigrator.Models
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 throw new System.NotImplementedException();
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                MyConsole.Write("Truncating \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + options + " ... ");
-                Console.WriteLine("Done");
+                MyConsole.Information("Truncate \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + options);
                 NpgsqlCommand command = new NpgsqlCommand("TRUNCATE TABLE \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + options, (NpgsqlConnection)connection.GetDbConnection());
                 command.CommandTimeout = 300;
                 command.ExecuteNonQuery();
@@ -372,13 +379,13 @@ namespace SurplusMigrator.Models
             }
         }
 
-        private void omitDuplicatedData(List<DbInsertFail> failures, List<RowData<ColumnName, Data>> inputs) {
+        private void omitDuplicatedData(List<DbInsertFail> failures, List<RowData<ColumnName, object>> inputs) {
             string sqlSelect = "select " + String.Join(",", ids) + " from \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" where (" + String.Join(",", ids) + ") in";
             List<string> sqlSelectParams = new List<string>();
-            Dictionary<ParamNotation, Data> sqlSelectArgs = new Dictionary<ParamNotation, Data>();
-            List<RowData<ColumnName, Data>> selectResults = new List<RowData<ColumnName, Data>>();
+            Dictionary<ParamNotation, object> sqlSelectArgs = new Dictionary<ParamNotation, object>();
+            List<RowData<ColumnName, object>> selectResults = new List<RowData<ColumnName, object>>();
             for(int rowNum = 1; rowNum <= inputs.Count; rowNum++) {
-                RowData<ColumnName, Data> rowData = inputs[rowNum - 1];
+                RowData<ColumnName, object> rowData = inputs[rowNum - 1];
                 List<string> paramTemp = new List<string>();
                 foreach(string idColumn in ids) {
                     ParamNotation paramNotation = "@" + idColumn + "_" + rowNum;
@@ -392,12 +399,12 @@ namespace SurplusMigrator.Models
                 throw new System.NotImplementedException();
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                 NpgsqlCommand command = new NpgsqlCommand(sqlSelect + "(" + String.Join(',', sqlSelectParams) + ")", (NpgsqlConnection)connection.GetDbConnection());
-                foreach(KeyValuePair<ParamNotation, Data> entry in sqlSelectArgs) {
+                foreach(KeyValuePair<ParamNotation, object> entry in sqlSelectArgs) {
                     postgreCommandAddParamWithValue(command, entry.Key, entry.Value);
                 }
                 NpgsqlDataReader dataReader = command.ExecuteReader();
                 while(dataReader.Read()) {
-                    RowData<ColumnName, Data> rowData = new RowData<ColumnName, Data>();
+                    RowData<ColumnName, object> rowData = new RowData<ColumnName, object>();
                     foreach(string id in ids) {
                         var value = dataReader.GetValue(dataReader.GetOrdinal(id));
                         if(value.GetType() == typeof(System.DBNull)) {
@@ -413,26 +420,27 @@ namespace SurplusMigrator.Models
                 command.Dispose();
             }
 
-            List<RowData<ColumnName, Data>> duplicatedDatas = new List<RowData<ColumnName, Data>>();
-            foreach(RowData<ColumnName, Data> rowSelect in selectResults) {
-                var predicate = PredicateBuilder.New<RowData<ParamNotation, Data>>();
+            List<RowData<ColumnName, object>> duplicatedDatas = new List<RowData<ColumnName, object>>();
+            foreach(RowData<ColumnName, object> rowSelect in selectResults) {
+                var predicate = PredicateBuilder.New<RowData<ParamNotation, object>>();
                 foreach(string id in ids) {
                     predicate = predicate.And(rowData => rowData[id].ToString().Trim() == rowSelect[id].ToString().Trim());
                 }
-                RowData<ColumnName, Data> duplicate = inputs.Where(predicate).FirstOrDefault();
+                RowData<ColumnName, object> duplicate = inputs.Where(predicate).FirstOrDefault();
                 if(duplicate != null) {
                     duplicatedDatas.Add(duplicate);
                     inputs.Remove(duplicate);
                     DbInsertFail insertfailInfo = new DbInsertFail() {
                         info = "Data already exists upon insert into " + tableName + ", value: " + JsonSerializer.Serialize(rowSelect),
-                        severity = Misc.DB_FAIL_SEVERITY_WARNING
+                        severity = DbInsertFail.DB_FAIL_SEVERITY_WARNING
                     };
                     failures.Add(insertfailInfo);
                 }
             }
 
             if(duplicatedDatas.Count > 0) {
-                MyConsole.WriteLine("Skipping " + duplicatedDatas.Count + " duplicated data upon inserting into " + tableName);
+                MyConsole.EraseLine();
+                MyConsole.Warning("Skipping " + duplicatedDatas.Count + " duplicated data upon inserting into " + tableName);
             }
         }
 
@@ -467,13 +475,13 @@ namespace SurplusMigrator.Models
                 DbInsertFail insertfailInfo = new DbInsertFail() {
                     exception = e,
                     info = "Foreignkey constraint violation upon insert into " + tableName + ", " + e.Detail + ", value: " + JsonSerializer.Serialize(arg),
-                    severity = Misc.DB_FAIL_SEVERITY_ERROR
+                    severity = DbInsertFail.DB_FAIL_SEVERITY_ERROR
                 };
                 failures.Add(insertfailInfo);
             }
 
             if(filteredArguments.Count > 0) {
-                //Log.Logger.Error("Error upon insert into " + tableName + ", " + e.Detail + "(" + filteredArguments.Count + " data)");
+                MyConsole.EraseLine();
                 MyConsole.Error("Error upon insert into " + tableName + ", " + e.Detail + "(" + filteredArguments.Count + " data)");
             }
         }
@@ -508,13 +516,12 @@ namespace SurplusMigrator.Models
                 DbInsertFail insertfailInfo = new DbInsertFail() {
                     exception = e,
                     info = "Not-Null constraint violation upon insert into " + tableName + ", " + e.MessageText + ", value: " + JsonSerializer.Serialize(arg),
-                    severity = Misc.DB_FAIL_SEVERITY_ERROR
+                    severity = DbInsertFail.DB_FAIL_SEVERITY_ERROR
                 };
                 failures.Add(insertfailInfo);
             }
 
             if(filteredArguments.Count > 0) {
-                //Log.Logger.Error("Error upon insert into " + tableName + ", " + e.MessageText + "(" + filteredArguments.Count + " data)");
                 MyConsole.Error("Error upon insert into " + tableName + ", " + e.MessageText + "(" + filteredArguments.Count + " data)");
             }
         }

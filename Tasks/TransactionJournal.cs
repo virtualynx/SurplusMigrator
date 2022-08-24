@@ -97,16 +97,16 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
             return sourceTables.Where(a => a.tableName == "transaksi_jurnal").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             nullifyMissingReferences("rekanan_id", "master_rekanan", "rekanan_id", connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(), inputs);
 
-            foreach(RowData<ColumnName, Data> data in inputs) {
+            foreach(RowData<ColumnName, object> data in inputs) {
                 string tbudgetid = null;
                 if(Utils.obj2int(data["budget_id"]) > 0) {
                     tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
@@ -114,8 +114,8 @@ namespace SurplusMigrator.Tasks {
 
                 result.addData(
                     "transaction_journal",
-                    new RowData<ColumnName, Data>() {
-                        { "tjournalid",  data["jurnal_id"]},
+                    new RowData<ColumnName, object>() {
+                        { "tjournalid",  Utils.obj2str(data["jurnal_id"]).ToUpper()},
                         { "bookdate",  data["jurnal_bookdate"]},
                         { "duedate",  data["jurnal_duedate"]},
                         { "billdate",  data["jurnal_billdate"]},
@@ -175,7 +175,7 @@ namespace SurplusMigrator.Tasks {
             new MasterVendorCategory(connections).run();
             new MasterVendorType(connections).run();
             new MasterVendor(connections).run();
-            new TransactionBudget(connections).run(false, 1169);
+            new TransactionBudget(connections).run(true);
         }
     }
 }

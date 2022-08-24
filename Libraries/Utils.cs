@@ -20,7 +20,7 @@ namespace SurplusMigrator.Libraries {
         }
         public static string obj2str(object o) {
             if(o == null) return null;
-            string result = o.ToString();
+            string result = o.ToString().Trim();
             if(result.Length == 0) return null;
             return result;
         }
@@ -32,9 +32,12 @@ namespace SurplusMigrator.Libraries {
             if(o == null) return null;
             return Convert.ToDateTime(o);
         }
-        public static string getElapsedTimeString(long milliseconds) {
-            //return TimeSpan.FromMilliseconds(milliseconds).ToString(@"hh\:mm\:ss\.fff");
-            return TimeSpan.FromMilliseconds(milliseconds).ToString(@"hh\:mm\:ss");
+        public static string getElapsedTimeString(long milliseconds, bool showMilliseconds = false) {
+            string format = @"hh\:mm\:ss";
+            if(showMilliseconds) {
+                format = @"hh\:mm\:ss\.fff";
+            }
+            return TimeSpan.FromMilliseconds(milliseconds).ToString(format);
         }
     }
 }

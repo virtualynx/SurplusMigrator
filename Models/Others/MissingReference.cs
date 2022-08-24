@@ -10,6 +10,7 @@ namespace SurplusMigrator.Models.Others
         public string foreignColumnName { get; set; }
         public string referencedTableName { get; set; }
         public string referencedColumnName { get; set; }
-        public List<object> ids { get; set; } = new List<object>();
+        public List<dynamic> referencedIds { get; set; } = new List<dynamic>();
+        public List<dynamic> skippedIds { get; set; } = new List<dynamic>();
     }
 }

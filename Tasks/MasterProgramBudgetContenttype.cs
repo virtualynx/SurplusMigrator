@@ -23,11 +23,11 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = defaultBatchSize) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
             return new List<RowData<string, object>>();
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             return new MappedData();
         }
 
@@ -36,7 +36,7 @@ namespace SurplusMigrator.Tasks {
 
             result.addData(
                 "master_program_budget_contenttype",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "programbudgetcontenttypeid",  1},
                     { "name",  "Program"},
                     { "created_date",  DateTime.Now},
@@ -46,7 +46,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_program_budget_contenttype",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "programbudgetcontenttypeid",  2},
                     { "name",  "Digital"},
                     { "created_date",  DateTime.Now},
@@ -56,7 +56,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_program_budget_contenttype",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "programbudgetcontenttypeid",  3},
                     { "name",  "Media Trans"},
                     { "created_date",  DateTime.Now},
@@ -66,7 +66,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_program_budget_contenttype",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "programbudgetcontenttypeid",  4},
                     { "name",  "News"},
                     { "created_date",  DateTime.Now},

@@ -35,15 +35,15 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
             return sourceTables.Where(a => a.tableName == "master_source").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
-            foreach(RowData<ColumnName, Data> data in inputs) {
-                RowData<ColumnName, Data> insertRow = new RowData<ColumnName, Data>() {
+            foreach(RowData<ColumnName, object> data in inputs) {
+                RowData<ColumnName, object> insertRow = new RowData<ColumnName, object>() {
                     { "sourceid",  data["source_id"]},
                     { "description",  data["source_descr"]},
                     { "transactiontypeid",  data["type_id"]},
@@ -62,7 +62,7 @@ namespace SurplusMigrator.Tasks {
 
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "AP-ListManual"},
                     { "description",  "AP-ListManual"},
                     { "transactiontypeid",  "AP"},
@@ -73,7 +73,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "AP-ListPayment"},
                     { "description",  "AP-ListPayment"},
                     { "transactiontypeid",  "AP"},
@@ -84,7 +84,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "AP-ListPV"},
                     { "description",  "AP-ListPV"},
                     { "transactiontypeid",  "AP"},
@@ -95,7 +95,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "AP-ListSA"},
                     { "description",  "AP-ListSA"},
                     { "transactiontypeid",  "AP"},
@@ -106,7 +106,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "AP-Migrasi"},
                     { "description",  "AP-Migrasi"},
                     { "transactiontypeid",  "AP"},
@@ -117,7 +117,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "CN-ListSA"},
                     { "description",  "CN-ListSA"},
                     { "transactiontypeid",  "CN"},
@@ -128,7 +128,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "JV-Asset"},
                     { "description",  "JV-Asset"},
                     { "transactiontypeid",  "JV"},
@@ -139,7 +139,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "JV-ListAP"},
                     { "description",  "JV-ListAP"},
                     { "transactiontypeid",  "JV"},
@@ -150,7 +150,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "JV-ListPV"},
                     { "description",  "JV-ListPV"},
                     { "transactiontypeid",  "JV"},
@@ -161,7 +161,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "JV-Migrasi"},
                     { "description",  "JV-Migrasi"},
                     { "transactiontypeid",  "JV"},
@@ -172,7 +172,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "JV-NettOff"},
                     { "description",  "JV-NettOff"},
                     { "transactiontypeid",  "JV"},
@@ -183,7 +183,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "JV-Payment"},
                     { "description",  "JV-Payment"},
                     { "transactiontypeid",  "JV"},
@@ -194,7 +194,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "JV-Reval"},
                     { "description",  "JV-Reval"},
                     { "transactiontypeid",  "JV"},
@@ -205,7 +205,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "OC-Migrasi"},
                     { "description",  "OC-Migrasi"},
                     { "transactiontypeid",  "OC"},
@@ -216,7 +216,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "OR-Billing"},
                     { "description",  "OR-Billing"},
                     { "transactiontypeid",  "OR"},
@@ -227,7 +227,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "OR-FullRefund"},
                     { "description",  "OR-FullRefund"},
                     { "transactiontypeid",  "OR"},
@@ -238,7 +238,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "OR-Migrasi"},
                     { "description",  "OR-Migrasi"},
                     { "transactiontypeid",  "OR"},
@@ -249,7 +249,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "PV-ListOR"},
                     { "description",  "PV-ListOR"},
                     { "transactiontypeid",  "PV"},
@@ -260,7 +260,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "PV-ListST"},
                     { "description",  "PV-ListST"},
                     { "transactiontypeid",  "PV"},
@@ -271,7 +271,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "PV-Migrasi"},
                     { "description",  "PV-Migrasi"},
                     { "transactiontypeid",  "PV"},
@@ -282,7 +282,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "RV-ListBPB"},
                     { "description",  "RV-ListBPB"},
                     { "transactiontypeid",  "RV"},
@@ -293,7 +293,7 @@ namespace SurplusMigrator.Tasks {
             );
             //result.addData(
             //    "master_source",
-            //    new RowData<ColumnName, Data>() {
+            //    new RowData<ColumnName, object>() {
             //        { "sourceid",  "RV-ListBPJ"},
             //        { "description",  "RV-ListBPJ"},
             //        { "transactiontypeid",  "RV"},
@@ -304,7 +304,7 @@ namespace SurplusMigrator.Tasks {
             //);
             result.addData(
                 "master_source",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "sourceid",  "ST-ListPV-Manual"},
                     { "description",  "ST-ListPV-Manual"},
                     { "transactiontypeid",  "ST"},

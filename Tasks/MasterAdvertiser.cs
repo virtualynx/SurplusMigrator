@@ -52,17 +52,17 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
             return sourceTables.Where(a => a.tableName == "master_advertiser").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
-            foreach(RowData<ColumnName, Data> data in inputs) {
+            foreach(RowData<ColumnName, object> data in inputs) {
                 result.addData(
                     "master_advertiser",
-                    new RowData<ColumnName, Data>() {
+                    new RowData<ColumnName, object>() {
                         { "advertiserid",  data["code"]},
                         { "name",  data["name"]},
                         { "cb_name",  data["cb_name"]},
@@ -87,7 +87,7 @@ namespace SurplusMigrator.Tasks {
 
             result.addData(
                 "master_advertiser",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                         { "advertiserid",  "131"},
                         { "name",  "{UNKNOWN}"},
                         { "cb_name",  "{UNKNOWN}"},

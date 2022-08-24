@@ -149,20 +149,20 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
             return sourceTables.Where(a => a.tableName == "transaksi_budget").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
-            foreach(RowData<ColumnName, Data> data in inputs) {
+            foreach(RowData<ColumnName, object> data in inputs) {
                 string tbudgetid = Sequencer.getId("BGT", Utils.obj2datetime(data["budget_entrydt"]));
                 IdRemapper.add("tbudgetid", data["budget_id"], tbudgetid);
 
                 result.addData(
                     "transaction_budget",
-                    new RowData<ColumnName, Data>() {
+                    new RowData<ColumnName, object>() {
                         { "tbudgetid",  tbudgetid},
                         { "name",  data["budget_name"]},
                         { "startdate",  data["budget_datestart"]},
@@ -237,7 +237,7 @@ namespace SurplusMigrator.Tasks {
             new MasterShowInventoryDepartment(connections).run();
             new MasterShowInventoryTimezone(connections).run();
             new MasterTvProgramType(connections).run();
-            new TransactionProgramBudget(connections).run(false, 1925);
+            new TransactionProgramBudget(connections).run();
         }
 
         public void clearRemapping() {

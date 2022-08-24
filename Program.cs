@@ -33,14 +33,12 @@ namespace SurplusMigrator {
                 //.WriteTo.Console(restrictedToMinimumLevel: LogEventLevel.Information)
                 .CreateLogger();
 
-            //Log.Logger.Information("Reading configuration at " + System.Environment.CurrentDirectory + @"\config.json");
-            MyConsole.Information("Reading configuration at " + System.Environment.CurrentDirectory + @"\config.json");
+            MyConsole.Information("Reading configuration at " + Misc.FILEPATH_CONFIG);
             DbConfig config = null;
-            using(StreamReader r = new StreamReader(System.Environment.CurrentDirectory + @"\config.json")) {
+            using(StreamReader r = new StreamReader(Misc.FILEPATH_CONFIG)) {
                 string json = r.ReadToEnd();
                 config = JsonSerializer.Deserialize<DbConfig>(json);
             }
-            //Log.Logger.Information("Configuration loaded : " + JsonSerializer.Serialize(config) + "\n");
             MyConsole.Information("Configuration loaded : " + JsonSerializer.Serialize(config) + "\n");
 
             List<DbConnection_> connList = new List<DbConnection_>();
@@ -56,11 +54,11 @@ namespace SurplusMigrator {
             try {
                 { //master_account
                     {//pre-req for MasterAccount
-                        //new MasterAccountReport(connections).run();
-                        //new MasterAccountGroup(connections).run();
-                        //new MasterAccountSubGroup(connections).run();
-                        //new MasterAccountSubType(connections).run();
-                        //new MasterAccountType(connections).run();
+                        new MasterAccountReport(connections).run();
+                        new MasterAccountGroup(connections).run();
+                        new MasterAccountSubGroup(connections).run();
+                        new MasterAccountSubType(connections).run();
+                        new MasterAccountType(connections).run();
                     }
                     new MasterAccount(connections).run();
                 }
@@ -90,11 +88,11 @@ namespace SurplusMigrator {
                                 new MasterProgramBudgetContenttype(connections).run();
                                 new MasterProgramBudgetType(connections).run();
                             }
-                            new TransactionProgramBudget(connections).run(false, 1925);
+                            new TransactionProgramBudget(connections).run();
                         }
-                        //new TransactionBudget(connections).run(true, 1169);
+                        //new TransactionBudget(connections).run(true);
                     }
-                    new TransactionJournal(connections).run(true, 2183);
+                    //new TransactionJournal(connections).run(true);
                 }
 
                 { //start of TransactionJournalDetail
@@ -107,19 +105,17 @@ namespace SurplusMigrator {
                         {//---pre-req for TransactionBudgetDetail
                             new MasterBudgetAccount(connections).run();
                         }
-                        //new TransactionBudgetDetail(connections).run(true, 3855);
+                        new TransactionBudgetDetail(connections).run(true);
                     }
-                    new TransactionJournalDetail(connections).run(true, 2114);
+                    new TransactionJournalDetail(connections).run(true);
                 }
             } catch(Exception) {
-                //Log.Logger.Error("Program stopped abnormally due to some error");
                 MyConsole.Error("Program stopped abnormally due to some error");
             } finally { 
                 IdRemapper.saveMap();
             }
 
             stopwatch.Stop();
-            //Log.Logger.Information("Program finished in " + Utils.getElapsedTimeString(stopwatch.ElapsedMilliseconds));
             MyConsole.Information("Program finished in " + Utils.getElapsedTimeString(stopwatch.ElapsedMilliseconds));
 
             Console.WriteLine("\n\nPress any key to exit ...");

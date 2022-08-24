@@ -27,11 +27,11 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
             return new List<RowData<string, object>>();
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             return new MappedData();
         }
 
@@ -40,7 +40,7 @@ namespace SurplusMigrator.Tasks {
             
             result.addData(
                 "master_tv_program_type",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "tvprogramtypeid",  "PG"},
                     { "name",  "Program"},
                     { "created_date",  DateTime.Now},
@@ -50,7 +50,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_tv_program_type",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "tvprogramtypeid",  "NP"},
                     { "name",  "Non Program"},
                     { "created_date",  DateTime.Now},

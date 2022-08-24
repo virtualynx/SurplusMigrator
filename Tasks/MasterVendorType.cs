@@ -40,15 +40,15 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
             return sourceTables.Where(a => a.tableName == "master_rekanantype").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
-            foreach(RowData<ColumnName, Data> data in inputs) {
-                RowData<ColumnName, Data> insertRow = new RowData<ColumnName, Data>() {
+            foreach(RowData<ColumnName, object> data in inputs) {
+                RowData<ColumnName, object> insertRow = new RowData<ColumnName, object>() {
                     { "vendortypeid",  data["rekanantype_id"]},
                     { "name",  data["rekanantype_Nama"]},
                     { "descr",  data["rekanantype_Dekcripsi"]},
@@ -67,7 +67,7 @@ namespace SurplusMigrator.Tasks {
 
             result.addData(
                 "master_vendor_type",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "vendortypeid",  0},
                     { "name",  "Unknown"},
                     { "descr",  null},
@@ -78,7 +78,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_vendor_type",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "vendortypeid",  14},
                     { "name",  "Unknown 14"},
                     { "descr",  "Anomalies upon migrating master_vendor, found in master_vendor id= 11040, 11054, 11521, 11522, 11523, 11524, 11613, 11629"},
@@ -89,7 +89,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_vendor_type",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "vendortypeid",  711},
                     { "name",  "Unknown 711"},
                     { "descr",  "Anomalies upon migrating master_vendor, found in master_vendor id= 8355"},

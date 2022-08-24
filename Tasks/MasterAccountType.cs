@@ -40,15 +40,15 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = defaultBatchSize) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
             return sourceTables.Where(a => a.tableName == "master_acctype").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
-            foreach(RowData<ColumnName, Data> data in inputs) {
-                RowData<ColumnName, Data> insertRow = new RowData<ColumnName, Data>() {
+            foreach(RowData<ColumnName, object> data in inputs) {
+                RowData<ColumnName, object> insertRow = new RowData<ColumnName, object>() {
                     { "accounttypeid",  data["acctype_id"]},
                     { "name",  data["acctype_name"]},
                     { "accountsubtypeid",  data["acctypetype_id"]},
@@ -67,7 +67,7 @@ namespace SurplusMigrator.Tasks {
 
             result.addData(
                 "master_account_type",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "accounttypeid",  0},
                     { "name",  "Unknown"},
                     { "accountsubtypeid",  0},
@@ -78,7 +78,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_account_type",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "accounttypeid",  1},
                     { "name",  "Aktiva Lancar (Possibly)"},
                     { "accountsubtypeid",  10},
@@ -89,7 +89,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_account_type",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "accounttypeid",  2},
                     { "name",  "Harta Tetap (Possibly)"},
                     { "accountsubtypeid",  10},

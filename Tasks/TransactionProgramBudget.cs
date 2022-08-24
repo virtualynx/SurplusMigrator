@@ -99,19 +99,19 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
             return sourceTables.Where(a => a.tableName == "prabudget_program").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
-            foreach(RowData<ColumnName, Data> data in inputs) {
+            foreach(RowData<ColumnName, object> data in inputs) {
                 int showinventorycategoryid = Utils.obj2int(data["showinventorycategory_id"]);
                 int showinventorydepartmentid = Utils.obj2int(data["showinventorydepartment_id"]);
                 int showinventorytimezoneid = Utils.obj2int(data["showinventorytimezone_id"]);
 
-                RowData<ColumnName, Data> insertRow = new RowData<ColumnName, Data>() {
+                RowData<ColumnName, object> insertRow = new RowData<ColumnName, object>() {
                     { "tprogrambudgetid",  data["prabudget_program_id"]},
                     { "descr",  data["prabudget_program_descr"]},
                     { "ispulled",  Utils.obj2bool(data["prabudget_program_pulled"])},

@@ -61,14 +61,14 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = defaultBatchSize) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
             return sourceTables.Where(a => a.tableName == "master_bankacc").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
-            foreach(RowData<ColumnName, Data> data in inputs) {
+            foreach(RowData<ColumnName, object> data in inputs) {
                 string address1 = Utils.obj2str(data["bankacc_address1"]);
                 string address2 = Utils.obj2str(data["bankacc_address2"]);
                 List<string> addressList = new List<string>();
@@ -82,7 +82,7 @@ namespace SurplusMigrator.Tasks {
 
                 result.addData(
                     "master_bank_account",
-                    new RowData<ColumnName, Data>() {
+                    new RowData<ColumnName, object>() {
                         { "bankaccountid",  data["bankacc_id"]},
                         { "name",  data["bankacc_name"]},
                         { "accountnumber",  data["bankacc_ac"]},

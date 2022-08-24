@@ -35,16 +35,16 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
             return sourceTables.Where(a => a.tableName == "master_paymenttype").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
-            foreach(RowData<ColumnName, Data> data in inputs) {
+            foreach(RowData<ColumnName, object> data in inputs) {
                 if(Utils.obj2int(data["paymenttype_id"]) == 0) continue;
-                RowData<ColumnName, Data> insertRow = new RowData<ColumnName, Data>() {
+                RowData<ColumnName, object> insertRow = new RowData<ColumnName, object>() {
                     { "paymenttypeid",  Int32.Parse(data["paymenttype_id"].ToString())},
                     { "name",  data["paymenttype_name"]},
                     { "is_disabled",  false},
@@ -60,7 +60,7 @@ namespace SurplusMigrator.Tasks {
 
             result.addData(
                 "master_payment_type",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "paymenttypeid",  0},
                     { "name",  "Unknown"},
                     { "is_disabled",  false},

@@ -29,11 +29,11 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
             return new List<RowData<string, object>>();
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             return new MappedData();
         }
 
@@ -42,7 +42,7 @@ namespace SurplusMigrator.Tasks {
 
             result.addData(
                 "master_program_budget_type",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "programbudgettypeid",  0},
                     { "name",  "NON PILOT"},
                     { "isapprovedbyprogramming",  true},
@@ -54,7 +54,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_program_budget_type",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "programbudgettypeid",  1},
                     { "name",  "PILOT"},
                     { "isapprovedbyprogramming",  true},
@@ -66,7 +66,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_program_budget_type",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "programbudgettypeid",  2},
                     { "name",  "NON EPISODE"},
                     { "isapprovedbyprogramming",  true},
@@ -78,7 +78,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_program_budget_type",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "programbudgettypeid",  3},
                     { "name",  "REPACKAGE"},
                     { "isapprovedbyprogramming",  true},
@@ -90,7 +90,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_program_budget_type",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "programbudgettypeid",  4},
                     { "name",  "REPACKAGE (BIAYA)"},
                     { "isapprovedbyprogramming",  false},
@@ -102,7 +102,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_program_budget_type",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "programbudgettypeid",  5},
                     { "name",  "FILLER"},
                     { "isapprovedbyprogramming",  false},

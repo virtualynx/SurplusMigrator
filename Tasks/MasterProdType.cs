@@ -42,15 +42,15 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
             return sourceTables.Where(a => a.tableName == "master_prodtype").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
-            foreach(RowData<ColumnName, Data> data in inputs) {
-                RowData<ColumnName, Data> insertRow = new RowData<ColumnName, Data>() {
+            foreach(RowData<ColumnName, object> data in inputs) {
+                RowData<ColumnName, object> insertRow = new RowData<ColumnName, object>() {
                     { "prodtypeid",  data["prodtype_id"]},
                     { "name",  data["prodtype_name"]},
                     { "nameshort",  data["prodtype_nameshort"]},

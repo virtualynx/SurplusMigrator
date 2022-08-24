@@ -35,15 +35,15 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = defaultBatchSize) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
             return sourceTables.Where(a => a.tableName == "master_accsubgroup").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
-            foreach(RowData<ColumnName, Data> data in inputs) {
-                RowData<ColumnName, Data> insertRow = new RowData<ColumnName, Data>() {
+            foreach(RowData<ColumnName, object> data in inputs) {
+                RowData<ColumnName, object> insertRow = new RowData<ColumnName, object>() {
                     { "accountsubgroupid",  data["accsubgroup_id"]},
                     { "name",  data["accsubgroup_name"]},
                     { "accountgroupid",  data["accgroup_id"]},
@@ -62,7 +62,7 @@ namespace SurplusMigrator.Tasks {
 
             result.addData(
                 "master_account_sub_group",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "accountsubgroupid",  0},
                     { "name",  "Unknown"},
                     { "accountgroupid",  0},

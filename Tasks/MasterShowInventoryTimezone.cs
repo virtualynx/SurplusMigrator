@@ -29,11 +29,11 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
             return new List<RowData<string, object>>();
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             return new MappedData();
         }
 
@@ -42,7 +42,7 @@ namespace SurplusMigrator.Tasks {
             
             result.addData(
                 "master_show_inventory_timezone",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "showinventorytimezoneid",  1},
                     { "name",  "Any Zones"},
                     { "starttime",  null},
@@ -54,7 +54,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_show_inventory_timezone",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "showinventorytimezoneid",  2},
                     { "name",  "Fringe 1"},
                     { "starttime",  null},
@@ -66,7 +66,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_show_inventory_timezone",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "showinventorytimezoneid",  3},
                     { "name",  "Fringe 2"},
                     { "starttime",  null},
@@ -78,7 +78,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_show_inventory_timezone",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "showinventorytimezoneid",  4},
                     { "name",  "Fringe 3"},
                     { "starttime",  null},
@@ -90,7 +90,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_show_inventory_timezone",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "showinventorytimezoneid",  5},
                     { "name",  "Prime 1"},
                     { "starttime",  null},
@@ -102,7 +102,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_show_inventory_timezone",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "showinventorytimezoneid",  6},
                     { "name",  "Prime 2"},
                     { "starttime",  null},
@@ -114,7 +114,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_show_inventory_timezone",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "showinventorytimezoneid",  7},
                     { "name",  "Prime 3"},
                     { "starttime",  null},
@@ -126,7 +126,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_show_inventory_timezone",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "showinventorytimezoneid",  8},
                     { "name",  "Prime 4"},
                     { "starttime",  null},
@@ -138,7 +138,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_show_inventory_timezone",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "showinventorytimezoneid",  9},
                     { "name",  "Shoulder 1"},
                     { "starttime",  null},
@@ -150,7 +150,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_show_inventory_timezone",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "showinventorytimezoneid",  10},
                     { "name",  "Shoulder 2"},
                     { "starttime",  null},

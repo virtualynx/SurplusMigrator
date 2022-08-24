@@ -40,15 +40,15 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
             return sourceTables.Where(a => a.tableName == "master_currency").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
-            foreach(RowData<ColumnName, Data> data in inputs) {
-                RowData<ColumnName, Data> insertRow = new RowData<ColumnName, Data>() {
+            foreach(RowData<ColumnName, object> data in inputs) {
+                RowData<ColumnName, object> insertRow = new RowData<ColumnName, object>() {
                     { "currencyid",  data["currency_id"]},
                     { "shortname",  data["currency_shortname"]},
                     { "name",  data["currency_name"]},
@@ -66,7 +66,7 @@ namespace SurplusMigrator.Tasks {
 
             result.addData(
                 "master_currency",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "currencyid",  0},
                     { "shortname",  "UNKWN"},
                     { "name",  "Unknown"},

@@ -24,11 +24,11 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
             return new List<RowData<string, object>>();
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             return new MappedData();
         }
 
@@ -37,14 +37,14 @@ namespace SurplusMigrator.Tasks {
             
             result.addData(
                 "master_vendor_category",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "vendorcategoryid",  1},
                     { "name",  "Individual"},
                 }
             );
             result.addData(
                 "master_vendor_category",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "vendorcategoryid",  2},
                     { "name",  "Company"},
                 }

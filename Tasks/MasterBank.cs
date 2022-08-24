@@ -36,11 +36,11 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = defaultBatchSize) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
             return sourceTables.Where(a => a.tableName == "master_bank").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             Dictionary<string, string> bankCodeMap = new Dictionary<string, string>() {
@@ -123,10 +123,10 @@ namespace SurplusMigrator.Tasks {
                 { "Allo Bank", "567" },
             };
 
-            foreach(RowData<ColumnName, Data> data in inputs) {
+            foreach(RowData<ColumnName, object> data in inputs) {
                 result.addData(
                     "master_bank",
-                    new RowData<ColumnName, Data>() {
+                    new RowData<ColumnName, object>() {
                         { "bankid",  data["bank_id"]},
                         { "name",  data["bank_name"]},
                         { "code",  bankCodeMap[Utils.obj2str(data["bank_name"])]},

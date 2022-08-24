@@ -27,11 +27,11 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
             return new List<RowData<string, object>>();
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             return new MappedData();
         }
 
@@ -40,7 +40,7 @@ namespace SurplusMigrator.Tasks {
             
             result.addData(
                 "master_transaction_type_group",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "transactiontypegroupid",  1},
                     { "name",  "Request"},
                     { "created_date",  DateTime.Now},
@@ -50,7 +50,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_transaction_type_group",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "transactiontypegroupid",  2},
                     { "name",  "Order"},
                     { "created_date",  DateTime.Now},
@@ -60,7 +60,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_transaction_type_group",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "transactiontypegroupid",  3},
                     { "name",  "Good Receipt"},
                     { "created_date",  DateTime.Now},
@@ -70,7 +70,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_transaction_type_group",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "transactiontypegroupid",  4},
                     { "name",  "Journal"},
                     { "created_date",  DateTime.Now},
@@ -80,7 +80,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_transaction_type_group",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "transactiontypegroupid",  5},
                     { "name",  "Advance"},
                     { "created_date",  DateTime.Now},
@@ -90,7 +90,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_transaction_type_group",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "transactiontypegroupid",  6},
                     { "name",  "Invoice"},
                     { "created_date",  DateTime.Now},
@@ -100,7 +100,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_transaction_type_group",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "transactiontypegroupid",  7},
                     { "name",  "Budget"},
                     { "created_date",  DateTime.Now},
@@ -110,7 +110,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_transaction_type_group",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "transactiontypegroupid",  8},
                     { "name",  "Inventory"},
                     { "created_date",  DateTime.Now},
@@ -120,7 +120,7 @@ namespace SurplusMigrator.Tasks {
             );
             result.addData(
                 "master_transaction_type_group",
-                new RowData<ColumnName, Data>() {
+                new RowData<ColumnName, object>() {
                     { "transactiontypegroupid",  9},
                     { "name",  "Settlement Content"},
                     { "created_date",  DateTime.Now},

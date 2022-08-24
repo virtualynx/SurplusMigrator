@@ -49,19 +49,19 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        public override List<RowData<ColumnName, Data>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+        public override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
             return sourceTables.Where(a => a.tableName == "master_periode").FirstOrDefault().getDatas(batchSize);
         }
 
-        public override MappedData mapData(List<RowData<ColumnName, Data>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
-            foreach(RowData<ColumnName, Data> data in inputs) {
+            foreach(RowData<ColumnName, object> data in inputs) {
                 AuthInfo auth = new AuthInfo() {
                     FullName = data["periode_createby"]!=null? data["periode_createby"].ToString() : null
                 };
 
-                RowData<ColumnName, Data> insertRow = new RowData<ColumnName, Data>() {
+                RowData<ColumnName, object> insertRow = new RowData<ColumnName, object>() {
                     { "periodid",  data["periode_id"]},
                     { "name",  data["periode_name"]},
                     { "datestart",  data["periode_datestart"]},
