@@ -1,0 +1,37 @@
+{
+  "databases": [
+    {
+      "host": "172.16.20.179",
+      "port": 1433,
+      "username": "sa",
+      "password": "controlroom",
+      "dbname": "E_FRM",
+      "schema": "dbo",
+      "type": "MSSQL"
+    },
+    {
+      "host": "172.16.123.121",
+      "port": 5432,
+      "username": "postgres",
+      "password": "initrans7",
+      "dbname": "insosys",
+      "schema": "migrate_temp",
+      "type": "POSTGRESQL"
+    },
+    {
+      "host": "172.16.21.172",
+      "port": 1433,
+      "username": "sa",
+      "password": "gaada",
+      "dbname": "HRIS",
+      "schema": "dbo",
+      "type": "MSSQL"
+    }
+  ],
+  "excluded_tables": {
+    "source": [
+    ],
+    "destination": [
+    ]
+  }
+}
