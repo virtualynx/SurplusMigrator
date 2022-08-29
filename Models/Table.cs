@@ -3,10 +3,14 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using NpgsqlTypes;
+using SurplusMigrator.Exceptions;
 using SurplusMigrator.Libraries;
+using SurplusMigrator.Models.Others;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -28,7 +32,7 @@ namespace SurplusMigrator.Models
         private int fetchBatchCounter = 1;
         private bool isAlreadyTruncated = false;
 
-        private const string OMIT_PATTERN_FOREIGN_KEY = "Key \\((.*)\\)=\\((.*)\\) is not present in table";
+        private const string OMIT_PATTERN_FOREIGN_KEY = "Key \\((.*)\\)=\\((.*)\\) is not present in table \"(.*)\"";
         private const string OMIT_PATTERN_NOT_NULL = "null value in column \"(.*)\" violates not-null constraint";
 
         public Table() { }
@@ -142,28 +146,23 @@ namespace SurplusMigrator.Models
             string[] targetColumns = inputColumns.ToArray();
             if(autoGenerateId) {
                 targetColumns = columns.Where(a => ids.Any(b => b != a)).ToArray();
-            } else {
-                targetColumns = columns;
             }
 
             ColumnType<ColumnName, DataType> columnType = getColumnTypes();
 
             List<string> sqlParams = new List<string>();
-            List<Dictionary<ParamNotation, TypedData>> sqlArguments = new List<Dictionary<ParamNotation, TypedData>>();
+            List<Dictionary<ParamNotation, object>> sqlArguments = new List<Dictionary<ParamNotation, object>>();
             long insertedCount = 0;
             int batchSize = 0;
             for(int rowNum = 1; rowNum <= inputs.Count; rowNum++) {
                 RowData<ColumnName, object> rowData = inputs[rowNum - 1];
 
                 string param = "";
-                Dictionary<ParamNotation, TypedData> arg = new Dictionary<ParamNotation, TypedData>();
+                Dictionary<ParamNotation, object> arg = new Dictionary<ParamNotation, object>();
                 foreach(string columnName in targetColumns) {
                     object data = rowData[columnName];
                     ParamNotation paramNotation = "@" + columnName + "_" + rowNum;
-                    arg[paramNotation] = new TypedData() {
-                        data = data == null ? DBNull.Value : data,
-                        type = columnType[columnName]
-                    };
+                    arg[paramNotation] = data == null ? DBNull.Value : data;
                     param += (param.Length > 0 ? "," : "") + paramNotation;
                 }
                 param = "(" + param + ")";
@@ -334,28 +333,6 @@ namespace SurplusMigrator.Models
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 throw new System.NotImplementedException();
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                //string sqlSelect = "select " + String.Join(",", ids) + " from \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" where (" + String.Join(",", ids) + ") in";
-                //NpgsqlCommand command = new NpgsqlCommand(sqlSelect + "(" + String.Join(',', sqlSelectParams) + ")", (NpgsqlConnection)connection.GetDbConnection());
-                //foreach(KeyValuePair<ParamNotation, object> entry in sqlSelectArgs) {
-                //    postgreCommandAddParamWithValue(command, entry.Key, entry.Value);
-                //}
-                //NpgsqlDataReader dataReader = command.ExecuteReader();
-                //while(dataReader.Read()) {
-                //    RowData<ColumnName, object> rowData = new RowData<ColumnName, object>();
-                //    foreach(string id in ids) {
-                //        var value = dataReader.GetValue(dataReader.GetOrdinal(id));
-                //        if(value.GetType() == typeof(System.DBNull)) {
-                //            value = null;
-                //        } else if(value.GetType() == typeof(string)) {
-                //            value = value.ToString().Trim();
-                //        }
-                //        rowData.Add(id, value);
-                //    }
-                //    selectResults.Add(rowData);
-                //}
-                //dataReader.Close();
-                //command.Dispose();
-
                 string sqlSelect = "select " + String.Join(",", ids) + " from \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" where (" + String.Join(",", ids) + ") in" + "(" + String.Join(',', sqlSelectParams) + ")";
                 selectResults = executeQuery(sqlSelect, sqlSelectArgs);
             }
@@ -372,7 +349,8 @@ namespace SurplusMigrator.Models
                     inputs.Remove(duplicate);
                     DbInsertFail insertfailInfo = new DbInsertFail() {
                         info = "Data already exists upon insert into " + tableName + ", value: " + JsonSerializer.Serialize(rowSelect),
-                        status = DbInsertFail.DB_FAIL_DUPLICATE
+                        severity = DbInsertFail.DB_FAIL_SEVERITY_WARNING,
+                        type = DbInsertFail.DB_FAIL_TYPE_DUPLICATE
                     };
                     failures.Add(insertfailInfo);
                 }
@@ -388,17 +366,18 @@ namespace SurplusMigrator.Models
             PostgresException e,
             List<DbInsertFail> failures,
             List<string> sqlParams,
-            List<Dictionary<ParamNotation, TypedData>> sqlArguments
+            List<Dictionary<ParamNotation, object>> sqlArguments
         ) {
             Match match = Regex.Match(e.Detail, OMIT_PATTERN_FOREIGN_KEY);
             string column = match.Groups[1].Value;
             string id = match.Groups[2].Value;
+            string referencedTableName = match.Groups[3].Value;
 
-            List<Dictionary<ParamNotation, TypedData>> filteredArguments = sqlArguments.Where(
-                arg => arg.Any(x => x.Key.StartsWith("@" + column + "_") && x.Value.data.ToString() == id)
+            List<Dictionary<ParamNotation, object>> filteredArguments = sqlArguments.Where(
+                arg => arg.Any(x => x.Key.StartsWith("@" + column + "_") && x.Value.ToString() == id)
             ).ToList();
 
-            foreach(Dictionary<ParamNotation, TypedData> arg in filteredArguments) {
+            foreach(Dictionary<ParamNotation, object> arg in filteredArguments) {
                 string sqlParamKey = null;
                 foreach(string k in arg.Keys) {
                     if(k.StartsWith("@" + column + "_")) {
@@ -415,7 +394,8 @@ namespace SurplusMigrator.Models
                 DbInsertFail insertfailInfo = new DbInsertFail() {
                     exception = e,
                     info = "Foreignkey constraint violation upon insert into " + tableName + ", " + e.Detail + ", value: " + JsonSerializer.Serialize(arg),
-                    status = DbInsertFail.DB_FAIL_SEVERITY_ERROR
+                    severity = DbInsertFail.DB_FAIL_SEVERITY_ERROR,
+                    type = DbInsertFail.DB_FAIL_TYPE_FOREIGNKEY_VIOLATION
                 };
                 failures.Add(insertfailInfo);
             }
@@ -430,16 +410,20 @@ namespace SurplusMigrator.Models
             PostgresException e,
             List<DbInsertFail> failures,
             List<string> sqlParams,
-            List<Dictionary<ParamNotation, TypedData>> sqlArguments
+            List<Dictionary<ParamNotation, object>> sqlArguments
         ) {
             Match match = Regex.Match(e.MessageText, OMIT_PATTERN_NOT_NULL);
             string column = match.Groups[1].Value;
 
-            List<Dictionary<ParamNotation, TypedData>> filteredArguments = sqlArguments.Where(
-                arg => arg.Any(x => x.Key.StartsWith("@" + column + "_") && (x.Value.data == DBNull.Value))
+            List<Dictionary<ParamNotation, object>> filteredArguments = sqlArguments.Where(
+                arg => arg.Any(x => x.Key.StartsWith("@" + column + "_") && (x.Value == DBNull.Value))
             ).ToList();
 
-            foreach(Dictionary<ParamNotation, TypedData> arg in filteredArguments) {
+            if(filteredArguments.Count == 0) {
+                throw new TaskConfigException("Not-null violation(column="+column+") is found upon inserting into "+ tableName + ", but (column=" + column + ") is not listed on the Task Configuration");
+            }
+
+            foreach(Dictionary<ParamNotation, object> arg in filteredArguments) {
                 string sqlParamKey = null;
                 foreach(string k in arg.Keys) {
                     if(k.StartsWith("@" + column + "_")) {
@@ -456,7 +440,8 @@ namespace SurplusMigrator.Models
                 DbInsertFail insertfailInfo = new DbInsertFail() {
                     exception = e,
                     info = "Not-Null constraint violation upon insert into " + tableName + ", " + e.MessageText + ", value: " + JsonSerializer.Serialize(arg),
-                    status = DbInsertFail.DB_FAIL_SEVERITY_ERROR
+                    severity = DbInsertFail.DB_FAIL_SEVERITY_ERROR,
+                    type = DbInsertFail.DB_FAIL_TYPE_NOTNULL_VIOLATION
                 };
                 failures.Add(insertfailInfo);
             }
@@ -493,79 +478,6 @@ namespace SurplusMigrator.Models
                         command.Dispose();
                     } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                         NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)connection.GetDbConnection());
-                        NpgsqlDataReader reader = command.ExecuteReader();
-                        while(reader.Read()) {
-                            RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
-                            for(int a = 0; a < reader.FieldCount; a++) {
-                                string columnName = reader.GetName(a);
-                                dynamic data = reader.GetValue(a);
-                                if(data.GetType() == typeof(System.DBNull)) {
-                                    data = null;
-                                } else if(data.GetType() == typeof(string)) {
-                                    data = data.ToString().Trim();
-                                }
-                                rowData.Add(columnName, data);
-                            }
-                            result.Add(rowData);
-                        }
-                        reader.Close();
-                        command.Dispose();
-                    }
-                    retry = false;
-                } catch(Exception e) {
-                    if(isConnectionProblem(e)) {
-                        retry = true;
-                    } else {
-                        throw;
-                    }
-                }
-            } while(retry);
-
-            return result;
-        }
-
-        public List<RowData<ColumnName, dynamic>> executeQuery(string sql, List<Dictionary<ParamNotation, TypedData>> args) {
-            List<RowData<ColumnName, dynamic>> result = new List<RowData<string, dynamic>>();
-            bool retry = false;
-            do {
-                try {
-                    if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                        SqlCommand command = new SqlCommand(sql, (SqlConnection)connection.GetDbConnection());
-                        if(args != null) {
-                            foreach(Dictionary<ParamNotation, TypedData> arg in args) {
-                                foreach(KeyValuePair<ParamNotation, TypedData> entry in arg) {
-                                    TypedData typedData = entry.Value;
-                                    sqlCommandAddParamWithValue(command, entry.Key, typedData.data);
-                                }
-                            }
-                        }
-                        SqlDataReader reader = command.ExecuteReader();
-                        while(reader.Read()) {
-                            RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
-                            for(int a = 0; a < reader.FieldCount; a++) {
-                                string columnName = reader.GetName(a);
-                                dynamic data = reader.GetValue(a);
-                                if(data.GetType() == typeof(System.DBNull)) {
-                                    data = null;
-                                } else if(data.GetType() == typeof(string)) {
-                                    data = data.ToString().Trim();
-                                }
-                                rowData.Add(columnName, data);
-                            }
-                            result.Add(rowData);
-                        }
-                        reader.Close();
-                        command.Dispose();
-                    } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                        NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)connection.GetDbConnection());
-                        if(args != null) {
-                            foreach(Dictionary<ParamNotation, TypedData> arg in args) {
-                                foreach(KeyValuePair<ParamNotation, TypedData> entry in arg) {
-                                    TypedData typedData = entry.Value;
-                                    postgreCommandAddParamWithValue(command, entry.Key, typedData.data);
-                                }
-                            }
-                        }
                         NpgsqlDataReader reader = command.ExecuteReader();
                         while(reader.Read()) {
                             RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
@@ -664,7 +576,7 @@ namespace SurplusMigrator.Models
             return result;
         }
 
-        public int executeNonQuery(string sql, List<Dictionary<ParamNotation, TypedData>> args = null) {
+        public int executeNonQuery(string sql, List<Dictionary<ParamNotation, object>> args = null) {
             int result = 0;
             bool retry = false;
             do {
@@ -672,10 +584,9 @@ namespace SurplusMigrator.Models
                     if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                         SqlCommand command = new SqlCommand(sql, (SqlConnection)connection.GetDbConnection());
                         if(args != null) {
-                            foreach(Dictionary<ParamNotation, TypedData> arg in args) {
-                                foreach(KeyValuePair<ParamNotation, TypedData> entry in arg) {
-                                    TypedData typedData = entry.Value;
-                                    sqlCommandAddParamWithValue(command, entry.Key, typedData.data);
+                            foreach(Dictionary<ParamNotation, object> arg in args) {
+                                foreach(KeyValuePair<ParamNotation, object> entry in arg) {
+                                    sqlCommandAddParamWithValue(command, entry.Key, entry.Value);
                                 }
                             }
                         }
@@ -684,10 +595,9 @@ namespace SurplusMigrator.Models
                     } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                         NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)connection.GetDbConnection());
                         if(args != null) {
-                            foreach(Dictionary<ParamNotation, TypedData> arg in args) {
-                                foreach(KeyValuePair<ParamNotation, TypedData> entry in arg) {
-                                    TypedData typedData = entry.Value;
-                                    postgreCommandAddParamWithValue(command, entry.Key, typedData.data);
+                            foreach(Dictionary<ParamNotation, object> arg in args) {
+                                foreach(KeyValuePair<ParamNotation, object> entry in arg) {
+                                    postgreCommandAddParamWithValue(command, entry.Key, entry.Value);
                                 }
                             }
                         }
@@ -707,7 +617,7 @@ namespace SurplusMigrator.Models
             return result;
         }
 
-        private object executeScalar(string sql, List<Dictionary<ParamNotation, TypedData>> args = null) {
+        private object executeScalar(string sql, List<Dictionary<ParamNotation, object>> args = null) {
             object result = null;
             bool retry = false;
             do {
@@ -715,10 +625,9 @@ namespace SurplusMigrator.Models
                     if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                         SqlCommand command = new SqlCommand(sql, (SqlConnection)connection.GetDbConnection());
                         if(args != null) {
-                            foreach(Dictionary<ParamNotation, TypedData> arg in args) {
-                                foreach(KeyValuePair<ParamNotation, TypedData> entry in arg) {
-                                    TypedData typedData = entry.Value;
-                                    sqlCommandAddParamWithValue(command, entry.Key, typedData.data);
+                            foreach(Dictionary<ParamNotation, object> arg in args) {
+                                foreach(KeyValuePair<ParamNotation, object> entry in arg) {
+                                    sqlCommandAddParamWithValue(command, entry.Key, entry.Value);
                                 }
                             }
                         }
@@ -727,10 +636,9 @@ namespace SurplusMigrator.Models
                     } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                         NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)connection.GetDbConnection());
                         if(args != null) {
-                            foreach(Dictionary<ParamNotation, TypedData> arg in args) {
-                                foreach(KeyValuePair<ParamNotation, TypedData> entry in arg) {
-                                    TypedData typedData = entry.Value;
-                                    postgreCommandAddParamWithValue(command, entry.Key, typedData.data);
+                            foreach(Dictionary<ParamNotation, object> arg in args) {
+                                foreach(KeyValuePair<ParamNotation, object> entry in arg) {
+                                    postgreCommandAddParamWithValue(command, entry.Key, entry.Value);
                                 }
                             }
                         }
@@ -789,6 +697,7 @@ namespace SurplusMigrator.Models
         private void postgreCommandAddParamWithValue(NpgsqlCommand command, ParamNotation paramNotation, object data) {
             string columnName = getColumnNameFromParamNotation(paramNotation);
             NpgsqlDbType columnDbType = getPostgreColumnType(columnName);
+            dynamic convertedData = data;
 
             if(
                 (
@@ -798,23 +707,24 @@ namespace SurplusMigrator.Models
                 ) && 
                 (columnDbType == NpgsqlDbType.Varchar || columnDbType == NpgsqlDbType.Text)
             ) {
-                data = data.ToString();
+                convertedData = data.ToString();
             }
-            if(
-                data.GetType() == typeof(string) &&
-                (
-                    columnDbType == NpgsqlDbType.Bigint ||
-                    columnDbType == NpgsqlDbType.Integer ||
-                    columnDbType == NpgsqlDbType.Smallint ||
-                    columnDbType == NpgsqlDbType.Bit ||
-                    columnDbType == NpgsqlDbType.Numeric ||
-                    columnDbType == NpgsqlDbType.Real
-                )
-            ) {
+            if(data.GetType() == typeof(string)) {
                 data = data.ToString().Trim();
+                if(columnDbType == NpgsqlDbType.Bigint) {
+                    convertedData = Convert.ToInt64(data);
+                } else if(columnDbType == NpgsqlDbType.Integer) {
+                    convertedData = Convert.ToInt32(data);
+                } else if(columnDbType == NpgsqlDbType.Smallint) {
+                    convertedData = Convert.ToInt16(data);
+                } else if(columnDbType == NpgsqlDbType.Bit) {
+                    convertedData = Convert.ToByte(data);
+                } else if(columnDbType == NpgsqlDbType.Numeric || columnDbType == NpgsqlDbType.Real) {
+                    convertedData = Convert.ToDecimal(data);
+                }
             }
 
-            command.Parameters.AddWithValue(paramNotation, columnDbType, data);
+            command.Parameters.AddWithValue(paramNotation, columnDbType, convertedData);
         }
         private NpgsqlDbType getPostgreColumnType(string columnName) {
             ColumnType<ColumnName, DataType> columnTypes = getColumnTypes();

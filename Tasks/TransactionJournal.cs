@@ -1,16 +1,11 @@
-using Microsoft.Data.SqlClient;
-using Npgsql;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
-using SurplusMigrator.Tasks;
-using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace SurplusMigrator.Tasks {
-  class TransactionJournal : _BaseTask {
+    class TransactionJournal : _BaseTask {
         public TransactionJournal(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
@@ -172,6 +167,10 @@ namespace SurplusMigrator.Tasks {
             new MasterVendorType(connections).run();
             new MasterVendor(connections).run();
             new TransactionBudget(connections).run(true);
+        }
+
+        protected override void afterFinishedCallback() {
+            base.afterFinishedCallback();
         }
     }
 }

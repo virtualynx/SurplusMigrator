@@ -99,9 +99,9 @@ namespace SurplusMigrator.Tasks {
                     foreach(Table dest in destinationTables) {
                         TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), truncateBeforeInsert, autoGenerateId);
                         successCount += taskStatus.successCount;
-                        failureCount += taskStatus.errors.Where(a => a.status == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
-                        failureCount += mappedData.getError(dest.tableName).Where(a => a.status == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
-                        duplicateCount += taskStatus.errors.Where(a => a.status == DbInsertFail.DB_FAIL_DUPLICATE).ToList().Count;
+                        failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
+                        failureCount += mappedData.getError(dest.tableName).Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
+                        duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
                         allErrors.AddRange(taskStatus.errors);
                         allErrors.AddRange(mappedData.getError(dest.tableName));
                         MyConsole.EraseLine();
@@ -115,8 +115,8 @@ namespace SurplusMigrator.Tasks {
                     foreach(Table dest in destinationTables) {
                         TaskInsertStatus taskStatus = dest.insertData(staticDatas.getData(dest.tableName), truncateBeforeInsert, autoGenerateId);
                         successCount += taskStatus.successCount;
-                        failureCount += taskStatus.errors.Where(a => a.status == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
-                        duplicateCount += taskStatus.errors.Where(a => a.status == DbInsertFail.DB_FAIL_DUPLICATE).ToList().Count;
+                        failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
+                        duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
                         allErrors.AddRange(taskStatus.errors);
                         MyConsole.EraseLine();
                         MyConsole.WriteLine("Total " + (successCount + failureCount + duplicateCount) + " data processed");
@@ -136,7 +136,7 @@ namespace SurplusMigrator.Tasks {
                 foreach(DbInsertFail err in errorWithLogfiles) {
                     if(printedLogFilename.Contains(err.loggedInFilename)) continue;
                     printedLogFilename.Add(err.loggedInFilename);
-                    MyConsole.Warning(err.info + ", see "+ err.loggedInFilename + " for more info");
+                    MyConsole.Warning(err.info + ", see " + err.loggedInFilename + " for more info");
                 }
                 stopwatch.Stop();
                 MyConsole.Information("Task " + this.GetType().Name + " finished-time: " + Utils.getElapsedTimeString(stopwatch.ElapsedMilliseconds, true));
@@ -256,7 +256,8 @@ namespace SurplusMigrator.Tasks {
                 }
                 result.Add(new DbInsertFail() {
                     info = "Missing reference in table (" + referencedTableName + "), value (" + referencedColumnName + ")=(" + data + ") is not exist",
-                    status = DbInsertFail.DB_FAIL_SEVERITY_WARNING,
+                    severity = DbInsertFail.DB_FAIL_SEVERITY_WARNING,
+                    type = DbInsertFail.DB_FAIL_TYPE_FOREIGNKEY_VIOLATION
                 });
                 row[foreignColumnName] = null;
             }
@@ -281,8 +282,8 @@ namespace SurplusMigrator.Tasks {
 
                 missingRefs.referencedIds.AddRange(missingRefIds);
                 File.WriteAllText(savePath, JsonSerializer.Serialize(missingRefs));
-                foreach(DbInsertFail fail in result) {
-                    fail.loggedInFilename = filename;
+                foreach(DbInsertFail err in result) {
+                    err.loggedInFilename = filename;
                 }
             }
 
@@ -412,14 +413,14 @@ namespace SurplusMigrator.Tasks {
                 foreach(RowData<ColumnName, object> row in ignoredDatas) {
                     result.Add(new DbInsertFail() {
                         info = "Missing data in table ["+ referencedTableName + "], key ("+ referencedColumnName + ")=(" + row[foreignColumnName] + ")",
-                        status = DbInsertFail.DB_FAIL_SEVERITY_ERROR
+                        severity = DbInsertFail.DB_FAIL_SEVERITY_ERROR,
+                        type = DbInsertFail.DB_FAIL_TYPE_FOREIGNKEY_VIOLATION
                     });
-                    missingRefs.skippedIds.Add(row[foreignColumnName]);
                 }
 
                 File.WriteAllText(savePath, JsonSerializer.Serialize(missingRefs));
-                foreach(DbInsertFail fail in result) {
-                    fail.loggedInFilename = filename;
+                foreach(DbInsertFail err in result) {
+                    err.loggedInFilename = filename;
                 }
             }
 

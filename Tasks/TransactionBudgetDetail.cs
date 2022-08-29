@@ -253,7 +253,8 @@ namespace SurplusMigrator.Tasks {
                 foreach(long id in nullBudgetAndDateIds) {
                     result.Add(new DbInsertFail() {
                         info = "Data of [transaksi_budgetdetil] Key (budgetdetil_id)=("+id+") has budget_id=null, budgetdetil_date=null, and also not referenced in [transaksi_jurnaldetil]",
-                        status = DbInsertFail.DB_FAIL_SEVERITY_ERROR,
+                        severity = DbInsertFail.DB_FAIL_SEVERITY_ERROR,
+                        type = DbInsertFail.DB_FAIL_TYPE_FOREIGNKEY_VIOLATION,
                         loggedInFilename = filename
                     });
                 }

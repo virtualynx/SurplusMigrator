@@ -43,15 +43,17 @@ namespace SurplusMigrator.Tasks {
             MappedData result = new MappedData();
 
             foreach(RowData<ColumnName, object> data in inputs) {
-                RowData<ColumnName, object> insertRow = new RowData<ColumnName, object>() {
-                    { "sourceid",  data["source_id"]},
-                    { "description",  data["source_descr"]},
-                    { "transactiontypeid",  data["type_id"]},
-                    { "created_date",  DateTime.Now},
-                    { "created_by",  DefaultValues.CREATED_BY},
-                    { "is_disabled", false }
-                };
-                result.addData("master_source", insertRow);
+                result.addData(
+                    "master_source",
+                    new RowData<ColumnName, object>() {
+                        { "sourceid",  data["source_id"]},
+                        { "description",  data["source_descr"]},
+                        { "transactiontypeid",  data["type_id"]},
+                        { "created_date",  DateTime.Now},
+                        { "created_by",  DefaultValues.CREATED_BY},
+                        { "is_disabled", false }
+                    }
+                );
             }
 
             return result;
