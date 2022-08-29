@@ -2,18 +2,22 @@
 using Serilog.Events;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
-using SurplusMigrator.Models.Others;
 using SurplusMigrator.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 
 namespace SurplusMigrator {
-    // transaksi_jurnalsaldo => transaction_journal_saldo
-    // transaksi_jurnalkursreval => transaction_journal_reval
+    // transaction_journal          transaksi_jurnal
+    // transaction_journal_detail   transaksi_jurnaldetil
+
+    // master_glreport_subdetail    master_gl_report_row_acc
+    // master_glreport_detail       master_gl_report_row
+    // master_glreport              master_gl_report_row_h
+    // transaksi_jurnalsaldo        transaction_journal_saldo
+    // transaksi_jurnalkursreval    transaction_journal_reval
     internal class Program {
         static void Main(string[] args) {
             Stopwatch stopwatch = new Stopwatch();
@@ -34,12 +38,13 @@ namespace SurplusMigrator {
                 .CreateLogger();
 
             MyConsole.Information("Reading configuration at " + Misc.FILEPATH_CONFIG);
-            DbConfig config = null;
+            AppConfig config = null;
             using(StreamReader r = new StreamReader(Misc.FILEPATH_CONFIG)) {
                 string json = r.ReadToEnd();
-                config = JsonSerializer.Deserialize<DbConfig>(json);
+                config = JsonSerializer.Deserialize<AppConfig>(json);
             }
             MyConsole.Information("Configuration loaded : " + JsonSerializer.Serialize(config) + "\n");
+            GlobalConfig.loadConfig(config);
 
             List<DbConnection_> connList = new List<DbConnection_>();
 
@@ -52,15 +57,24 @@ namespace SurplusMigrator {
             IdRemapper.loadMap();
 
             try {
-                { //master_account
-                    {//pre-req for MasterAccount
-                        new MasterAccountReport(connections).run();
-                        new MasterAccountGroup(connections).run();
-                        new MasterAccountSubGroup(connections).run();
-                        new MasterAccountSubType(connections).run();
-                        new MasterAccountType(connections).run();
+                {
+                    { //master_account
+                        {//pre-req for MasterAccount
+                            new MasterAccountReport(connections).run();
+                            new MasterAccountGroup(connections).run();
+                            new MasterAccountSubGroup(connections).run();
+                            new MasterAccountSubType(connections).run();
+                            new MasterAccountType(connections).run();
+                        }
+                        new MasterAccount(connections).run();
                     }
-                    new MasterAccount(connections).run();
+                    {
+                        {
+                            new MasterGLReport(connections).run();
+                        }
+                        new MasterGLReportDetail(connections).run();
+                    }
+                    new MasterGLReportSubDetail(connections).run();
                 }
 
                 { //start of TransactionJournal 
@@ -90,9 +104,9 @@ namespace SurplusMigrator {
                             }
                             new TransactionProgramBudget(connections).run();
                         }
-                        new TransactionBudget(connections).run(true);
+                        new TransactionBudget(connections).run(true); //
                     }
-                    new TransactionJournal(connections).run(true);
+                    new TransactionJournal(connections).run(true); //
                 }
 
                 { //start of TransactionJournalDetail
@@ -105,9 +119,9 @@ namespace SurplusMigrator {
                         {//---pre-req for TransactionBudgetDetail
                             new MasterBudgetAccount(connections).run();
                         }
-                        new TransactionBudgetDetail(connections).run(true);
+                        new TransactionBudgetDetail(connections).run(true); //
                     }
-                    new TransactionJournalDetail(connections).run(true);
+                    new TransactionJournalDetail(connections).run(true); //
                 }
             } catch(Exception) {
                 MyConsole.Error("Program stopped abnormally due to some error");

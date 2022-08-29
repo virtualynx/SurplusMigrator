@@ -28,6 +28,13 @@ namespace SurplusMigrator.Tasks {
         }
 
         public bool run(bool truncateBeforeInsert = false, int readBatchSize = defaultReadBatchSize, bool autoGenerateId = false) {
+            if(
+                sources.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName)) ||
+                destinations.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName))
+            ) {
+                MyConsole.Information(this.GetType().Name+" is skipped because it's excluded in config");
+                return false;
+            }
             if(isAlreadyRun()) return true;
 
             //if being run from method runDependencies
@@ -45,7 +52,7 @@ namespace SurplusMigrator.Tasks {
             List<DbInsertFail> allErrors = new List<DbInsertFail>();
             try {
                 if(truncateBeforeInsert && this.GetType().GetInterfaces().Contains(typeof(RemappableId))) {
-                    var method = ((object)this).GetType().GetMethod("clearRemapping");
+                    var method = ((object)this).GetType().GetMethod("clearRemappingCache");
                     method.Invoke(this, new object[] { });
                 }
 
@@ -432,5 +439,7 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected virtual void runDependencies() { }
+
+        protected virtual void afterFinishedCallback() { }
     }
 }

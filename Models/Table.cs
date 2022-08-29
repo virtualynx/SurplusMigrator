@@ -1,10 +1,12 @@
 using LinqKit;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using NpgsqlTypes;
 using SurplusMigrator.Libraries;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -48,56 +50,68 @@ namespace SurplusMigrator.Models
                 return new List<RowData<ColumnName, object>>();
             }
 
-            MyConsole.Write("Batch-"+ fetchBatchCounter + "/"+ fetchBatchMax + "("+getProgressPercentage().ToString("0.0") + "%), fetch data from "+tableName+" ... ");
-            if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                SqlConnection conn = (SqlConnection)connection.GetDbConnection();
+            bool retry = false;
+            do {
+                try {
+                    MyConsole.Write("Batch-" + fetchBatchCounter + "/" + fetchBatchMax + "(" + getProgressPercentage().ToString("0.0") + "%), fetch data from " + tableName + " ... ");
+                    if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                        SqlConnection conn = (SqlConnection)connection.GetDbConnection();
 
-                SqlCommand command = null;
-                SqlDataReader dataReader = null;
+                        SqlCommand command = null;
+                        SqlDataReader dataReader = null;
 
-                string sqlString = @"SELECT [selected_columns] 
-                    FROM    ( SELECT    ROW_NUMBER() OVER ( ORDER BY [over_orderby] ) AS RowNum, *
-                                FROM      [tablename]
-                            ) AS RowConstrainedResult
-                    WHERE   RowNum >= [offset_start]
-                        AND RowNum <= [offset_end]
-                    ORDER BY RowNum";
+                        string sqlString = @"SELECT [selected_columns] 
+                            FROM    ( SELECT    ROW_NUMBER() OVER ( ORDER BY [over_orderby] ) AS RowNum, *
+                                        FROM      [tablename]
+                                    ) AS RowConstrainedResult
+                            WHERE   RowNum >= [offset_start]
+                                AND RowNum <= [offset_end]
+                            ORDER BY RowNum";
 
-                sqlString = sqlString.Replace("[selected_columns]", String.Join(',', columns));
-                string over_orderby = "(select null)";
-                if(ids != null) {
-                    over_orderby = String.Join(',', ids);
-                }
-                sqlString = sqlString.Replace("[over_orderby]", over_orderby);
-                sqlString = sqlString.Replace("[tablename]", connection.GetDbLoginInfo().schema + "." + tableName);
-                sqlString = sqlString.Replace("[offset_start]", (((fetchBatchCounter - 1) * batchSize) + 1).ToString());
-                sqlString = sqlString.Replace("[offset_end]", (((fetchBatchCounter - 1) * batchSize) + batchSize).ToString());
-
-                command = new SqlCommand(sqlString, conn);
-                dataReader = command.ExecuteReader();
-
-                while(dataReader.Read()) {
-                    RowData<ColumnName, object> rowData = new RowData<ColumnName, object>();
-                    for(int a = 0; a < columns.Length; a++) {
-                        var value = dataReader.GetValue(dataReader.GetOrdinal(columns[a]));
-                        if(value.GetType() == typeof(System.DBNull)) {
-                            value = null;
-                        } else if(value.GetType() == typeof(string)) {
-                            value = value.ToString().Trim();
+                        sqlString = sqlString.Replace("[selected_columns]", String.Join(',', columns));
+                        string over_orderby = "(select null)";
+                        if(ids != null) {
+                            over_orderby = String.Join(',', ids);
                         }
-                        rowData.Add(columns[a], value);
+                        sqlString = sqlString.Replace("[over_orderby]", over_orderby);
+                        sqlString = sqlString.Replace("[tablename]", connection.GetDbLoginInfo().schema + "." + tableName);
+                        sqlString = sqlString.Replace("[offset_start]", (((fetchBatchCounter - 1) * batchSize) + 1).ToString());
+                        sqlString = sqlString.Replace("[offset_end]", (((fetchBatchCounter - 1) * batchSize) + batchSize).ToString());
+
+                        command = new SqlCommand(sqlString, conn);
+                        dataReader = command.ExecuteReader();
+
+                        while(dataReader.Read()) {
+                            RowData<ColumnName, object> rowData = new RowData<ColumnName, object>();
+                            for(int a = 0; a < columns.Length; a++) {
+                                var value = dataReader.GetValue(dataReader.GetOrdinal(columns[a]));
+                                if(value.GetType() == typeof(System.DBNull)) {
+                                    value = null;
+                                } else if(value.GetType() == typeof(string)) {
+                                    value = value.ToString().Trim();
+                                }
+                                rowData.Add(columns[a], value);
+                            }
+                            result.Add(rowData);
+                        }
+
+                        dataReader.Close();
+                        command.Dispose();
+                    } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                        throw new System.NotImplementedException();
                     }
-                    result.Add(rowData);
+                    Console.WriteLine("Done (" + result.Count + " data)");
+
+                    fetchBatchCounter++;
+                    retry = false;
+                } catch(Exception e) {
+                    if(isConnectionProblem(e)) {
+                        retry = true;
+                    } else {
+                        throw;
+                    }
                 }
-
-                dataReader.Close();
-                command.Dispose();
-            } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                throw new System.NotImplementedException();
-            }
-            Console.WriteLine("Done (" + result.Count + " data)");
-
-            fetchBatchCounter++;
+            } while(retry);
 
             return result;
         }
@@ -121,7 +135,11 @@ namespace SurplusMigrator.Models
             }
 
             //start inserting data
-            string[] targetColumns;
+            List<ColumnName> inputColumns = new List<ColumnName>();
+            foreach(KeyValuePair<ColumnName, object> kv in inputs[0]) {
+                inputColumns.Add(kv.Key);
+            }
+            string[] targetColumns = inputColumns.ToArray();
             if(autoGenerateId) {
                 targetColumns = columns.Where(a => ids.Any(b => b != a)).ToArray();
             } else {
@@ -170,25 +188,10 @@ namespace SurplusMigrator.Models
                         if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                             throw new System.NotImplementedException();
                         } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                            NpgsqlConnection conn = (NpgsqlConnection)connection.GetDbConnection();
-
-                            string sql = "INSERT INTO \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"(\"" + String.Join("\",\"", targetColumns) + "\") VALUES ";
-                            NpgsqlCommand command = new NpgsqlCommand(sql + String.Join(',', sqlParams), conn);
-
-                            foreach(Dictionary<ParamNotation, TypedData> argument in sqlArguments) {
-                                //string q = "";
-                                foreach(KeyValuePair<ParamNotation, TypedData> entry in argument) {
-                                    TypedData typedData = entry.Value;
-                                    postgreCommandAddParamWithValue(command, entry.Key, typedData.data);
-                                    //q += (q.Length > 0 ? "," : "") + (typedData.data != null ? typedData.data.ToString().Replace("'", "\'") : "null");
-                                }
-                                //q = "(" + q + ")";
-                                //loggingDetailArray.Add(q);
-                            }
-                            //string loggingDetail = String.Join('\n', loggingDetailArray);
-
+                            string sql = "INSERT INTO \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"(\"" + String.Join("\",\"", targetColumns) + "\") VALUES " + String.Join(',', sqlParams);
+                            
                             try {
-                                affectedRowCount = command.ExecuteNonQuery();
+                                affectedRowCount = executeNonQuery(sql, sqlArguments);
                                 insertedCount += affectedRowCount;
                             } catch(PostgresException e) {
                                 if(
@@ -213,16 +216,9 @@ namespace SurplusMigrator.Models
                                     throw;
                                 }
                             } catch(NpgsqlException e) {
-                                if(e.Message == "A statement cannot have more than 65535 parameters") {
-                                    int rowCount = sqlArguments.Count;
-                                    int paramCount = sqlArguments[0].Count;
-                                    MyConsole.Error("SQL error upon insert into " + tableName + ": " + e.Message + " (" + rowCount + " rows, " + paramCount + " params each row, " + (rowCount * paramCount) + " total params)");
-                                }
                                 throw;
-                            } catch(Exception) {
+                            } catch(Exception e) {
                                 throw;
-                            } finally {
-                                command.Dispose();
                             }
                         }
                         result.successCount += affectedRowCount;
@@ -243,18 +239,13 @@ namespace SurplusMigrator.Models
 
         public long getDataCount() {
             if(dataCount == -1) {
+                string sql = "";
                 if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                    SqlConnection conn = (SqlConnection)connection.GetDbConnection();
-                    SqlCommand command = new SqlCommand("SELECT COUNT(1) FROM [" + connection.GetDbLoginInfo().schema + "].[" + tableName + "]", conn);
-                    dataCount = Convert.ToInt64(command.ExecuteScalar());
-                    command.Dispose();
+                    sql = "SELECT COUNT(1) FROM [" + connection.GetDbLoginInfo().schema + "].[" + tableName + "]";
                 } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                    NpgsqlConnection conn = (NpgsqlConnection)connection.GetDbConnection();
-                    //NpgsqlCommand command = new NpgsqlCommand("SELECT n_live_tup FROM pg_stat_user_tables WHERE schemaname = '" + connection.GetDbLoginInfo().schema + "' AND relname = '" + tableName + "'", conn);
-                    NpgsqlCommand command = new NpgsqlCommand("SELECT COUNT(1) FROM \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"", conn);
-                    dataCount = Convert.ToInt64(command.ExecuteScalar());
-                    command.Dispose();
+                    sql = "SELECT COUNT(1) FROM \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"";
                 }
+                dataCount = Convert.ToInt64(executeScalar(sql));
             }
 
             return dataCount;
@@ -263,75 +254,41 @@ namespace SurplusMigrator.Models
         public ColumnType<ColumnName, DataType> getColumnTypes() {
             if(columnTypes == null) {
                 columnTypes = new ColumnType<ColumnName, string>();
-
                 if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                    SqlConnection conn = (SqlConnection)connection.GetDbConnection();
-                    SqlCommand command = new SqlCommand("select [" + String.Join("],[", columns) + "] from [" + connection.GetDbLoginInfo().schema + "].[" + tableName + "]", conn);
-                    SqlDataReader reader = command.ExecuteReader();
+                    bool retry = false;
+                    do {
+                        try {
+                            SqlConnection conn = (SqlConnection)connection.GetDbConnection();
+                            SqlCommand command = new SqlCommand("select TOP 1 [" + String.Join("],[", columns) + "] from [" + connection.GetDbLoginInfo().schema + "].[" + tableName + "]", conn);
+                            SqlDataReader reader = command.ExecuteReader();
 
-                    foreach(string columnName in columns) {
-                        columnTypes.Add(columnName, reader.GetDataTypeName(reader.GetOrdinal(columnName)));
-                    }
+                            foreach(string columnName in columns) {
+                                columnTypes.Add(columnName, reader.GetDataTypeName(reader.GetOrdinal(columnName)));
+                            }
 
-                    reader.Close();
-                    command.Dispose();
+                            reader.Close();
+                            command.Dispose();
+                            retry = false;
+                        } catch(Exception e) {
+                            if(isConnectionProblem(e)) {
+                                retry = true;
+                            } else {
+                                throw;
+                            }
+                        }
+                    } while(retry);
                 } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                    NpgsqlConnection conn = (NpgsqlConnection)connection.GetDbConnection();
-                    NpgsqlCommand command = new NpgsqlCommand("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema='" + connection.GetDbLoginInfo().schema + "' AND table_name = '" + tableName + "'", conn); ;
-                    NpgsqlDataReader reader = command.ExecuteReader();
+                    List<RowData<ColumnName, object>> datas = executeQuery("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema='" + connection.GetDbLoginInfo().schema + "' AND table_name = '" + tableName + "'");
 
-                    while(reader.Read()) {
-                        string column_name = reader.GetValue(reader.GetOrdinal("column_name")).ToString();
-                        string data_type = reader.GetValue(reader.GetOrdinal("data_type")).ToString();
+                    foreach(RowData<ColumnName, object> row in datas) {
+                        string column_name = row["column_name"].ToString();
+                        string data_type = row["data_type"].ToString();
                         columnTypes[column_name] = data_type;
                     }
-
-                    reader.Close();
-                    command.Dispose();
                 }
             }
 
             return columnTypes;
-        }
-
-        private NpgsqlDbType getPostgreColumnType(string columnName) {
-            ColumnType<ColumnName, DataType> columnTypes = getColumnTypes();
-            NpgsqlDbType result = NpgsqlDbType.Unknown;
-
-            if(columnTypes[columnName] == "integer") {
-                result = NpgsqlDbType.Integer;
-            } else if(columnTypes[columnName] == "numeric") {
-                result = NpgsqlDbType.Numeric;
-            } else if(columnTypes[columnName] == "character varying") {
-                result = NpgsqlDbType.Varchar;
-            } else if(columnTypes[columnName] == "text") {
-                result = NpgsqlDbType.Text;
-            } else if(columnTypes[columnName] == "timestamp without time zone") {
-                result = NpgsqlDbType.Timestamp;
-            } else if(columnTypes[columnName] == "jsonb") {
-                result = NpgsqlDbType.Jsonb;
-            } else if(columnTypes[columnName] == "boolean") {
-                result = NpgsqlDbType.Boolean;
-            }
-
-            return result;
-        }
-
-        private void postgreCommandAddParamWithValue(NpgsqlCommand command, ParamNotation paramNotation, object data) {
-            string columnName = getColumnNameFromParamNotation(paramNotation);
-            NpgsqlDbType columnDbType = getPostgreColumnType(columnName);
-
-            if(data.GetType() == typeof(decimal) && (columnDbType == NpgsqlDbType.Varchar || columnDbType == NpgsqlDbType.Text)) {
-                data = data.ToString();
-            }
-
-            command.Parameters.AddWithValue(paramNotation, columnDbType, data);
-        }
-
-        private string getColumnNameFromParamNotation(ParamNotation paramNotation) {
-            Match match = Regex.Match(paramNotation, "@(.*)_([0-9]+)");
-
-            return match.Groups[1].Value;
         }
 
         public bool setSequence(int num) {
@@ -340,9 +297,7 @@ namespace SurplusMigrator.Models
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 throw new System.NotImplementedException();
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                NpgsqlCommand command = new NpgsqlCommand("ALTER SEQUENCE " + sequenceName + " RESTART WITH "+num, (NpgsqlConnection)connection.GetDbConnection());
-                affectedRow = command.ExecuteNonQuery();
-                command.Dispose();
+                executeNonQuery("ALTER SEQUENCE " + sequenceName + " RESTART WITH " + num);
             }
 
             return affectedRow > 0;
@@ -353,21 +308,17 @@ namespace SurplusMigrator.Models
             if(cascade) {
                 options += " CASCADE";
             }
+            MyConsole.Information("Truncate " + connection.GetDbLoginInfo().schema + "." + tableName + "" + options);
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 throw new System.NotImplementedException();
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                MyConsole.Information("Truncate \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + options);
-                NpgsqlCommand command = new NpgsqlCommand("TRUNCATE TABLE \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + options, (NpgsqlConnection)connection.GetDbConnection());
-                command.ExecuteNonQuery();
-                command.Dispose();
+                executeNonQuery("TRUNCATE TABLE \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + options);
             }
         }
 
         private void omitDuplicatedData(List<DbInsertFail> failures, List<RowData<ColumnName, object>> inputs) {
-            string sqlSelect = "select " + String.Join(",", ids) + " from \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" where (" + String.Join(",", ids) + ") in";
             List<string> sqlSelectParams = new List<string>();
             Dictionary<ParamNotation, object> sqlSelectArgs = new Dictionary<ParamNotation, object>();
-            List<RowData<ColumnName, object>> selectResults = new List<RowData<ColumnName, object>>();
             for(int rowNum = 1; rowNum <= inputs.Count; rowNum++) {
                 RowData<ColumnName, object> rowData = inputs[rowNum - 1];
                 List<string> paramTemp = new List<string>();
@@ -379,29 +330,34 @@ namespace SurplusMigrator.Models
                 sqlSelectParams.Add("(" + String.Join(",", paramTemp) + ")");
             }
 
+            List<RowData<ColumnName, object>> selectResults = new List<RowData<ColumnName, object>>();
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 throw new System.NotImplementedException();
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                NpgsqlCommand command = new NpgsqlCommand(sqlSelect + "(" + String.Join(',', sqlSelectParams) + ")", (NpgsqlConnection)connection.GetDbConnection());
-                foreach(KeyValuePair<ParamNotation, object> entry in sqlSelectArgs) {
-                    postgreCommandAddParamWithValue(command, entry.Key, entry.Value);
-                }
-                NpgsqlDataReader dataReader = command.ExecuteReader();
-                while(dataReader.Read()) {
-                    RowData<ColumnName, object> rowData = new RowData<ColumnName, object>();
-                    foreach(string id in ids) {
-                        var value = dataReader.GetValue(dataReader.GetOrdinal(id));
-                        if(value.GetType() == typeof(System.DBNull)) {
-                            value = null;
-                        } else if(value.GetType() == typeof(string)) {
-                            value = value.ToString().Trim();
-                        }
-                        rowData.Add(id, value);
-                    }
-                    selectResults.Add(rowData);
-                }
-                dataReader.Close();
-                command.Dispose();
+                //string sqlSelect = "select " + String.Join(",", ids) + " from \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" where (" + String.Join(",", ids) + ") in";
+                //NpgsqlCommand command = new NpgsqlCommand(sqlSelect + "(" + String.Join(',', sqlSelectParams) + ")", (NpgsqlConnection)connection.GetDbConnection());
+                //foreach(KeyValuePair<ParamNotation, object> entry in sqlSelectArgs) {
+                //    postgreCommandAddParamWithValue(command, entry.Key, entry.Value);
+                //}
+                //NpgsqlDataReader dataReader = command.ExecuteReader();
+                //while(dataReader.Read()) {
+                //    RowData<ColumnName, object> rowData = new RowData<ColumnName, object>();
+                //    foreach(string id in ids) {
+                //        var value = dataReader.GetValue(dataReader.GetOrdinal(id));
+                //        if(value.GetType() == typeof(System.DBNull)) {
+                //            value = null;
+                //        } else if(value.GetType() == typeof(string)) {
+                //            value = value.ToString().Trim();
+                //        }
+                //        rowData.Add(id, value);
+                //    }
+                //    selectResults.Add(rowData);
+                //}
+                //dataReader.Close();
+                //command.Dispose();
+
+                string sqlSelect = "select " + String.Join(",", ids) + " from \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" where (" + String.Join(",", ids) + ") in" + "(" + String.Join(',', sqlSelectParams) + ")";
+                selectResults = executeQuery(sqlSelect, sqlSelectArgs);
             }
 
             List<RowData<ColumnName, object>> duplicatedDatas = new List<RowData<ColumnName, object>>();
@@ -508,6 +464,425 @@ namespace SurplusMigrator.Models
             if(filteredArguments.Count > 0) {
                 MyConsole.Error("Error upon insert into " + tableName + ", " + e.MessageText + "(" + filteredArguments.Count + " data)");
             }
+        }
+
+        // //////////////////////////////////////////////////////////////////////////////////////////////
+        public List<RowData<ColumnName, dynamic>> executeQuery(string sql) {
+            List<RowData<ColumnName, dynamic>> result = new List<RowData<string, dynamic>>();
+            bool retry = false;
+            do {
+                try {
+                    if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                        SqlCommand command = new SqlCommand(sql, (SqlConnection)connection.GetDbConnection());
+                        SqlDataReader reader = command.ExecuteReader();
+                        while(reader.Read()) {
+                            RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
+                            for(int a = 0; a < reader.FieldCount; a++) {
+                                string columnName = reader.GetName(a);
+                                dynamic data = reader.GetValue(a);
+                                if(data.GetType() == typeof(System.DBNull)) {
+                                    data = null;
+                                } else if(data.GetType() == typeof(string)) {
+                                    data = data.ToString().Trim();
+                                }
+                                rowData.Add(columnName, data);
+                            }
+                            result.Add(rowData);
+                        }
+                        reader.Close();
+                        command.Dispose();
+                    } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                        NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)connection.GetDbConnection());
+                        NpgsqlDataReader reader = command.ExecuteReader();
+                        while(reader.Read()) {
+                            RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
+                            for(int a = 0; a < reader.FieldCount; a++) {
+                                string columnName = reader.GetName(a);
+                                dynamic data = reader.GetValue(a);
+                                if(data.GetType() == typeof(System.DBNull)) {
+                                    data = null;
+                                } else if(data.GetType() == typeof(string)) {
+                                    data = data.ToString().Trim();
+                                }
+                                rowData.Add(columnName, data);
+                            }
+                            result.Add(rowData);
+                        }
+                        reader.Close();
+                        command.Dispose();
+                    }
+                    retry = false;
+                } catch(Exception e) {
+                    if(isConnectionProblem(e)) {
+                        retry = true;
+                    } else {
+                        throw;
+                    }
+                }
+            } while(retry);
+
+            return result;
+        }
+
+        public List<RowData<ColumnName, dynamic>> executeQuery(string sql, List<Dictionary<ParamNotation, TypedData>> args) {
+            List<RowData<ColumnName, dynamic>> result = new List<RowData<string, dynamic>>();
+            bool retry = false;
+            do {
+                try {
+                    if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                        SqlCommand command = new SqlCommand(sql, (SqlConnection)connection.GetDbConnection());
+                        if(args != null) {
+                            foreach(Dictionary<ParamNotation, TypedData> arg in args) {
+                                foreach(KeyValuePair<ParamNotation, TypedData> entry in arg) {
+                                    TypedData typedData = entry.Value;
+                                    sqlCommandAddParamWithValue(command, entry.Key, typedData.data);
+                                }
+                            }
+                        }
+                        SqlDataReader reader = command.ExecuteReader();
+                        while(reader.Read()) {
+                            RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
+                            for(int a = 0; a < reader.FieldCount; a++) {
+                                string columnName = reader.GetName(a);
+                                dynamic data = reader.GetValue(a);
+                                if(data.GetType() == typeof(System.DBNull)) {
+                                    data = null;
+                                } else if(data.GetType() == typeof(string)) {
+                                    data = data.ToString().Trim();
+                                }
+                                rowData.Add(columnName, data);
+                            }
+                            result.Add(rowData);
+                        }
+                        reader.Close();
+                        command.Dispose();
+                    } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                        NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)connection.GetDbConnection());
+                        if(args != null) {
+                            foreach(Dictionary<ParamNotation, TypedData> arg in args) {
+                                foreach(KeyValuePair<ParamNotation, TypedData> entry in arg) {
+                                    TypedData typedData = entry.Value;
+                                    postgreCommandAddParamWithValue(command, entry.Key, typedData.data);
+                                }
+                            }
+                        }
+                        NpgsqlDataReader reader = command.ExecuteReader();
+                        while(reader.Read()) {
+                            RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
+                            for(int a = 0; a < reader.FieldCount; a++) {
+                                string columnName = reader.GetName(a);
+                                dynamic data = reader.GetValue(a);
+                                if(data.GetType() == typeof(System.DBNull)) {
+                                    data = null;
+                                } else if(data.GetType() == typeof(string)) {
+                                    data = data.ToString().Trim();
+                                }
+                                rowData.Add(columnName, data);
+                            }
+                            result.Add(rowData);
+                        }
+                        reader.Close();
+                        command.Dispose();
+                    }
+                    retry = false;
+                } catch(Exception e) {
+                    if(isConnectionProblem(e)) {
+                        retry = true;
+                    } else {
+                        throw;
+                    }
+                }
+            } while(retry);
+
+            return result;
+        }
+
+        public List<RowData<ColumnName, dynamic>> executeQuery(string sql, Dictionary<ParamNotation, object> args) {
+            List<RowData<ColumnName, dynamic>> result = new List<RowData<string, dynamic>>();
+            bool retry = false;
+            do {
+                try {
+                    if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                        SqlCommand command = new SqlCommand(sql, (SqlConnection)connection.GetDbConnection());
+                        if(args != null) {
+                            foreach(KeyValuePair<ParamNotation, object> entry in args) {
+                                sqlCommandAddParamWithValue(command, entry.Key, entry.Value);
+                            }
+                        }
+                        SqlDataReader reader = command.ExecuteReader();
+                        while(reader.Read()) {
+                            RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
+                            for(int a = 0; a < reader.FieldCount; a++) {
+                                string columnName = reader.GetName(a);
+                                dynamic data = reader.GetValue(a);
+                                if(data.GetType() == typeof(System.DBNull)) {
+                                    data = null;
+                                } else if(data.GetType() == typeof(string)) {
+                                    data = data.ToString().Trim();
+                                }
+                                rowData.Add(columnName, data);
+                            }
+                            result.Add(rowData);
+                        }
+                        reader.Close();
+                        command.Dispose();
+                    } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                        NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)connection.GetDbConnection());
+                        if(args != null) {
+                            foreach(KeyValuePair<ParamNotation, object> entry in args) {
+                                postgreCommandAddParamWithValue(command, entry.Key, entry.Value);
+                            }
+                        }
+                        NpgsqlDataReader reader = command.ExecuteReader();
+                        while(reader.Read()) {
+                            RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
+                            for(int a = 0; a < reader.FieldCount; a++) {
+                                string columnName = reader.GetName(a);
+                                dynamic data = reader.GetValue(a);
+                                if(data.GetType() == typeof(System.DBNull)) {
+                                    data = null;
+                                } else if(data.GetType() == typeof(string)) {
+                                    data = data.ToString().Trim();
+                                }
+                                rowData.Add(columnName, data);
+                            }
+                            result.Add(rowData);
+                        }
+                        reader.Close();
+                        command.Dispose();
+                    }
+                    retry = false;
+                } catch(Exception e) {
+                    if(isConnectionProblem(e)) {
+                        retry = true;
+                    } else {
+                        throw;
+                    }
+                }
+            } while(retry);
+
+            return result;
+        }
+
+        public int executeNonQuery(string sql, List<Dictionary<ParamNotation, TypedData>> args = null) {
+            int result = 0;
+            bool retry = false;
+            do {
+                try {
+                    if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                        SqlCommand command = new SqlCommand(sql, (SqlConnection)connection.GetDbConnection());
+                        if(args != null) {
+                            foreach(Dictionary<ParamNotation, TypedData> arg in args) {
+                                foreach(KeyValuePair<ParamNotation, TypedData> entry in arg) {
+                                    TypedData typedData = entry.Value;
+                                    sqlCommandAddParamWithValue(command, entry.Key, typedData.data);
+                                }
+                            }
+                        }
+                        result = command.ExecuteNonQuery();
+                        command.Dispose();
+                    } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                        NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)connection.GetDbConnection());
+                        if(args != null) {
+                            foreach(Dictionary<ParamNotation, TypedData> arg in args) {
+                                foreach(KeyValuePair<ParamNotation, TypedData> entry in arg) {
+                                    TypedData typedData = entry.Value;
+                                    postgreCommandAddParamWithValue(command, entry.Key, typedData.data);
+                                }
+                            }
+                        }
+                        result = command.ExecuteNonQuery();
+                        command.Dispose();
+                    }
+                    retry = false;
+                } catch(Exception e) {
+                    if(isConnectionProblem(e)) {
+                        retry = true;
+                    } else {
+                        throw;
+                    }
+                }
+            } while(retry);
+
+            return result;
+        }
+
+        private object executeScalar(string sql, List<Dictionary<ParamNotation, TypedData>> args = null) {
+            object result = null;
+            bool retry = false;
+            do {
+                try {
+                    if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                        SqlCommand command = new SqlCommand(sql, (SqlConnection)connection.GetDbConnection());
+                        if(args != null) {
+                            foreach(Dictionary<ParamNotation, TypedData> arg in args) {
+                                foreach(KeyValuePair<ParamNotation, TypedData> entry in arg) {
+                                    TypedData typedData = entry.Value;
+                                    sqlCommandAddParamWithValue(command, entry.Key, typedData.data);
+                                }
+                            }
+                        }
+                        result = command.ExecuteScalar();
+                        command.Dispose();
+                    } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                        NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)connection.GetDbConnection());
+                        if(args != null) {
+                            foreach(Dictionary<ParamNotation, TypedData> arg in args) {
+                                foreach(KeyValuePair<ParamNotation, TypedData> entry in arg) {
+                                    TypedData typedData = entry.Value;
+                                    postgreCommandAddParamWithValue(command, entry.Key, typedData.data);
+                                }
+                            }
+                        }
+                        result = command.ExecuteScalar();
+                        command.Dispose();
+                    }
+                    retry = false;
+                } catch(Exception e) {
+                    if(isConnectionProblem(e)) {
+                        retry = true;
+                    } else {
+                        throw;
+                    }
+                }
+            } while(retry);
+
+            return result;
+        }
+
+        private void sqlCommandAddParamWithValue(SqlCommand command, ParamNotation paramNotation, object data) {
+            string columnName = getColumnNameFromParamNotation(paramNotation);
+            SqlDbType columnDbType = getSqlColumnType(columnName);
+
+            if(data.GetType() == typeof(decimal) && (columnDbType == SqlDbType.VarChar || columnDbType == SqlDbType.Text)) {
+                data = data.ToString();
+            }
+
+            command.Parameters.AddWithValue(paramNotation, data);
+        }
+        private SqlDbType getSqlColumnType(string columnName) {
+            ColumnType<ColumnName, DataType> columnTypes = getColumnTypes();
+            SqlDbType result = SqlDbType.Text;
+
+            if(columnTypes[columnName] == "int") {
+                result = SqlDbType.Int;
+            } else if(columnTypes[columnName] == "tinyint") {
+                result = SqlDbType.TinyInt;
+            } else if(columnTypes[columnName] == "smallint") {
+                result = SqlDbType.SmallInt;
+            } else if(columnTypes[columnName] == "numeric") {
+                result = SqlDbType.Decimal;
+            } else if(columnTypes[columnName] == "decimal") {
+                result = SqlDbType.Decimal;
+            } else if(columnTypes[columnName] == "nvarchar") {
+                result = SqlDbType.VarChar;
+            } else if(columnTypes[columnName] == "text") {
+                result = SqlDbType.Text;
+            } else if(columnTypes[columnName] == "datetime") {
+                result = SqlDbType.Timestamp;
+            } else if(columnTypes[columnName] == "smalldatetime") {
+                result = SqlDbType.SmallDateTime;
+            }
+
+            return result;
+        }
+        private void postgreCommandAddParamWithValue(NpgsqlCommand command, ParamNotation paramNotation, object data) {
+            string columnName = getColumnNameFromParamNotation(paramNotation);
+            NpgsqlDbType columnDbType = getPostgreColumnType(columnName);
+
+            if(
+                (
+                    data.GetType() == typeof(decimal) ||
+                    data.GetType() == typeof(int) ||
+                    data.GetType() == typeof(long)
+                ) && 
+                (columnDbType == NpgsqlDbType.Varchar || columnDbType == NpgsqlDbType.Text)
+            ) {
+                data = data.ToString();
+            }
+            if(
+                data.GetType() == typeof(string) &&
+                (
+                    columnDbType == NpgsqlDbType.Bigint ||
+                    columnDbType == NpgsqlDbType.Integer ||
+                    columnDbType == NpgsqlDbType.Smallint ||
+                    columnDbType == NpgsqlDbType.Bit ||
+                    columnDbType == NpgsqlDbType.Numeric ||
+                    columnDbType == NpgsqlDbType.Real
+                )
+            ) {
+                data = data.ToString().Trim();
+            }
+
+            command.Parameters.AddWithValue(paramNotation, columnDbType, data);
+        }
+        private NpgsqlDbType getPostgreColumnType(string columnName) {
+            ColumnType<ColumnName, DataType> columnTypes = getColumnTypes();
+            NpgsqlDbType result = NpgsqlDbType.Unknown;
+
+            if(columnTypes[columnName] == "integer") {
+                result = NpgsqlDbType.Integer;
+            } else if(columnTypes[columnName] == "numeric") {
+                result = NpgsqlDbType.Numeric;
+            } else if(columnTypes[columnName] == "character varying") {
+                result = NpgsqlDbType.Varchar;
+            } else if(columnTypes[columnName] == "text") {
+                result = NpgsqlDbType.Text;
+            } else if(columnTypes[columnName] == "timestamp without time zone") {
+                result = NpgsqlDbType.Timestamp;
+            } else if(columnTypes[columnName] == "jsonb") {
+                result = NpgsqlDbType.Jsonb;
+            } else if(columnTypes[columnName] == "boolean") {
+                result = NpgsqlDbType.Boolean;
+            }
+
+            return result;
+        }
+        private string getColumnNameFromParamNotation(ParamNotation paramNotation) {
+            Match match = Regex.Match(paramNotation, "@(.*)_([0-9]+)");
+
+            return match.Groups[1].Value;
+        }
+        private bool isConnectionProblem(Exception e) {
+            bool result = false;
+
+            if(
+                e.Message.Contains("The timeout period elapsed prior to completion of the operation or the server is not responding")
+                && e.InnerException.Message == "The wait operation timed out."
+            ) {
+                result = true;
+            }
+            if(
+                e.Message.Contains("A network-related or instance-specific error occurred while establishing a connection to SQL Server")
+                && e.Message.Contains("established connection failed because connected host has failed to respond")
+            ) {
+                result = true;
+            }
+            if(
+                e.Message.Contains("A transport-level error has occurred when sending the request to the server")
+                && e.Message.Contains("An existing connection was forcibly closed by the remote host")
+            ) {
+                result = true;
+            }
+            if(
+                e.Message.Contains("Exception while reading from stream")
+                && e.InnerException.Message == "Timeout during reading attempt"
+            ) {
+                result = true;
+            }
+            if(
+                e.Message == "Exception while writing to stream"
+                && e.InnerException.Message == "Timeout during writing attempt"
+            ) {
+                result = true;
+            }
+
+            if(result == true) {
+                MyConsole.Warning("Connection problem, retrying ...");
+                System.Threading.Thread.Sleep(2000);
+            }
+
+            return result;
         }
     }
 }

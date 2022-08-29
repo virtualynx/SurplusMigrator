@@ -1,11 +1,13 @@
 namespace SurplusMigrator.Models
 {
-  class DbConfig
+  class AppConfig
     {
-        public DbConfig(){
+        public AppConfig(){
 
         }
 
         public DbLoginInfo[] databases { get; set; }
+
+        public ExcludedTables excluded_tables { get; set; }
     }
 }

@@ -309,5 +309,9 @@ namespace SurplusMigrator.Tasks {
         public void clearRemappingCache() {
             IdRemapper.clearMapping("tbudget_detailid");
         }
+
+        protected override void afterFinishedCallback() {
+            IdRemapper.saveMap();
+        }
     }
 }
