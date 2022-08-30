@@ -111,9 +111,9 @@ namespace SurplusMigrator {
                             }
                             new TransactionProgramBudget(connections).run();
                         }
-                        new TransactionBudget(connections).run(true); //
+                        new TransactionBudget(connections).run(); //
                     }
-                    new TransactionJournal(connections).run(true); //
+                    new TransactionJournal(connections).run(); //
                 }
 
                 { //start of TransactionJournalDetail
@@ -126,13 +126,13 @@ namespace SurplusMigrator {
                         {//---pre-req for TransactionBudgetDetail
                             new MasterBudgetAccount(connections).run();
                         }
-                        new TransactionBudgetDetail(connections).run(true); //
+                        new TransactionBudgetDetail(connections).run(); //
                     }
-                    new TransactionJournalDetail(connections).run(true); //
+                    new TransactionJournalDetail(connections).run(); //
                 }
                 
-                new TransactionJournalReval(connections).run(true); //
-                new TransactionJournalSaldo(connections).run(true); //
+                new TransactionJournalReval(connections).run(); //
+                new TransactionJournalSaldo(connections).run(); //
             } catch(Exception e) {
                 MyConsole.Error("Program stopped abnormally due to some error");
             } finally { 

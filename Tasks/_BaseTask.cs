@@ -45,6 +45,13 @@ namespace SurplusMigrator.Tasks {
             }
 
             MyConsole.Information("Task " + this.GetType().Name + " started ...");
+
+            //truncate options is in the config file
+            if(destinations.Any(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))) {
+                truncateBeforeInsert = true;
+                MyConsole.Information("Applying truncating option from the config file");
+            }
+
             _startedAt = DateTime.Now;
             bool allSuccess = true;
             Stopwatch stopwatch = new Stopwatch();

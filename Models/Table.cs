@@ -1,24 +1,19 @@
 using LinqKit;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Options;
 using Npgsql;
 using NpgsqlTypes;
 using SurplusMigrator.Exceptions;
 using SurplusMigrator.Libraries;
-using SurplusMigrator.Models.Others;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
 using ParamNotation = System.String;
 
-namespace SurplusMigrator.Models
-{
+namespace SurplusMigrator.Models {
     class Table
     {
         public DbConnection_ connection;
