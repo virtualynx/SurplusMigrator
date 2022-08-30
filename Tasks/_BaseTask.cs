@@ -28,13 +28,6 @@ namespace SurplusMigrator.Tasks {
         }
 
         public bool run(bool truncateBeforeInsert = false, int readBatchSize = defaultReadBatchSize, bool autoGenerateId = false) {
-            if(
-                sources.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName)) ||
-                destinations.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName))
-            ) {
-                MyConsole.Information(this.GetType().Name+" is skipped because it's excluded in config");
-                return false;
-            }
             if(isAlreadyRun()) return true;
 
             //if being run from method runDependencies
@@ -42,8 +35,23 @@ namespace SurplusMigrator.Tasks {
                 string parentTaskName = new StackFrame(1).GetMethod().DeclaringType.Name;
                 MyConsole.Information("Run "+ parentTaskName +"'s dependency - "+ this.GetType().Name);
             }
+            //skips if excluded in config
+            if(
+                sources.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName)) ||
+                destinations.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName))
+            ) {
+                MyConsole.Information(this.GetType().Name + " is skipped because it's excluded in config");
+                return false;
+            }
 
             MyConsole.Information("Task " + this.GetType().Name + " started ...");
+
+            //truncate options is in the config file
+            if(destinations.Any(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))) {
+                truncateBeforeInsert = true;
+                MyConsole.Information("Applying truncating option from the config file");
+            }
+
             _startedAt = DateTime.Now;
             bool allSuccess = true;
             Stopwatch stopwatch = new Stopwatch();
@@ -159,7 +167,7 @@ namespace SurplusMigrator.Tasks {
             _alreadyRunMap[taskName] = true;
         }
 
-        protected private List<DbInsertFail> nullifyMissingReferences(
+        protected private DbInsertFail[] nullifyMissingReferences(
             string foreignColumnName,
             string referencedTableName,
             string referencedColumnName,
@@ -196,7 +204,7 @@ namespace SurplusMigrator.Tasks {
                 }
             }
 
-            if(idsOfInputs.Count == 0) return result; //all reference is either 0 or null
+            if(idsOfInputs.Count == 0) return result.ToArray(); //all reference is either 0 or null
 
             List<object> queriedReferencedIds = new List<object>();
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
@@ -287,10 +295,10 @@ namespace SurplusMigrator.Tasks {
                 }
             }
 
-            return result;
+            return result.ToArray();
         }
 
-        protected private List<DbInsertFail> skipsIfMissingReferences(
+        protected private DbInsertFail[] skipsIfMissingReferences(
             string foreignColumnName,
             string referencedTableName,
             string referencedColumnName,
@@ -327,7 +335,7 @@ namespace SurplusMigrator.Tasks {
                 }
             }
 
-            if(idsOfInputs.Count == 0) return result; //all reference is either 0 or null
+            if(idsOfInputs.Count == 0) return result.ToArray(); //all reference is either 0 or null
 
             List<dynamic> queriedReferencedIds = new List<dynamic>();
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
@@ -424,7 +432,7 @@ namespace SurplusMigrator.Tasks {
                 }
             }
 
-            return result;
+            return result.ToArray();
         }
 
         protected virtual List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {

@@ -15,5 +15,11 @@ namespace SurplusMigrator.Libraries {
 
             return false;
         }
+
+        public static bool isTruncatedTable(string tablename) {
+            if(_config.truncated_tables.Contains(tablename)) return true;
+
+            return false;
+        }
     }
 }

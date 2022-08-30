@@ -1,4 +1,9 @@
 {
+  "infos": [
+    { "databases" : "Connection profiles for all database used for source/destination" },
+    { "excluded_tables": "Data will not be migrated if the task is involving these source/destination tables, can be listed by tablenames of either being source or destination" },
+    { "truncated_tables": "List of the name of destination tables which will be truncated before inserted" }
+  ],
   "databases": [
     {
       "host": "172.16.20.179",
@@ -30,8 +35,21 @@
   ],
   "excluded_tables": {
     "source": [
+      "transaksi_budget",
+      "transaksi_budgetdetil",
+      "transaksi_jurnal",
+      "transaksi_jurnaldetil"
     ],
     "destination": [
+      "transaction_journal_reval"
     ]
-  }
+  },
+  "truncated_tables": [
+    "transaction_budget",
+    "transaction_budget_detail",
+    "transaction_journal",
+    "transaction_journal_detail",
+    "transaction_journal_reval",
+    "transaction_journal_saldo"
+  ]
 }

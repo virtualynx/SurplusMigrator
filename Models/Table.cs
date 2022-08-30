@@ -1,24 +1,19 @@
 using LinqKit;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Options;
 using Npgsql;
 using NpgsqlTypes;
 using SurplusMigrator.Exceptions;
 using SurplusMigrator.Libraries;
-using SurplusMigrator.Models.Others;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
 using ParamNotation = System.String;
 
-namespace SurplusMigrator.Models
-{
+namespace SurplusMigrator.Models {
     class Table
     {
         public DbConnection_ connection;
@@ -74,7 +69,7 @@ namespace SurplusMigrator.Models
 
                         sqlString = sqlString.Replace("[selected_columns]", String.Join(',', columns));
                         string over_orderby = "(select null)";
-                        if(ids != null) {
+                        if(ids != null && ids.Length > 0) {
                             over_orderby = String.Join(',', ids);
                         }
                         sqlString = sqlString.Replace("[over_orderby]", over_orderby);
@@ -131,7 +126,7 @@ namespace SurplusMigrator.Models
             }
 
             //check & omit if attempted insert data is already in table
-            if(!autoGenerateId) {
+            if(!autoGenerateId && ids!=null && ids.Length>0) {
                 omitDuplicatedData(failures, inputs);
                 if(inputs.Count == 0) { //all data are duplicates
                     return result;
@@ -147,8 +142,6 @@ namespace SurplusMigrator.Models
             if(autoGenerateId) {
                 targetColumns = columns.Where(a => ids.Any(b => b != a)).ToArray();
             }
-
-            ColumnType<ColumnName, DataType> columnType = getColumnTypes();
 
             List<string> sqlParams = new List<string>();
             List<Dictionary<ParamNotation, object>> sqlArguments = new List<Dictionary<ParamNotation, object>>();
@@ -183,7 +176,6 @@ namespace SurplusMigrator.Models
                         retryInsert = false;
                         long affectedRowCount = 0;
 
-                        //List<string> loggingDetailArray = new List<string>();
                         if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                             throw new System.NotImplementedException();
                         } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
@@ -210,8 +202,7 @@ namespace SurplusMigrator.Models
                                 } else if(e.Message.Contains("duplicate key value violates unique constraint")) {
                                     throw new Exception("Unique constraint violation upon insert into " + tableName + ": " + e.Detail);
                                 } else {
-                                    //Log.Logger.Error(e, "SQL error upon insert into " + tableName + ": " + e.Detail + "\nvalues: \n" + loggingDetail);
-                                    MyConsole.Error(e, "SQL error upon insert into " + tableName + ": " + e.Detail);
+                                    //MyConsole.Error(e, "SQL error upon insert into " + tableName + ": " + e.Detail);
                                     throw;
                                 }
                             } catch(NpgsqlException e) {
@@ -358,7 +349,7 @@ namespace SurplusMigrator.Models
 
             if(duplicatedDatas.Count > 0) {
                 MyConsole.EraseLine();
-                MyConsole.Warning("Skipping " + duplicatedDatas.Count + " duplicated data upon inserting into " + tableName);
+                MyConsole.WriteLine("Skipping " + duplicatedDatas.Count + " duplicated data upon inserting into " + tableName);
             }
         }
 
@@ -452,65 +443,8 @@ namespace SurplusMigrator.Models
         }
 
         // //////////////////////////////////////////////////////////////////////////////////////////////
-        public List<RowData<ColumnName, dynamic>> executeQuery(string sql) {
-            List<RowData<ColumnName, dynamic>> result = new List<RowData<string, dynamic>>();
-            bool retry = false;
-            do {
-                try {
-                    if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                        SqlCommand command = new SqlCommand(sql, (SqlConnection)connection.GetDbConnection());
-                        SqlDataReader reader = command.ExecuteReader();
-                        while(reader.Read()) {
-                            RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
-                            for(int a = 0; a < reader.FieldCount; a++) {
-                                string columnName = reader.GetName(a);
-                                dynamic data = reader.GetValue(a);
-                                if(data.GetType() == typeof(System.DBNull)) {
-                                    data = null;
-                                } else if(data.GetType() == typeof(string)) {
-                                    data = data.ToString().Trim();
-                                }
-                                rowData.Add(columnName, data);
-                            }
-                            result.Add(rowData);
-                        }
-                        reader.Close();
-                        command.Dispose();
-                    } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                        NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)connection.GetDbConnection());
-                        NpgsqlDataReader reader = command.ExecuteReader();
-                        while(reader.Read()) {
-                            RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
-                            for(int a = 0; a < reader.FieldCount; a++) {
-                                string columnName = reader.GetName(a);
-                                dynamic data = reader.GetValue(a);
-                                if(data.GetType() == typeof(System.DBNull)) {
-                                    data = null;
-                                } else if(data.GetType() == typeof(string)) {
-                                    data = data.ToString().Trim();
-                                }
-                                rowData.Add(columnName, data);
-                            }
-                            result.Add(rowData);
-                        }
-                        reader.Close();
-                        command.Dispose();
-                    }
-                    retry = false;
-                } catch(Exception e) {
-                    if(isConnectionProblem(e)) {
-                        retry = true;
-                    } else {
-                        throw;
-                    }
-                }
-            } while(retry);
-
-            return result;
-        }
-
-        public List<RowData<ColumnName, dynamic>> executeQuery(string sql, Dictionary<ParamNotation, object> args) {
-            List<RowData<ColumnName, dynamic>> result = new List<RowData<string, dynamic>>();
+        public List<RowData<ColumnName, object>> executeQuery(string sql, Dictionary<ParamNotation, object> args = null) {
+            List<RowData<ColumnName, object>> result = new List<RowData<string, dynamic>>();
             bool retry = false;
             do {
                 try {

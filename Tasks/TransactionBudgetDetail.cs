@@ -114,21 +114,21 @@ namespace SurplusMigrator.Tasks {
                 { 709454, "5040601001" },
             };
 
-            List<DbInsertFail> missingRefErrors = skipsIfMissingReferences(
+            DbInsertFail[] missingRefErrors = skipsIfMissingReferences(
                 "budget_id",
                 "transaksi_budget",
                 "budget_id",
                 connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
                 inputs
             );
-            if(missingRefErrors.Count > 0) {
+            if(missingRefErrors.Length > 0) {
                 foreach(DbInsertFail err in missingRefErrors) {
                     Match match = Regex.Match(err.info, "(.*)key \\((.*)\\)=\\((.*)\\)");
                     string column = match.Groups[2].Value;
                     string id = match.Groups[3].Value;
                     allMissingBudgetIds.Add(Utils.obj2long(id));
-                    result.addError("transaction_budget_detail", err);
                 }
+                result.addErrors("transaction_budget_detail", missingRefErrors);
             }
             if(allMissingBudgetIds.Count > 0) {
                 MyConsole.Warning("Total count of ignored data caused by \"missing data in table [transaksi_budget]\": " + allMissingBudgetIds.Count);
@@ -141,8 +141,8 @@ namespace SurplusMigrator.Tasks {
                     string column = match.Groups[1].Value;
                     string id = match.Groups[2].Value;
                     allUnreferencedDataIds.Add(Utils.obj2long(id));
-                    result.addError("transaction_budget_detail", err);
                 }
+                result.addErrors("transaction_budget_detail", unreferencedErrors.ToArray());
             }
             if(allUnreferencedDataIds.Count > 0) {
                 MyConsole.Warning("Total count of ignored data caused by \"having null column [budget_id] & [budgetdetil_date]\": " + allUnreferencedDataIds.Count);
