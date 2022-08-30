@@ -28,19 +28,20 @@ namespace SurplusMigrator.Tasks {
         }
 
         public bool run(bool truncateBeforeInsert = false, int readBatchSize = defaultReadBatchSize, bool autoGenerateId = false) {
-            if(
-                sources.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName)) ||
-                destinations.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName))
-            ) {
-                MyConsole.Information(this.GetType().Name+" is skipped because it's excluded in config");
-                return false;
-            }
             if(isAlreadyRun()) return true;
 
             //if being run from method runDependencies
             if(new StackFrame(1).GetMethod().Name == "runDependencies") {
                 string parentTaskName = new StackFrame(1).GetMethod().DeclaringType.Name;
                 MyConsole.Information("Run "+ parentTaskName +"'s dependency - "+ this.GetType().Name);
+            }
+            //skips if excluded in config
+            if(
+                sources.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName)) ||
+                destinations.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName))
+            ) {
+                MyConsole.Information(this.GetType().Name + " is skipped because it's excluded in config");
+                return false;
             }
 
             MyConsole.Information("Task " + this.GetType().Name + " started ...");

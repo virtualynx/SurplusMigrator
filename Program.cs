@@ -1,4 +1,5 @@
-﻿using Serilog;
+﻿using Npgsql;
+using Serilog;
 using Serilog.Events;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
@@ -39,11 +40,17 @@ namespace SurplusMigrator {
 
             MyConsole.Information("Reading configuration at " + Misc.FILEPATH_CONFIG);
             AppConfig config = null;
-            using(StreamReader r = new StreamReader(Misc.FILEPATH_CONFIG)) {
-                string json = r.ReadToEnd();
-                config = JsonSerializer.Deserialize<AppConfig>(json);
+
+            try {
+                using(StreamReader r = new StreamReader(Misc.FILEPATH_CONFIG)) {
+                    string json = r.ReadToEnd();
+                    config = JsonSerializer.Deserialize<AppConfig>(json);
+                }
+                MyConsole.Information("Configuration loaded : " + JsonSerializer.Serialize(config) + "\n");
+            } catch(Exception e) {
+                MyConsole.Error(e, "Error upon loading config file");
+                return;
             }
-            MyConsole.Information("Configuration loaded : " + JsonSerializer.Serialize(config) + "\n");
             GlobalConfig.loadConfig(config);
 
             List<DbConnection_> connList = new List<DbConnection_>();
@@ -66,7 +73,7 @@ namespace SurplusMigrator {
                             new MasterAccountSubType(connections).run();
                             new MasterAccountType(connections).run();
                         }
-                        new MasterAccount(connections).run(true);
+                        new MasterAccount(connections).run();
                     }
                     {
                         {
@@ -123,10 +130,10 @@ namespace SurplusMigrator {
                     }
                     new TransactionJournalDetail(connections).run(true); //
                 }
-
+                
                 new TransactionJournalReval(connections).run(true); //
             } catch(Exception e) {
-                MyConsole.Error(e, "Program stopped abnormally due to some error");
+                MyConsole.Error("Program stopped abnormally due to some error");
             } finally { 
                 IdRemapper.saveMap();
             }
