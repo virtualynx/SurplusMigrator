@@ -160,7 +160,7 @@ namespace SurplusMigrator.Tasks {
             _alreadyRunMap[taskName] = true;
         }
 
-        protected private List<DbInsertFail> nullifyMissingReferences(
+        protected private DbInsertFail[] nullifyMissingReferences(
             string foreignColumnName,
             string referencedTableName,
             string referencedColumnName,
@@ -197,7 +197,7 @@ namespace SurplusMigrator.Tasks {
                 }
             }
 
-            if(idsOfInputs.Count == 0) return result; //all reference is either 0 or null
+            if(idsOfInputs.Count == 0) return result.ToArray(); //all reference is either 0 or null
 
             List<object> queriedReferencedIds = new List<object>();
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
@@ -288,10 +288,10 @@ namespace SurplusMigrator.Tasks {
                 }
             }
 
-            return result;
+            return result.ToArray();
         }
 
-        protected private List<DbInsertFail> skipsIfMissingReferences(
+        protected private DbInsertFail[] skipsIfMissingReferences(
             string foreignColumnName,
             string referencedTableName,
             string referencedColumnName,
@@ -328,7 +328,7 @@ namespace SurplusMigrator.Tasks {
                 }
             }
 
-            if(idsOfInputs.Count == 0) return result; //all reference is either 0 or null
+            if(idsOfInputs.Count == 0) return result.ToArray(); //all reference is either 0 or null
 
             List<dynamic> queriedReferencedIds = new List<dynamic>();
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
@@ -425,7 +425,7 @@ namespace SurplusMigrator.Tasks {
                 }
             }
 
-            return result;
+            return result.ToArray();
         }
 
         protected virtual List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {

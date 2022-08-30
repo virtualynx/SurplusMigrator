@@ -132,6 +132,7 @@ namespace SurplusMigrator {
                 }
                 
                 new TransactionJournalReval(connections).run(true); //
+                new TransactionJournalSaldo(connections).run(true); //
             } catch(Exception e) {
                 MyConsole.Error("Program stopped abnormally due to some error");
             } finally { 

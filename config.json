@@ -30,8 +30,13 @@
   ],
   "excluded_tables": {
     "source": [
+      "transaksi_budget",
+      "transaksi_budgetdetil",
+      "transaksi_jurnal",
+      "transaksi_jurnaldetil"
     ],
     "destination": [
+      "transaction_journal_reval"
     ]
   }
 }
