@@ -37,11 +37,11 @@
     "source": [
       "transaksi_budget",
       "transaksi_budgetdetil",
-      "transaksi_jurnal",
-      "transaksi_jurnaldetil"
+      "transaksi_jurnal"
     ],
     "destination": [
-      "transaction_journal_reval"
+      "transaction_journal_reval",
+      "transaction_journal_saldo"
     ]
   },
   "truncated_tables": [
