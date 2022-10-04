@@ -1,14 +1,11 @@
-using Microsoft.Data.SqlClient;
-using Npgsql;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
-using SurplusMigrator.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-  class MasterShowInventoryDepartment : _BaseTask {
+    class MasterShowInventoryDepartment : _BaseTask {
         public MasterShowInventoryDepartment(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
@@ -57,6 +54,23 @@ namespace SurplusMigrator.Tasks {
                 };
                 result.addData("master_show_inventory_department", insertRow);
             }
+
+            return result;
+        }
+
+        protected override MappedData getStaticData() {
+            MappedData result = new MappedData();
+
+            result.addData(
+                "master_show_inventory_department",
+                new RowData<ColumnName, object>() {
+                    { "showinventorydepartmentid",  0},
+                    { "name",  "Empty - Migrations"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  new AuthInfo(){ FullName = "System" } },
+                    { "is_disabled", false }
+                }
+            );
 
             return result;
         }

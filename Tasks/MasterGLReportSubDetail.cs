@@ -19,7 +19,7 @@ namespace SurplusMigrator.Tasks {
                         "ac_start",
                         "ac_end",
                         "sign",
-                        "ytd",
+                        //"ytd",
                     },
                     ids = new string[] { "code", "row", "line" }
                 }
@@ -35,7 +35,6 @@ namespace SurplusMigrator.Tasks {
                         "accountid_start",
                         "accountid_end",
                         "sign",
-                        "ytd",
                     },
                     ids = new string[] { "glreportsubdetailid" }
                 }
@@ -56,32 +55,15 @@ namespace SurplusMigrator.Tasks {
                 string codeAndRowTag = data["code"].ToString() + "_" + data["row"].ToString();
                 int glreportdetailid = IdRemapper.get("glreportdetailid", codeAndRowTag);
 
-                nullifyMissingReferences(
-                    "ac_start",
-                    "master_acc",
-                    "acc_id",
-                    connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
-                    inputs
-                );
-
-                nullifyMissingReferences(
-                    "ac_end",
-                    "master_acc",
-                    "acc_id",
-                    connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
-                    inputs
-                );
-
                 result.addData(
                     "master_glreport_subdetail",
                     new RowData<ColumnName, object>() {
                         { "glreportsubdetailid",  glreportsubdetailid},
                         { "glreportdetailid",  glreportdetailid},
                         { "description",  data["descr"]},
-                        { "accountid_start",  data["ac_start"]},
-                        { "accountid_end",  data["ac_end"]},
+                        { "accountid_start",  Utils.obj2str(data["ac_start"])},
+                        { "accountid_end",  Utils.obj2str(data["ac_end"])},
                         { "sign",  Utils.obj2long(data["sign"])},
-                        { "ytd",  Utils.obj2long(data["ytd"])},
                     }
                 );
             }

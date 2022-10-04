@@ -65,6 +65,17 @@ namespace SurplusMigrator {
 
             try {
                 {
+                    { //master_faction
+                        {
+                            new MasterFaction(connections).run();
+                            new MasterZone(connections).run();
+                        }
+                        new MasterFactionZoneRate(connections).run();
+                        new RelationFactionPosition(connections).run();
+                    }
+                }
+
+                {
                     { //master_account
                         {//pre-req for MasterAccount
                             new MasterAccountReport(connections).run();

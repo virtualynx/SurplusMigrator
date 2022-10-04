@@ -39,8 +39,8 @@ namespace SurplusMigrator.Tasks {
                         //"channel_id",
                         "strukturunit_id",
                         "ref_id",
-                        //"ref_line",
-                        //"ref_budgetline",
+                        "ref_line",
+                        "ref_budgetline",
                         //"region_id",
                         //"branch_id",
                         "budget_id",
@@ -132,7 +132,8 @@ namespace SurplusMigrator.Tasks {
             );
 
             foreach(RowData<ColumnName, object> data in inputs) {
-                string tjournal_detailid = Sequencer.getId(getJournalIdPrefix(data["jurnal_id"].ToString()) +"D", Utils.obj2datetime(data["created_dt"]));
+                string tjournal_detailid = data["jurnal_id"].ToString().Substring(0, 2)+"D"+ data["jurnal_id"].ToString().Substring(2)+ data["jurnaldetil_line"].ToString();
+                
                 string tbudgetid = null;
                 if(Utils.obj2long(data["budget_id"]) > 0) {
                     tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
@@ -147,6 +148,19 @@ namespace SurplusMigrator.Tasks {
                 if(accountid == "0") {
                     accountid = null;
                 }
+                
+                string ref_id = Utils.obj2str(data["ref_id"]);
+                string ref_line = Utils.obj2str(data["ref_line"]);
+                string ref_detail_id = null;
+                if(ref_id != null && ref_line != null) {
+                    ref_detail_id = ref_id.Substring(0, 2) + "D" + ref_id.Substring(2) + ref_line;
+                }
+
+                string ref_budgetline = Utils.obj2str(data["ref_budgetline"]);
+                string ref_subdetail_id = null;
+                if(ref_detail_id != null && ref_budgetline != null) {
+                    ref_subdetail_id = ref_detail_id + "_" + ref_budgetline;
+                }
 
                 result.addData(
                     "transaction_journal_detail",
@@ -157,8 +171,6 @@ namespace SurplusMigrator.Tasks {
                         { "description",  data["jurnaldetil_descr"]},
                         { "foreignamount",  Utils.obj2decimal(data["jurnaldetil_foreign"])},
                         { "foreignrate",  Utils.obj2decimal(data["jurnaldetil_foreignrate"])},
-                        { "ref_detail_id",  null}, //ref_line ?
-                        { "ref_subdetail_id",  0}, //ref_budgetline ?
                         { "vendorid",  Utils.obj2long(data["rekanan_id"])==0? null: data["rekanan_id"]},
                         { "accountid",  accountid},
                         { "currencyid",  data["currency_id"]},
@@ -166,6 +178,8 @@ namespace SurplusMigrator.Tasks {
                         { "tbudgetid",  tbudgetid},
                         { "tbudget_detailid",  tbudget_detailid},
                         { "ref_id",  data["ref_id"]},
+                        { "ref_detail_id",  ref_detail_id},
+                        { "ref_subdetail_id",  ref_subdetail_id},
                         { "bilyet_no",  null},
                         { "bilyet_date",  null},
                         { "bilyet_effectivedate",  null},

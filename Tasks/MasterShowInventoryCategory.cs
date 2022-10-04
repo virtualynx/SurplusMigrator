@@ -60,5 +60,22 @@ namespace SurplusMigrator.Tasks {
 
             return result;
         }
+
+        protected override MappedData getStaticData() {
+            MappedData result = new MappedData();
+
+            result.addData(
+                "master_show_inventory_category",
+                new RowData<ColumnName, object>() {
+                    { "showinventorycategoryid",  0},
+                    { "name",  "Empty - Migrations"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  new AuthInfo(){ FullName = "System" } },
+                    { "is_disabled", false }
+                }
+            );
+
+            return result;
+        }
     }
 }
