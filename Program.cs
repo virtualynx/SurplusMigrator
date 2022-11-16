@@ -11,14 +11,6 @@ using System.IO;
 using System.Text.Json;
 
 namespace SurplusMigrator {
-    // transaction_journal          transaksi_jurnal
-    // transaction_journal_detail   transaksi_jurnaldetil
-    // master_glreport_subdetail    master_gl_report_row_acc
-    // master_glreport_detail       master_gl_report_row
-    // master_glreport              master_gl_report_row_h
-
-    // transaksi_jurnalkursreval    transaction_journal_reval
-    // transaksi_jurnalsaldo        transaction_journal_saldo
     internal class Program {
         static void Main(string[] args) {
             Stopwatch stopwatch = new Stopwatch();
@@ -86,6 +78,10 @@ namespace SurplusMigrator {
                         }
                         new MasterAccount(connections).run();
                     }
+                    new MasterAccountGLSign(connections).run();
+                }
+
+                {
                     {
                         {
                             new MasterGLReport(connections).run();
