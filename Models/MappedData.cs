@@ -21,8 +21,25 @@ namespace SurplusMigrator.Models {
             return _mappedData[destinationTablename];
         }
 
-        public int Count() {
-            return _mappedData.Count;
+        public string[] getDestinations() {
+            List<string> destinations = new List<string>();
+
+            foreach(KeyValuePair<TableName, List<RowData<ColumnName, object>>> entry in _mappedData) {
+                destinations.Add(entry.Key);
+            }
+
+            return destinations.ToArray();
+        }
+
+        public int Count(string tableName = null) {
+            int count = 0;
+
+            foreach(KeyValuePair<TableName, List<RowData<ColumnName, object>>> entry in _mappedData) {
+                if(tableName != null && entry.Key != tableName) continue;
+                count += entry.Value.Count;
+            }
+
+            return count;
         }
 
         public void addError(string destinationTablename, DbInsertFail error) {

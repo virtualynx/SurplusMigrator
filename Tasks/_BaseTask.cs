@@ -119,7 +119,14 @@ namespace SurplusMigrator.Tasks {
 
                 MappedData staticDatas = getStaticData();
                 if(staticDatas.Count() > 0) {
-                    MyConsole.WriteLine(this.GetType().Name + " has " + staticDatas.Count() + " static data to be inserted");
+                    string[] destinations = staticDatas.getDestinations();
+                    foreach(string dest in destinations) {
+                        if(destinationTables.Any(a => a.tableName == dest)) {
+                            MyConsole.WriteLine(this.GetType().Name + " has " + staticDatas.Count(dest) + " static data to be inserted into [" + dest + "]");
+                        } else {
+                            MyConsole.Warning(this.GetType().Name + " has " + staticDatas.Count(dest) + " static data to be inserted into [" + dest + "], but destination-table is not mapped in config");
+                        }
+                    }
                     foreach(Table dest in destinationTables) {
                         TaskInsertStatus taskStatus = dest.insertData(staticDatas.getData(dest.tableName), truncateBeforeInsert, autoGenerateId);
                         successCount += taskStatus.successCount;
