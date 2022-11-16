@@ -152,7 +152,7 @@ namespace SurplusMigrator.Tasks {
                 string ref_id = Utils.obj2str(data["ref_id"]);
                 string ref_line = Utils.obj2str(data["ref_line"]);
                 string ref_detail_id = null;
-                if(ref_id != null && ref_line != null) {
+                if((ref_id != null && ref_id != "0") && ref_line != null) {
                     ref_detail_id = ref_id.Substring(0, 2) + "D" + ref_id.Substring(2) + ref_line;
                 }
 
