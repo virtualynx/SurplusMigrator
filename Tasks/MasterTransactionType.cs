@@ -1,14 +1,9 @@
-using Microsoft.Data.SqlClient;
-using Npgsql;
-using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
-using SurplusMigrator.Tasks;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-  class MasterTransactionType : _BaseTask {
+    class MasterTransactionType : _BaseTask {
         public MasterTransactionType(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
@@ -396,6 +391,10 @@ namespace SurplusMigrator.Tasks {
             );
 
             return result;
+        }
+
+        protected override void runDependencies() {
+            new MasterTransactionTypeGroup(connections).run();
         }
     }
 }

@@ -1,16 +1,11 @@
-using Microsoft.Data.SqlClient;
-using Npgsql;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 
-using CurrencyShortname = System.String;
-
 namespace SurplusMigrator.Tasks {
     class TransactionJournalReval : _BaseTask {
-        private Dictionary<CurrencyShortname, int> _currencyIdMaps = null;
+        private DataIntegration dataIntegration;
 
         public TransactionJournalReval(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
@@ -48,6 +43,8 @@ namespace SurplusMigrator.Tasks {
                     ids = new string[] {}
                 }
             };
+
+            dataIntegration = new DataIntegration(connections);
         }
 
         protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
@@ -59,7 +56,7 @@ namespace SurplusMigrator.Tasks {
 
             foreach(RowData<ColumnName, object> data in inputs) {
 
-                int currencyid = getCurrencyIdFromShortname(Utils.obj2str(data["exrate_currency"]));
+                int currencyid = dataIntegration.getCurrencyIdFromShortname(Utils.obj2str(data["exrate_currency"]));
 
                 result.addData(
                     "transaction_journal_reval",
@@ -83,37 +80,6 @@ namespace SurplusMigrator.Tasks {
         protected override void runDependencies() {
             new MasterCurrency(connections).run();
             new TransactionJournal(connections).run();
-        }
-
-        private int getCurrencyIdFromShortname(string shortname) {
-            int result = getCurrencyIdMaps()["UNKWN"];
-            if(getCurrencyIdMaps().ContainsKey(shortname)) {
-                result = getCurrencyIdMaps()[shortname];
-            }
-
-            return result;
-        }
-
-        private Dictionary<CurrencyShortname, int> getCurrencyIdMaps() {
-            if(_currencyIdMaps == null) {
-                _currencyIdMaps = new Dictionary<CurrencyShortname, int>();
-
-                DbConnection_ connection_ = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault();
-                NpgsqlConnection conn = (NpgsqlConnection)connection_.GetDbConnection();
-                NpgsqlCommand command = new NpgsqlCommand("select currencyid, shortname from \"" + connection_.GetDbLoginInfo().schema + "\".\"master_currency\"", conn);
-                NpgsqlDataReader dataReader = command.ExecuteReader();
-
-                while(dataReader.Read()) {
-                    int currencyid = Utils.obj2int(dataReader.GetValue(dataReader.GetOrdinal("currencyid")));
-                    string shortname = Utils.obj2str(dataReader.GetValue(dataReader.GetOrdinal("shortname")));
-
-                    _currencyIdMaps[shortname] = currencyid;
-                }
-                dataReader.Close();
-                command.Dispose();
-            }
-
-            return _currencyIdMaps;
         }
     }
 }

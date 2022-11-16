@@ -1,5 +1,4 @@
-﻿using Npgsql;
-using Serilog;
+﻿using Serilog;
 using Serilog.Events;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;

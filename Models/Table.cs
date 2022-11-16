@@ -32,7 +32,7 @@ namespace SurplusMigrator.Models {
 
         public Table() { }
 
-        public List<RowData<ColumnName, object>> getDatas(int batchSize) {
+        public List<RowData<ColumnName, object>> getDatas(int batchSize, bool trimWhitespaces = true) {
             List<RowData<ColumnName, object>> result = new List<RowData<ColumnName, object>> ();
 
             //check for first time run/batchSize has changed
@@ -87,7 +87,11 @@ namespace SurplusMigrator.Models {
                                 if(value.GetType() == typeof(System.DBNull)) {
                                     value = null;
                                 } else if(value.GetType() == typeof(string)) {
-                                    value = value.ToString().Trim();
+                                    if(trimWhitespaces) {
+                                        value = value.ToString().Trim();
+                                    } else {
+                                        value = value.ToString();
+                                    }
                                 }
                                 rowData.Add(columns[a], value);
                             }
