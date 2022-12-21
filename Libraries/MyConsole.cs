@@ -20,9 +20,9 @@ namespace SurplusMigrator.Libraries {
             }
             Console.Write(elapsedTag + str);
         }
-        public static void WriteLine(string str) {
+        public static void WriteLine(string str, bool showElapsed = true) {
             string elapsedTag = "";
-            if(stopwatch != null) {
+            if(stopwatch != null && showElapsed) {
                 elapsedTag = "[" + Utils.getElapsedTimeString(stopwatch.ElapsedMilliseconds) + "    ] ";
             }
             Console.WriteLine(elapsedTag + str);
@@ -43,17 +43,17 @@ namespace SurplusMigrator.Libraries {
             Console.WriteLine(elapsedTag + str);
             Log.Logger.Warning(str);
         }
-        public static void Error(string str) {
+        public static void Error(string str, bool showElapsed = true) {
             string elapsedTag = "";
-            if(stopwatch != null) {
+            if(stopwatch != null && showElapsed) {
                 elapsedTag = "[" + Utils.getElapsedTimeString(stopwatch.ElapsedMilliseconds) + " ERR] ";
             }
             Console.WriteLine(elapsedTag + str);
             Log.Logger.Error(str);
         }
-        public static void Error(Exception e, string str) {
+        public static void Error(Exception e, string str, bool showElapsed = true) {
             string elapsedTag = "";
-            if(stopwatch != null) {
+            if(stopwatch != null && showElapsed) {
                 elapsedTag = "[" + Utils.getElapsedTimeString(stopwatch.ElapsedMilliseconds) + " ERR) ";
             }
             Console.WriteLine(elapsedTag + str);

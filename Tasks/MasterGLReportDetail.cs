@@ -56,13 +56,17 @@ namespace SurplusMigrator.Tasks {
                 IdRemapper.add("glreportdetailid", codeAndRowTag, glreportdetailid);
 
                 int glreportid = Utils.obj2int(data["code"]);
+                int sequence = Utils.obj2int(data["seq"]);
+                if(glreportid == 3 && sequence == 480 && Utils.obj2str(data["descr"]) == "LABA (RUGI) SEBELUM PAJAK") {
+                    sequence = 481;
+                }
 
                 result.addData(
                     "master_glreport_detail",
                     new RowData<ColumnName, object>() {
                         { "glreportdetailid",  glreportdetailid},
                         { "glreportid",  glreportid},
-                        { "sequence",  data["seq"]},
+                        { "sequence",  sequence},
                         { "description",  data["descr"]},
                         { "isbold",  Utils.obj2bool(data["fbold"])},
                         { "isitalic",  Utils.obj2bool(data["fitalic"])},

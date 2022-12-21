@@ -1,0 +1,8 @@
+DROP VIEW IF EXISTS view_tvprogram;
+
+CREATE VIEW view_tvprogram AS 
+	SELECT 
+		"bms_id" as "tvprogramid",
+		"name"
+	FROM view_master_program_v2;
+

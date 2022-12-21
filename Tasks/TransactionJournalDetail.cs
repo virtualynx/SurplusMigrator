@@ -179,7 +179,7 @@ namespace SurplusMigrator.Tasks {
                         { "tbudget_detailid",  tbudget_detailid},
                         { "ref_id",  data["ref_id"]},
                         { "ref_detail_id",  ref_detail_id},
-                        { "ref_subdetail_id",  ref_subdetail_id},
+                        { "ref_subdetail_id",  Utils.obj2int(data["ref_line"])},
                         { "bilyet_no",  null},
                         { "bilyet_date",  null},
                         { "bilyet_effectivedate",  null},

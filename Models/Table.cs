@@ -54,11 +54,6 @@ namespace SurplusMigrator.Models {
                 try {
                     MyConsole.Write("Batch-" + fetchBatchCounter + "/" + fetchBatchMax + "(" + getProgressPercentage().ToString("0.0") + "%), fetch data from " + tableName + " ... ");
                     if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                        SqlConnection conn = (SqlConnection)connection.GetDbConnection();
-
-                        SqlCommand command = null;
-                        SqlDataReader dataReader = null;
-
                         string sqlString = @"SELECT [selected_columns] 
                             FROM    ( SELECT    ROW_NUMBER() OVER ( ORDER BY [over_orderby] ) AS RowNum, *
                                         FROM      [tablename]
@@ -77,8 +72,8 @@ namespace SurplusMigrator.Models {
                         sqlString = sqlString.Replace("[offset_start]", (((fetchBatchCounter - 1) * batchSize) + 1).ToString());
                         sqlString = sqlString.Replace("[offset_end]", (((fetchBatchCounter - 1) * batchSize) + batchSize).ToString());
 
-                        command = new SqlCommand(sqlString, conn);
-                        dataReader = command.ExecuteReader();
+                        SqlCommand command = new SqlCommand(sqlString, (SqlConnection)connection.GetDbConnection());
+                        SqlDataReader dataReader = command.ExecuteReader();
 
                         while(dataReader.Read()) {
                             RowData<ColumnName, object> rowData = new RowData<ColumnName, object>();
@@ -101,7 +96,49 @@ namespace SurplusMigrator.Models {
                         dataReader.Close();
                         command.Dispose();
                     } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                        throw new System.NotImplementedException();
+                        string sqlString = @"
+                            SELECT 
+                                [selected_columns] 
+                            FROM    
+                                [tablename]
+                            [order_by]
+                            LIMIT [limit_size] 
+                            OFFSET [offset_size]
+                        ";
+
+                        sqlString = sqlString.Replace("[selected_columns]", String.Join(',', columns));
+                        sqlString = sqlString.Replace("[tablename]", connection.GetDbLoginInfo().schema + "." + tableName);
+                        string order_by = "";
+                        if(ids != null && ids.Length > 0) {
+                            order_by = "ORDER BY " + String.Join(',', ids);
+                        }
+                        sqlString = sqlString.Replace("[order_by]", order_by);
+                        sqlString = sqlString.Replace("[limit_size]", batchSize.ToString());
+                        sqlString = sqlString.Replace("[offset_size]", (((fetchBatchCounter - 1) * batchSize)).ToString());
+
+                        NpgsqlCommand command = new NpgsqlCommand(sqlString, (NpgsqlConnection)connection.GetDbConnection());
+                        NpgsqlDataReader dataReader = command.ExecuteReader();
+
+                        while(dataReader.Read()) {
+                            RowData<ColumnName, object> rowData = new RowData<ColumnName, object>();
+                            for(int a = 0; a < columns.Length; a++) {
+                                var value = dataReader.GetValue(dataReader.GetOrdinal(columns[a]));
+                                if(value.GetType() == typeof(System.DBNull)) {
+                                    value = null;
+                                } else if(value.GetType() == typeof(string)) {
+                                    if(trimWhitespaces) {
+                                        value = value.ToString().Trim();
+                                    } else {
+                                        value = value.ToString();
+                                    }
+                                }
+                                rowData.Add(columns[a], value);
+                            }
+                            result.Add(rowData);
+                        }
+
+                        dataReader.Close();
+                        command.Dispose();
                     }
                     Console.WriteLine("Done (" + result.Count + " data)");
 
@@ -637,32 +674,34 @@ namespace SurplusMigrator.Models {
             NpgsqlDbType columnDbType = getPostgreColumnType(columnName);
             dynamic convertedData = data;
 
-            if(
-                (
-                    data.GetType() == typeof(decimal) ||
-                    data.GetType() == typeof(int) ||
-                    data.GetType() == typeof(long)
-                ) && 
-                (columnDbType == NpgsqlDbType.Varchar || columnDbType == NpgsqlDbType.Text)
-            ) {
-                convertedData = data.ToString();
-            }
-            if(data.GetType() == typeof(string)) {
-                data = data.ToString().Trim();
-                if(columnDbType == NpgsqlDbType.Bigint) {
-                    convertedData = Convert.ToInt64(data);
-                } else if(columnDbType == NpgsqlDbType.Integer) {
-                    convertedData = Convert.ToInt32(data);
-                } else if(columnDbType == NpgsqlDbType.Smallint) {
-                    convertedData = Convert.ToInt16(data);
-                } else if(columnDbType == NpgsqlDbType.Bit) {
-                    convertedData = Convert.ToByte(data);
-                } else if(columnDbType == NpgsqlDbType.Numeric || columnDbType == NpgsqlDbType.Real) {
-                    convertedData = Convert.ToDecimal(data);
+            if(data != null) {
+                if(
+                    (
+                        data.GetType() == typeof(decimal) ||
+                        data.GetType() == typeof(int) ||
+                        data.GetType() == typeof(long)
+                    ) &&
+                    (columnDbType == NpgsqlDbType.Varchar || columnDbType == NpgsqlDbType.Text)
+                ) {
+                    convertedData = data.ToString();
+                }
+                if(data.GetType() == typeof(string)) {
+                    data = data.ToString().Trim();
+                    if(columnDbType == NpgsqlDbType.Bigint) {
+                        convertedData = Convert.ToInt64(data);
+                    } else if(columnDbType == NpgsqlDbType.Integer) {
+                        convertedData = Convert.ToInt32(data);
+                    } else if(columnDbType == NpgsqlDbType.Smallint) {
+                        convertedData = Convert.ToInt16(data);
+                    } else if(columnDbType == NpgsqlDbType.Bit) {
+                        convertedData = Convert.ToByte(data);
+                    } else if(columnDbType == NpgsqlDbType.Numeric || columnDbType == NpgsqlDbType.Real) {
+                        convertedData = Convert.ToDecimal(data);
+                    }
                 }
             }
 
-            command.Parameters.AddWithValue(paramNotation, columnDbType, convertedData);
+            command.Parameters.AddWithValue(paramNotation, columnDbType, convertedData ?? DBNull.Value);
         }
         private NpgsqlDbType getPostgreColumnType(string columnName) {
             ColumnType<ColumnName, DataType> columnTypes = getColumnTypes();

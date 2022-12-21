@@ -1,0 +1,865 @@
+CREATE OR REPLACE FUNCTION process_rowdata_gen21(as_month text, as_year text)
+	RETURNS TABLE(
+		"month" integer, 
+		"year" integer, 
+		po_number character varying, 
+		ref_po_num character varying, 
+		camp character varying, 
+		kontrak text, 
+		tv character varying, 
+		"week" text, 
+		date1 timestamp without time zone, 
+		time_zone text, 
+		"zone" character varying, 
+		time1 character varying, 
+		cb_group numeric,
+		mo_book_cb smallint,
+		mo_book_seq smallint,
+		spot30 integer,
+		spot integer, 
+		dur integer, 
+		copy_no character varying, 
+		"program" character varying, 
+		"program1" text, 
+		eps bigint, 
+		episode text, 
+		"cost" numeric, 
+		invstatus text, 
+		disc numeric, 
+		comm numeric, 
+		ppn numeric, 
+		advertiser character varying, 
+		advertiser_group character varying, 
+		agency_code character varying, 
+		agency character varying, 
+		agency_group character varying, 
+		ae character varying, 
+		brand character varying, 
+		order_no character varying, 
+		prod_version text, 
+		start1 timestamp without time zone, 
+		end1 timestamp without time zone, 
+		status text, 
+		charge character varying, 
+		comment1 character varying, 
+		rate character varying, 
+		act_time character varying, 
+		uniqueno text, 
+		anchor text, 
+		posttxflag character varying, 
+		posttxstatus text, 
+		special_cb_pos smallint, 
+		src text, 
+		group1 character varying, 
+		sm character varying, 
+		type1 character varying, 
+		type2 character varying,  
+		"day" integer, 
+--		"year" integer, 
+		"week2" integer, 
+		enter_date timestamp without time zone, 
+		budget_spot numeric, 
+		actual_spot bigint, 
+		commision_comment character varying,
+		spot_comment character varying,
+		house_no character varying,  
+		gross numeric, 
+		nett numeric, 
+		rate_30s integer, 
+		rate_dur integer, 
+		"percent" integer, 
+		cprpnon text, 
+		on_print_adjusted_nettmil integer, 
+		on_print_adjusted_nettmil000 integer, 
+		ket text, 
+		product_category text, 
+		program_category character varying,
+		offered_date timestamp without time zone, 
+		mo_book_status text, 
+		cdate date, 
+		verified character varying, 
+		mo_book_date timestamp without time zone, 
+		prem_pos_1 character varying, 
+		prem_pos_2 character varying, 
+		prem_pos_3 character varying, 
+		prem_pos_4 character varying, 
+		prem_pos_5 character varying, 
+		prem_pos_l1 character varying, 
+		prem_pos_l2 character varying, 
+		prem_pos_l3 character varying, 
+		prem_pos_l4 character varying, 
+		prem_pos_l5 character varying, 
+		special_pos numeric, 
+		prod_code character varying, 
+		client_code character varying, 
+		cashback_amount numeric, 
+		total_spot_confirm bigint, 
+		bundling numeric, 
+		schobj_time bpchar(1), 
+		update_date timestamp without time zone, 
+		update_user character varying, 
+		total_invoice numeric
+	)
+	LANGUAGE plpgsql
+AS $function$
+declare
+   	lv_category  	text := '';
+	as_channel 		text := 'TV7'; 
+	as_tx 			text := 'INA';
+begin
+	return query
+		with 
+		cte_MST_SLOT_TYPE as (
+			SELECT    
+				vc_time_from,
+				vc_time_until,
+				DT_DATE_FROM,
+				DT_DATE_UNTIL,
+				SUBSTR (MST_SLOT_TYPE.VC_TIME_FROM, 1, 4) || '-' || SUBSTR (MST_SLOT_TYPE.VC_TIME_UNTIL, 1, 4) as "time",
+				VC_DESCRIPTION
+			FROM 
+				MST_SLOT_TYPE
+		)
+		select
+	--		UPPER (TO_CHAR (TM1.mo_book_date, 'mon'))												AS "month",
+			date_part('month', TM1.mo_book_date)::int													AS "month",
+			date_part('year', TM1.mo_book_date)::int 													AS "year",
+			TM1.po_number,
+			SR1.ref_po_num																			AS ref_po_num,			
+			TM1.mo_no																				AS CAMP,			
+			TM1.mo_no || '/' || TM1.PO_NUMBER														AS KONTRAK,			
+			MCN.channel_name																		AS TV,			
+			CASE 
+			WHEN (TO_CHAR(TM1.mo_book_date, 'W'))::int > 4 THEN			
+				((TO_CHAR (TM1.mo_book_date, 'W'))::int - 1)::text
+			ELSE			
+				TO_CHAR (TM1.mo_book_date, 'W')			
+			END																						AS "week",			
+			TM1.mo_book_date																		AS date1,
+			(
+				select 
+					"time"
+				from
+					cte_MST_SLOT_TYPE
+				where
+					TCD1.slot_ttime >= cte_MST_SLOT_TYPE.vc_time_from
+					and TCD1.slot_ttime <= cte_MST_SLOT_TYPE.vc_time_until
+					and TM1.mo_book_date >= cte_MST_SLOT_TYPE.DT_DATE_FROM			
+					AND TM1.mo_book_date <= cte_MST_SLOT_TYPE.DT_DATE_UNTIL
+			)																						AS TIME_ZONE,
+			(
+				select 
+					VC_DESCRIPTION
+				from
+					cte_MST_SLOT_TYPE
+				where
+					TCD1.slot_ttime >= cte_MST_SLOT_TYPE.vc_time_from
+					and TCD1.slot_ttime <= cte_MST_SLOT_TYPE.vc_time_until
+					and TM1.mo_book_date >= cte_MST_SLOT_TYPE.DT_DATE_FROM			
+					AND TM1.mo_book_date <= cte_MST_SLOT_TYPE.DT_DATE_UNTIL
+			)																						AS "zone",		
+			TM1.mo_book_time																		AS time1,	
+			(
+				SELECT 
+					a.CB_GROUP			
+				FROM 
+					tt_dts a			
+				WHERE 
+					a.CHANNEL_CODE = TM1.channel_code			
+					AND a.TX_CODE = TM1.TX_CODE			
+					AND a.CBS_DATE = TM1.MO_BOOK_DATE			
+					AND a.ROW_ID_SLOT = TM1.ROW_ID_SLOT			
+					AND a.BACKUP_NO = TM1.BACKUP_NO			
+					AND a.ROW_ID_BACKUP = TM1.ROW_ID_BACKUP			
+					AND a.CB_SEQ = TM1.MO_BOOK_CB			
+					AND a.EVENT_TYPE = 'C'
+				limit 1
+			)																						as CB_GROUP,
+			(
+				CASE TM1.for_pos_block
+				WHEN 'Y' THEN			
+					NULL
+				ELSE			
+					TM1.mo_book_cb			
+				END	
+			)																						AS mo_book_cb,
+			(
+				CASE TM1.for_pos_block
+				WHEN 'Y' THEN			
+					NULL
+				ELSE			
+					TM1.mo_book_seq			
+				END	
+			)																						AS mo_book_seq,
+			/* end as POS */			
+			(F_JAM_TO_DETIK (mp1.prod_duration) / 30)												AS SPOT30,			/**/
+			1																						AS SPOT,			
+			F_JAM_TO_DETIK (mp1.prod_duration)														AS dur,				/**/
+			mp1.MASTER_COPY_NO																		AS COPY_NO,			
+			MF.film_poc_title																		AS "program",
+			(
+				CASE 
+				WHEN COALESCE (TCD1.CONFIG_ICON_CODE, 'N') <> 'N' THEN 
+					(
+						CASE 
+						WHEN 
+							COALESCE (TCD1.ICON_CODE_1, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_2, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_3, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_4, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_5, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_6, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_7, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_8, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_9, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_10, 'N') <> 'N'			
+						THEN			
+							'New Program,'
+						ELSE			
+							'New Program'			
+						END
+					) 
+				ELSE 
+					''			
+				END
+			) || 
+			(
+				CASE 
+				WHEN COALESCE (TCD1.ICON_CODE_1, 'N') <> 'N' THEN		
+					(
+						CASE 
+						WHEN 
+							COALESCE (TCD1.ICON_CODE_2, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_3, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_4, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_5, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_6, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_7, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_8, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_9, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_10, 'N') <> 'N'			
+						THEN			
+							'Change Time,'			
+						ELSE			
+							'Change Time'			
+						END
+					) 
+				ELSE 
+					''		
+				END
+			) || 
+			(
+				CASE 
+				WHEN COALESCE (TCD1.ICON_CODE_2, 'N') <> 'N' THEN			
+					(
+						CASE 
+						WHEN 
+							COALESCE (TCD1.ICON_CODE_3, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_4, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_5, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_6, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_7, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_8, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_9, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_10, 'N') <> 'N'			
+						THEN			
+							'Special Slots / Program,'			
+						ELSE			
+							'Special Slots / Program'			
+						END
+					) 
+				ELSE 
+					''			
+				END
+			) || 
+			(
+				CASE 
+				WHEN COALESCE (TCD1.ICON_CODE_3, 'N') <> 'N' THEN			
+					(
+						CASE 
+						WHEN 
+							COALESCE (TCD1.ICON_CODE_4, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_5, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_6, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_7, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_8, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_9, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_10, 'N') <> 'N'			
+						THEN			
+							'Not For Bonus,'			
+						ELSE			
+							'Not For Bonus'			
+						END
+					) 
+				ELSE			
+					''			
+				END
+			) || 
+			(
+				CASE 
+				WHEN COALESCE (TCD1.ICON_CODE_4, 'N') <> 'N' THEN			
+					(
+						CASE 
+						WHEN 
+							COALESCE (TCD1.ICON_CODE_5, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_6, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_7, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_8, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_9, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_10, 'N') <> 'N'			
+						THEN			
+							'Change Rate,'			
+						ELSE			
+							'Change Rate'			
+						END
+					) 
+				ELSE			
+					''			
+				END
+			) || 
+			(
+				CASE 
+				WHEN COALESCE (TCD1.ICON_CODE_5, 'N') <> 'N' THEN			
+					(
+						CASE 
+						WHEN 
+							COALESCE (TCD1.ICON_CODE_6, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_7, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_8, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_9, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_10, 'N') <> 'N'			
+						THEN			
+							'Re-Slot / Change Program,'			
+						ELSE			
+							'Re-Slot / Change Program'			
+						END
+					) 
+				ELSE			
+					''			
+				END
+			) || 
+			(
+				CASE 
+				WHEN COALESCE (TCD1.ICON_CODE_6, 'N') <> 'N' THEN			
+					(
+						CASE 
+						WHEN 
+							COALESCE (TCD1.ICON_CODE_7, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_8, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_9, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_10, 'N') <> 'N'			
+						THEN			
+							'No Rate Card Attached,'			
+						ELSE			
+							'No Rate Card Attached'			
+						END
+					) 
+				ELSE			
+					''			
+				END
+			) || 
+			(
+				CASE 
+				WHEN COALESCE (TCD1.ICON_CODE_7, 'N') <> 'N' THEN			
+					(
+						CASE 
+						WHEN    
+							COALESCE (TCD1.ICON_CODE_8, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_9, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_10, 'N') <> 'N'			
+						THEN			
+							'Bonus,'			
+						ELSE			
+							'Bonus'			
+						END
+					) 
+				ELSE			
+					''			
+				END
+			) || 
+			(
+				CASE 
+				WHEN COALESCE (TCD1.ICON_CODE_8, 'N') <> 'N' THEN			
+					(
+						CASE 
+						WHEN 
+							COALESCE (TCD1.ICON_CODE_9, 'N') <> 'N'			
+							OR COALESCE (TCD1.ICON_CODE_10, 'N') <> 'N'			
+						THEN			
+							'Episode Change,'			
+						ELSE			
+							'Episode Change'			
+						END
+					) 
+				ELSE			
+					''			
+				END
+			)			
+			|| 
+			(
+				CASE 
+				WHEN COALESCE (TCD1.ICON_CODE_9, 'N') <> 'N' 
+				THEN			
+					(
+						CASE 
+						WHEN COALESCE (TCD1.ICON_CODE_10, 'N') <> 'N'			
+						THEN			
+							'Repeat Program,'			
+						ELSE			
+							'Repeat Program'			
+						END
+					) 
+				ELSE			
+					''			
+				END
+			)																						AS PROGRAM1,
+			(
+				SELECT 
+					COUNT (1)			
+				FROM 
+					tp_cbs_dps1 TCD2			
+				WHERE 
+					(TO_CHAR (TCD2.CBS_DATE, 'yyyy') = '2022'/*:as_year*/)			
+					AND (TO_CHAR (TCD2.CBS_DATE, 'mm') = '08'/*:as_month*/)			
+					AND TCD2.FILM_POC = MF.FILM_POC
+					AND TCD2.ROW_ID_POC = MF.ROW_ID
+			)																						AS EPS,
+			F_Get_Episode(TCD1.CHANNEL_CODE, TO_CHAR (TCD1.cbs_date, 'YYYYMMDD'), TCD1.ROW_ID, 'Y')	AS EPISODE,		/**/
+			TM1.po_disc_home																		as "cost",	
+			'L'																						AS INVSTATUS,	
+			SR1.agency_discount																		as DISC,
+			SR1.agency_commission																	as COMM,
+			SR1.local_tax																			as PPN,
+			(
+				SELECT 
+					mt_client.client_com_name			
+				FROM 
+					mt_client		
+				WHERE 
+					mt_client.client_code = SR1.client_code
+			)																						AS ADVERTISER,
+			(
+				SELECT 
+					MT_CLIENTG.clientG_name			
+				FROM 
+					MT_CLIENTG			
+				WHERE 
+					MT_CLIENTG.clientG_code = (
+						SELECT 
+							mt_client.clientG_code			
+						FROM 
+							mt_client			
+						WHERE 
+							mt_client.client_code = SR1.client_code
+					)
+			)																						AS ADVERTISER_GROUP,
+			SR1.AGEN_CODE 																			AS AGENCY_CODE,
+			(
+				SELECT 
+					MT_AGEN.AGEN_COM_NAME			
+				FROM 
+					MT_AGEN			
+				WHERE 
+					MT_AGEN.AGEN_CODE = SR1.AGEN_CODE
+			)																						AS AGENCY,
+			(
+				SELECT 
+					MT_AGENG.AGENG_NAME			
+				FROM 
+					MT_AGENG			
+				WHERE 
+					MT_AGENG.AGENG_CODE = (
+						SELECT 
+							MT_AGEN.AGENG_CODE			
+						FROM 
+							MT_AGEN			
+						WHERE 
+							MT_AGEN.AGEN_CODE = SR1.AGEN_CODE
+					)
+			)																						AS Agency_group,
+			(
+				SELECT 
+					mt_salesman.sales_name			
+				FROM 
+					mt_salesman			
+				WHERE 
+					mt_salesman.sales_code = SR1.sales_code
+			) 																						AS ae,
+			(
+				SELECT 
+					MT_PROD.PROD_NAME			
+				FROM 
+					MT_PROD			
+				WHERE 
+					MT_PROD.prod_code = MP1.PROD_CODE
+			)																						AS Brand,		
+			SR1.JOB_ID																				AS ORDER_NO,
+			F_GET_PROD_VERSION_NAME (MP1.prod_code, TM1.PROD_VERSION)								AS prod_version,
+			SR1.booking_period_from																	AS start1,			
+			SR1.booking_period_to																	AS end1,
+			(
+				CASE TM1.mo_book_status			
+				WHEN '2' THEN 
+					'CONFIRM'			
+				WHEN '6' THEN 
+					'OFFERED'			
+				WHEN '4' THEN 
+					'PREEMPTED'			
+				WHEN '5' THEN 
+					'CANCELED'			
+				ELSE 
+					'-'			
+				END
+			)																						AS STATUS,			
+			TM1.FLAG_RATE																			AS Charge,			
+			TM1.mo_remark																			AS comment1,			
+			TM1.RATE_CODE																			AS rate,
+			coalesce (
+				(
+					SELECT 
+						tx_time			
+					FROM 
+						tt_mo2			
+					WHERE 
+						mo_no = TM1.MO_NO 
+						AND row_id_spot = TM1.ROW_ID
+				)
+				,TM1.MO_BOOK_TIME
+			)																						AS ACT_TIME,			
+			''																						AS UNIQUENO,			
+			''																						AS ANCHOR,			
+			TM1.BILLED																				AS POSTTXFLAG,
+			(
+				CASE 
+				WHEN TM1.VERIFIED = 'Y' THEN 
+					'V' 
+				ELSE 
+					'N' 
+				END
+			)																						AS POSTTXSTATUS,			
+			TM1.special_cb_pos ,			
+			'1'																						AS SRC,
+			(
+				SELECT 
+					SALESG_NAME			
+				FROM 
+					mt_salesmang			
+				WHERE 
+					mt_salesmang.SALESG_CODE = get_salesman_group(											/**/
+						SR1.sales_code,			
+						SR1.r_date,			
+						TM1.mo_book_date
+					)
+			)																						AS GROUP1,		
+			(
+				SELECT 
+					MANAGER_NAME			
+				FROM 
+					mt_salesmang, MST_AE_MANAGER			
+				WHERE     
+					mt_salesmang.SALESG_MGR_CODE = MST_AE_MANAGER.MANAGER_CODE			
+					AND mt_salesmang.SALESG_CODE = get_salesman_group(
+						SR1.sales_code,			
+						SR1.r_date,			
+						TM1.mo_book_date
+					)
+			)																						AS SM,			
+			(
+				SELECT 
+					PACK_NAME			
+				FROM 
+					ME_PACKAGE			
+				WHERE 
+					PACK_CODE = TM1.PO_TYPE
+			)																						AS type1,			
+			(
+				SELECT 
+					MG_potype_grp.grp_name			
+				FROM 
+					MG_potype_grp			
+				WHERE 
+					MG_potype_grp.grp_code = (
+						SELECT 
+							ME_PACKAGE.potype_grp			
+						FROM 
+							ME_PACKAGE			
+						WHERE 
+							PACK_CODE = TM1.PO_TYPE
+					)
+			) 																						AS type2,			
+			CASE			
+				WHEN TO_CHAR(TM1.mo_book_date, 'd')::int = 1 THEN 7			
+				WHEN TO_CHAR(TM1.mo_book_date, 'd')::int = 2 THEN 1			
+				WHEN TO_CHAR(TM1.mo_book_date, 'd')::int = 3 THEN 2			
+				WHEN TO_CHAR(TM1.mo_book_date, 'd')::int = 4 THEN 3			
+				WHEN TO_CHAR(TM1.mo_book_date, 'd')::int = 5 THEN 4			
+				WHEN TO_CHAR(TM1.mo_book_date, 'd')::int = 6 THEN 5			
+				WHEN TO_CHAR(TM1.mo_book_date, 'd')::int = 7 THEN 6			
+			END 																					AS "day",			
+	--		TO_CHAR (TM1.mo_book_date, 'yyyy')														AS "year",
+			extract('week' from TM1.mo_book_date)::int+1											AS WEEK2,
+			(
+				SELECT 
+					TM.ENTRYDATE			
+				FROM 
+					tt_mo TM			
+				WHERE     
+					TM.MO_NO = TM1.MO_NO			
+					AND TM.MO_EXT_NO = TM1.PO_NUMBER			
+					AND TM.CLIENT_CODE = SR1.CLIENT_CODE			
+					AND TM.AGEN_CODE = SR1.AGEN_CODE
+			)																						AS ENTER_DATE,			
+			TOTAL_SPOTS																				AS BUDGET_SPOT,			
+			(
+				SELECT 
+					COUNT (1)			
+				FROM 
+					tt_mo TMX, tt_mo1 TM1X			
+				WHERE 
+					TMX.MO_NO = TM1X.MO_NO			
+					AND TMX.MO_EXT_NO = TM1X.PO_NUMBER			
+					AND TM1X.MO_BOOK_STATUS IN ('2', '4', '6')			
+					AND TMX.MO_NO = TM1.MO_NO			
+					AND TMX.MO_EXT_NO = TM1.PO_NUMBER
+			)																						AS ACTUAL_SPOT,			
+			SR1.notes																				AS COMMISION_COMMENT,			
+			TM1.MO_REMARK																			AS spot_comment,			
+			MP1.HOUSE_NO,			
+			TM1.rate_price_home																		AS GROSS,
+			COALESCE(TM1.MO_DPP_HOME, 0)															AS NETT,			
+			0																						AS RATE_30S,			
+			0																						AS Rate_Dur,			
+			0																						AS persen,			
+			''																						AS CPRPNON,			
+			0																						AS ON_PRINT_ADJUSTED_NETTMIL,			
+			0																						AS ON_PRINT_ADJUSTED_NETTMIL000,			
+			''																						AS KET,
+			f_get_prod_category_version(																			/**/
+				MP1.prod_code,			
+				TM1.PROD_VERSION,			
+				'N'
+			)																						AS PRODUCT_CATEGORY,			
+			(
+				SELECT 
+					MP_CATSLOT.CATSLOT_NAME			
+				FROM 
+					MP_CATSLOT			
+				WHERE 
+					MF.CATSLOT_CODE = MP_CATSLOT.CATSLOT_CODE
+			)																						AS program_CATEGORY,			
+			(
+				SELECT 
+					OFFER_DATE			
+				FROM 
+					tt_mo1_mg			
+				WHERE 
+					RIDSPOT = tm1.row_id
+			)																						AS offered_date,			
+			CASE TM1.mo_book_status			
+			WHEN '2' THEN 'CONFIRM'			
+			WHEN '6' THEN 'OFFERED'			
+			WHEN '4' THEN 'PREEMPTED'			
+			WHEN '5' THEN 'CANCELED'			
+			ELSE '-'			
+			END																						AS mo_book_status,			
+			CURRENT_DATE																			AS cdate,			
+			TM1.VERIFIED,			
+			TM1.mo_book_date,			
+			tm1.PREM_POS_1,			
+			tm1.PREM_POS_2,			
+			tm1.PREM_POS_3,			
+			tm1.PREM_POS_4,			
+			tm1.PREM_POS_5,			
+			tm1.PREM_POS_L1,			
+			tm1.PREM_POS_L2,			
+			tm1.PREM_POS_L3,			
+			tm1.PREM_POS_L4,			
+			tm1.PREM_POS_L5,			
+			TM1.SPECIAL_POS,			
+			SR1.PROD_CODE,			
+			SR1.CLIENT_CODE,
+			COALESCE(SR1.CASBACK_AMOUNT, 0)															AS CASBACK_AMOUNT,			
+			(
+				SELECT 
+					COUNT (1)			
+				FROM 
+					tt_mo1 TM1X			
+				WHERE     
+					TM1X.MO_BOOK_STATUS = '2'			
+					AND TM1X.MO_NO = TM1.MO_NO			
+					AND TM1X.PO_NUMBER = TM1.PO_NUMBER
+			)																						AS TOTAL_SPOT_CONFIRM,			
+			COALESCE(
+				(
+					SELECT 
+						ST_RESERVATION_SPS_BUND_SUMM.NETT			
+					FROM 
+						ST_RESERVATION_SPS_BUND_SUMM			
+					WHERE 
+						RID_SR = SR1.ROW_ID AND SPS_BUND_FLAG = 'B'
+				),			
+				0
+			)																						AS BUNDLING,			
+			MP1.SCHOBJ_TIME,			
+			TM1.update_date,			
+			TM1.update_user,			
+			COALESCE(			
+				SR1.TOTAL_INVOICE,			
+				(
+					SELECT 
+						SUM (mo_dpp_home)			
+					FROM 
+						tt_mo1			
+					WHERE     
+						tt_mo1.mo_no = SR1.mo_no			
+						AND tt_mo1.po_number = SR1.po_number			
+						AND tt_mo1.mo_book_status = '2'			
+						AND tt_mo1.bonus_taken = 'N'
+				)
+			)																						AS TOTAL_INVOICE
+		FROM 
+			tt_mo1                  	TM1
+			join mg_channel         	MCN 	on	TM1.channel_code = MCN.channel_code
+			join st_reservations    	SR1 	on	SR1.ROW_ID = TM1.ROW_ID_RES	
+			join st_reservation_matrix1 SRM1 	on 	SRM1.ROW_ID = TM1.ROW_ID_MATRIX1
+			left join mp_film           MF		on 	TM1.film_poc = MF.film_poc 
+													and TM1.row_id_poc = MF.row_id
+			left join tp_cbs_dps1       TCD1	on	TM1.row_id_slot = TCD1.row_id
+			left join mt_prod1          MP1		on	TM1.prod_code = MP1.prod_code
+													and TM1.prod_version = MP1.prod_version
+			left join ST_PKG_INT_HDR   	SPKG	on	SR1.rid_pkg_ext = SPKG.row_id			
+		WHERE     
+			TO_CHAR (TM1.MO_BOOK_DATE, 'mm') = as_month/*:as_month*/				
+			AND TO_CHAR (TM1.MO_BOOK_DATE, 'yyyy') = as_year/*:as_year*/				
+			AND TM1.channel_code = 'TV7'/*:as_channel*/				
+			AND TM1.tx_code = 'INA'/*:as_tx*/
+			AND TM1.MO_BOOK_STATUS <> '5';
+end;
+$function$
+;
+
+select process_rowdata_gen21('08', '2022');
+
+-----------------------------------------
+select
+	date_part('month', TM1.mo_book_date)::int												AS "month",
+	date_part('year', TM1.mo_book_date)::int 												AS "year",		
+	TM1.mo_no || '/' || TM1.po_number														AS contract,
+	SR1.ref_po_num																			AS ref_po_num,			
+	TM1.mo_no																				AS camp,
+	SR1.JOB_ID																				AS order_no,
+	(
+		SELECT 
+			MT_AGEN.AGEN_COM_NAME			
+		FROM 
+			gen21.MT_AGEN			
+		WHERE 
+			MT_AGEN.AGEN_CODE = SR1.AGEN_CODE
+	)																						AS agency,
+	(
+		SELECT 
+			mt_client.client_com_name			
+		FROM 
+			gen21.mt_client		
+		WHERE 
+			mt_client.client_code = SR1.client_code
+	)																						AS advertiser,
+	(
+		SELECT 
+			MT_PROD.PROD_NAME			
+		FROM 
+			gen21.MT_PROD			
+		WHERE 
+			MT_PROD.prod_code = MP1.PROD_CODE
+	)																						AS brand,
+	(
+		SELECT 
+			mt_salesman.sales_name			
+		FROM 
+			gen21.mt_salesman			
+		WHERE 
+			mt_salesman.sales_code = SR1.sales_code
+	) 																						AS ae,
+	(
+		SELECT 
+			SALESG_NAME			
+		FROM 
+			gen21.mt_salesmang			
+		WHERE 
+			mt_salesmang.SALESG_CODE = gen21.get_salesman_group(							/**/
+				SR1.sales_code,			
+				SR1.r_date,			
+				TM1.mo_book_date
+			)
+	)																						AS group1,
+	SR1.booking_period_from																	AS start1,	
+	SR1.booking_period_to																	AS end1,
+	(
+		SELECT 
+			PACK_NAME			
+		FROM 
+			gen21.ME_PACKAGE			
+		WHERE 
+			PACK_CODE = TM1.PO_TYPE
+	)																						AS type1,
+	TM1.rate_price_home																		AS gross,
+	SR1.agency_discount																		as disc,
+	SR1.agency_commission																	as comm,
+	(
+		SELECT 
+			TM.ENTRYDATE			
+		FROM 
+			gen21.tt_mo TM			
+		WHERE     
+			TM.MO_NO = TM1.MO_NO			
+			AND TM.MO_EXT_NO = TM1.PO_NUMBER			
+			AND TM.CLIENT_CODE = SR1.CLIENT_CODE			
+			AND TM.AGEN_CODE = SR1.AGEN_CODE
+	)																						AS enter_date,	
+	TOTAL_SPOTS																				AS budget_spot,
+	COALESCE(
+		(
+			SELECT 
+				ST_RESERVATION_SPS_BUND_SUMM.NETT			
+			FROM 
+				gen21.ST_RESERVATION_SPS_BUND_SUMM			
+			WHERE 
+				RID_SR = SR1.ROW_ID AND SPS_BUND_FLAG = 'B'
+		),			
+		0
+	)																						AS bundling,
+	COALESCE(SR1.CASBACK_AMOUNT, 0)															AS cashback_amount,
+	COALESCE(			
+		SR1.TOTAL_INVOICE,			
+		(
+			SELECT 
+				SUM (mo_dpp_home)			
+			FROM 
+				gen21.tt_mo1			
+			WHERE     
+				tt_mo1.mo_no = SR1.mo_no			
+				AND tt_mo1.po_number = SR1.po_number			
+				AND tt_mo1.mo_book_status = '2'		
+				AND tt_mo1.bonus_taken = 'N'
+		)
+	)																						AS total_invoice,
+	TM1.po_disc_home																		as "cost",		
+	COALESCE(TM1.MO_DPP_HOME, 0)															AS nett
+FROM 
+	gen21.tt_mo1                  		TM1
+	join gen21.mg_channel         		MCN 	on	TM1.channel_code = MCN.channel_code
+	join gen21.st_reservations    		SR1 	on	SR1.ROW_ID = TM1.ROW_ID_RES	
+	join gen21.st_reservation_matrix1 	SRM1 	on 	SRM1.ROW_ID = TM1.ROW_ID_MATRIX1
+	left join gen21.mp_film           	MF		on 	TM1.film_poc = MF.film_poc 
+												and TM1.row_id_poc = MF.row_id
+	left join gen21.tp_cbs_dps1       	TCD1	on	TM1.row_id_slot = TCD1.row_id
+	left join gen21.mt_prod1          	MP1		on	TM1.prod_code = MP1.prod_code
+												and TM1.prod_version = MP1.prod_version
+	left join gen21.ST_PKG_INT_HDR   	SPKG	on	SR1.rid_pkg_ext = SPKG.row_id			
+WHERE     
+	TO_CHAR (TM1.MO_BOOK_DATE, 'mm') = '08'/*:as_month*/				
+	AND TO_CHAR (TM1.MO_BOOK_DATE, 'yyyy') = '2022'/*:as_year*/				
+	AND TM1.channel_code = 'TV7'/*:as_channel*/				
+	AND TM1.tx_code = 'INA'/*:as_tx*/
+	AND TM1.MO_BOOK_STATUS <> '5'
+;

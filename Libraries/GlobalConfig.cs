@@ -1,5 +1,9 @@
 ﻿using SurplusMigrator.Models;
+using System.Collections.Generic;
+using System.Data.Entity.Core.Common.CommandTrees.ExpressionBuilder;
+using System.Data;
 using System.Linq;
+using System.Data.OleDb;
 
 namespace SurplusMigrator.Libraries {
     class GlobalConfig {
@@ -20,6 +24,10 @@ namespace SurplusMigrator.Libraries {
             if(_config.truncated_tables.Contains(tablename)) return true;
 
             return false;
+        }
+
+        public static string getExcelSourcesPath() {
+            return _config.excel_sources_path;
         }
     }
 }

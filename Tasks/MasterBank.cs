@@ -139,5 +139,23 @@ namespace SurplusMigrator.Tasks {
 
             return result;
         }
+
+        protected override MappedData getStaticData() {
+            MappedData result = new MappedData();
+
+            result.addData(
+                "master_bank",
+                new RowData<ColumnName, object>() {
+                    { "bankid",  0},
+                    { "name",  "UNKNOWN"},
+                    { "code",  "???"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+
+            return result;
+        }
     }
 }

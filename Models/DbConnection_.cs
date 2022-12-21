@@ -13,12 +13,7 @@ namespace SurplusMigrator.Models {
             if(loginInfo.type == DbTypes.MSSQL) {
                 conn = new SqlConnection("Data Source=" + loginInfo.host + "," + loginInfo.port + ";Initial Catalog=" + loginInfo.dbname + ";User ID=" + loginInfo.username + ";Password=" + loginInfo.password);
             }else if(loginInfo.type == DbTypes.POSTGRESQL) {
-                conn = new NpgsqlConnection("Server=" + loginInfo.host + ";Port=" + loginInfo.port + ";User ID=" + loginInfo.username + ";Password=" + loginInfo.password + ";Database=" + loginInfo.dbname + ";SearchPath=" + loginInfo.schema + ";Include Error Detail=true");
-            }
-        }
-        ~DbConnection_() {
-            if(conn.State == ConnectionState.Open) {
-                conn.Close();
+                conn = new NpgsqlConnection("Server=" + loginInfo.host + ";Port=" + loginInfo.port + ";User ID=" + loginInfo.username + ";Password=" + loginInfo.password + ";Database=" + loginInfo.dbname + ";SearchPath=" + loginInfo.schema + ",public;Include Error Detail=true");
             }
         }
 
@@ -33,8 +28,10 @@ namespace SurplusMigrator.Models {
             return loginInfo;
         }
 
-        public void closeConnection() { 
-            conn.Close();
+        public void Close() {
+            if(conn.State == ConnectionState.Open) {
+                conn.Close();
+            }
         }
     }
 }

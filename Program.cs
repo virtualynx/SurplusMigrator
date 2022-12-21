@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 
 namespace SurplusMigrator {
@@ -52,9 +53,29 @@ namespace SurplusMigrator {
 
             DbConnection_[] connections = connList.ToArray();
 
-            IdRemapper.loadMap();
-
             try {
+                if(config.pre_queries_path != null) {
+                    QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault());
+                    qe.execute(config.pre_queries_path);
+                }
+
+                IdRemapper.loadMap();
+                {
+                    { //pre-requirement for AspNetUsers
+                        {
+                            new MasterOccupation(connections).run();
+                            {
+                                {
+                                    new MasterModule(connections).run();
+                                }
+                                new MasterModuleGroup(connections).run();
+                            }
+                            //new RelationModule_ModuleGroup(connections).run(); //using query instead
+                        }
+                        //new AspNetUsers(connections).run(); //using query instead
+                    }
+                }
+
                 {
                     { //master_faction
                         {
@@ -77,6 +98,7 @@ namespace SurplusMigrator {
                         }
                         new MasterAccount(connections).run();
                     }
+                    new MasterAccountRelation(connections).run();
                     new MasterAccountGLSign(connections).run();
                 }
 
@@ -117,9 +139,9 @@ namespace SurplusMigrator {
                             }
                             new TransactionProgramBudget(connections).run();
                         }
-                        new TransactionBudget(connections).run(); //
+                        new TransactionBudget(connections).run();
                     }
-                    new TransactionJournal(connections).run(); //
+                    new TransactionJournal(connections).run();
                 }
 
                 { //start of TransactionJournalDetail
@@ -132,17 +154,33 @@ namespace SurplusMigrator {
                         {//---pre-req for TransactionBudgetDetail
                             new MasterBudgetAccount(connections).run();
                         }
-                        new TransactionBudgetDetail(connections).run(); //
+                        new TransactionBudgetDetail(connections).run();
                     }
-                    new TransactionJournalDetail(connections).run(); //
+                    new TransactionJournalDetail(connections).run();
                 }
-                
-                new TransactionJournalReval(connections).run(); //
-                new TransactionJournalSaldo(connections).run(); //
+
+                new TransactionJournalReval(connections).run();
+                new TransactionJournalSaldo(connections).run();
+
+                {
+                    {
+                        new MasterInvoiceFormat(connections).run();
+                        new MasterInvoiceType(connections).run();
+                    }
+                    new TransactionSalesOrder(connections).run();
+                }
+
+                if(config.post_queries_path != null) {
+                    QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault());
+                    qe.execute(config.post_queries_path);
+                }
             } catch(Exception e) {
                 MyConsole.Error("Program stopped abnormally due to some error");
             } finally { 
                 IdRemapper.saveMap();
+                foreach(DbConnection_ con in connections) {
+                    con.Close();
+                }
             }
 
             stopwatch.Stop();

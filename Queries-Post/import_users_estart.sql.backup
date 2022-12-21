@@ -1,0 +1,87 @@
+delete from "AspNetUsers"
+where 
+	nik in (
+		select 
+			user_nik
+		from 
+			dblink(
+				'dbname=integration port=5432 host=172.16.123.121 user=postgres password=initrans7'::text, 
+				'
+					SELECT 
+						distinct user_nik
+					FROM 
+						e_start."master_user"
+					where user_nik is not null
+				'::text
+			) e_start_user (
+				user_nik character varying(255)
+			)
+	)
+;
+
+insert into "AspNetUsers"(
+	id,
+	nik,
+	fullname,
+	username,
+	departmentid,
+	isdisabled,
+	occupationid,
+	modulegroupid,
+	emailconfirmed,
+	phonenumberconfirmed,
+	twofactorenabled,
+	lockoutenabled,
+	accessfailedcount,
+	email,
+	phonenumber
+)
+select 
+	uuid_generate_v4(),
+	e_start_user.user_nik, 
+	master_eis."name", 
+	master_eis."name", 
+	master_eis.department_code,
+	false,
+	1,
+	1,
+	false,
+	false,
+	false,
+	false,
+	0,
+	master_eis.email, 
+	master_eis.phone
+from 
+	dblink(
+		'dbname=integration port=5432 host=172.16.123.121 user=postgres password=initrans7'::text, 
+		'
+			SELECT 
+				distinct user_nik
+			FROM 
+				e_start."master_user"
+			where user_nik is not null
+		'::text
+	) e_start_user (
+		user_nik character varying(255)
+	)
+	join dblink(
+		'dbname=integration port=5432 host=172.16.123.121 user=postgres password=initrans7'::text, 
+		'
+			SELECT 
+				"NIK" as nik, 
+				"Nama" as name,
+				department_code,
+				email,
+				"NomorHP" as phone
+			FROM 
+				hris."MasterEis"
+		'::text
+	) master_eis (
+		nik character varying(10), 
+		"name" character varying(100), 
+		department_code character varying(50), 
+		email character varying(200), 
+		phone character varying(25)
+	) on e_start_user.user_nik = master_eis.nik
+;

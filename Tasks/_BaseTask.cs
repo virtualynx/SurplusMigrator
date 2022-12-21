@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Text.Json;
 
 using TaskName = System.String;
@@ -279,24 +280,23 @@ namespace SurplusMigrator.Tasks {
                 
             if(missingRefIds.Count > 0) {
                 string filename = "log_(" + this.GetType().Name + ")_nullified_missing_reference_to_(" + referencedTableName + ")_" + _startedAt.ToString("yyyyMMdd_HHmmss") + ".json";
-                string savePath = System.Environment.CurrentDirectory + "\\" + filename;
 
-                MissingReference missingRefs;
-                if(File.Exists(savePath)) {
-                    using(StreamReader r = new StreamReader(savePath)) {
-                        string jsonText = r.ReadToEnd();
-                        missingRefs = JsonSerializer.Deserialize<MissingReference>(jsonText);
-                    }
-                } else {
-                    missingRefs = new MissingReference() {
+                MissingReference missingReference;
+                try {
+                    missingReference = Utils.loadJson<MissingReference>(filename);
+                } catch(FileNotFoundException) {
+                    missingReference = new MissingReference() {
                         foreignColumnName = foreignColumnName,
                         referencedTableName = referencedTableName,
                         referencedColumnName = referencedColumnName,
                     };
+                } catch(Exception) {
+                    throw;
                 }
 
-                missingRefs.referencedIds.AddRange(missingRefIds);
-                File.WriteAllText(savePath, JsonSerializer.Serialize(missingRefs));
+                missingReference.referencedIds.AddRange(missingRefIds);
+                Utils.saveJson(filename, missingReference);
+
                 foreach(DbInsertFail err in result) {
                     err.loggedInFilename = filename;
                 }
@@ -404,23 +404,22 @@ namespace SurplusMigrator.Tasks {
 
             if(missingRefIds.Count > 0) {
                 string filename = "log_(" + this.GetType().Name + ")_skipped_missing_reference_to_(" + referencedTableName + ")_" + _startedAt.ToString("yyyyMMdd_HHmmss") + ".json";
-                string savePath = System.Environment.CurrentDirectory + "\\" + filename;
-
-                MissingReference missingRefs;
-                if(File.Exists(savePath)) {
-                    using(StreamReader r = new StreamReader(savePath)) {
-                        string jsonText = r.ReadToEnd();
-                        missingRefs = JsonSerializer.Deserialize<MissingReference>(jsonText);
-                    }
-                } else {
-                    missingRefs = new MissingReference() {
+                
+                MissingReference missingReference;
+                try {
+                    missingReference = Utils.loadJson<MissingReference>(filename);
+                } catch(FileNotFoundException) {
+                    missingReference = new MissingReference() {
                         foreignColumnName = foreignColumnName,
                         referencedTableName = referencedTableName,
                         referencedColumnName = referencedColumnName,
                     };
+                } catch(Exception) {
+                    throw;
                 }
 
-                missingRefs.referencedIds.AddRange(missingRefIds);
+                missingReference.referencedIds.AddRange(missingRefIds);
+                Utils.saveJson(filename, missingReference);
 
                 List<RowData<ColumnName, object>> ignoredDatas = inputs.Where(row => missingRefIds.Any(missingId => row.Any(map => map.Key == foreignColumnName && Utils.obj2str(map.Value) == Utils.obj2str(missingId)))).ToList();
                 inputs.RemoveAll(row => missingRefIds.Any(missingId => row.Any(map => map.Key == foreignColumnName && Utils.obj2str(map.Value) == Utils.obj2str(missingId))));
@@ -433,7 +432,6 @@ namespace SurplusMigrator.Tasks {
                     });
                 }
 
-                File.WriteAllText(savePath, JsonSerializer.Serialize(missingRefs));
                 foreach(DbInsertFail err in result) {
                     err.loggedInFilename = filename;
                 }

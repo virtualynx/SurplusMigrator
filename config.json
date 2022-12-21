@@ -1,6 +1,6 @@
 {
   "infos": [
-    { "databases" : "Connection profiles for all database used for source/destination" },
+    { "databases": "Connection profiles for all database used for source/destination" },
     { "excluded_tables": "Data will not be migrated if the task is involving these source/destination tables, can be listed by tablenames of either being source or destination" },
     { "truncated_tables": "List of the name of destination tables which will be truncated before inserted" }
   ],
@@ -20,7 +20,16 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "migrate_temp",
+      "schema": "migrate",
+      "type": "POSTGRESQL"
+    },
+    {
+      "host": "172.16.123.121",
+      "port": 5432,
+      "username": "postgres",
+      "password": "initrans7",
+      "dbname": "integration",
+      "schema": "gen21",
       "type": "POSTGRESQL"
     },
     {
@@ -33,23 +42,38 @@
       "type": "MSSQL"
     }
   ],
+  "pre_queries_paths": "../../../Queries-Pre",
+  "post_queries_paths": "../../../Queries-Post",
+  "excel_sources_path": "../../../Source-Excels",
   "excluded_tables": {
     "source": [
-      "transaksi_budget",
-      "transaksi_budgetdetil",
-      "transaksi_jurnal"
     ],
     "destination": [
+      "master_account_relation",
+      "master_account_general_ledger_sign",
+      "master_glreport",
+      "master_glreport_detail",
+      "master_glreport_subdetail",
+      "transaction_budget",
+      "transaction_journal",
+      "transaction_budget_detail",
+      "transaction_journal_detail",
       "transaction_journal_reval",
       "transaction_journal_saldo"
     ]
   },
   "truncated_tables": [
+    "master_account_relation",
+    "master_account_general_ledger_sign",
+    "master_glreport",
+    "master_glreport_detail",
+    "master_glreport_subdetail",
     "transaction_budget",
-    "transaction_budget_detail",
     "transaction_journal",
+    "transaction_budget_detail",
     "transaction_journal_detail",
     "transaction_journal_reval",
-    "transaction_journal_saldo"
+    "transaction_journal_saldo",
+    "transaction_sales_order"
   ]
 }
