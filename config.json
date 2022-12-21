@@ -42,9 +42,9 @@
       "type": "MSSQL"
     }
   ],
-  "pre_queries_paths": "../../../Queries-Pre",
-  "post_queries_paths": "../../../Queries-Post",
-  "excel_sources_path": "../../../Source-Excels",
+  "pre_queries_paths": "../../../SurplusMigrator-ExternalSource/Queries-Pre",
+  "post_queries_paths": "../../../SurplusMigrator-ExternalSource/Queries-Post",
+  "excel_sources_path": "../../../SurplusMigrator-ExternalSource/Excels",
   "excluded_tables": {
     "source": [
     ],

@@ -1,0 +1,3 @@
+[submodule "SurplusMigrator-ExternalSource"]
+	path = SurplusMigrator-ExternalSource
+	url = https://github.com/virtualynx/SurplusMigrator-ExternalSource.git
