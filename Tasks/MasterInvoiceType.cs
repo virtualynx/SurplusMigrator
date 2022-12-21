@@ -48,7 +48,7 @@ namespace SurplusMigrator.Tasks {
             result.addData(
                 "master_invoice_type",
                 new RowData<ColumnName, object>() {
-                    { "invoicetypeid",  1},
+                    { "invoicetypeid",  2},
                     { "name",  "Comp"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
@@ -58,7 +58,7 @@ namespace SurplusMigrator.Tasks {
             result.addData(
                 "master_invoice_type",
                 new RowData<ColumnName, object>() {
-                    { "invoicetypeid",  1},
+                    { "invoicetypeid",  3},
                     { "name",  "Billed (-DN)"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
