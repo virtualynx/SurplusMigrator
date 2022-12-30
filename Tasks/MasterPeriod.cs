@@ -65,7 +65,7 @@ namespace SurplusMigrator.Tasks {
                     { "isclosed",  Utils.obj2bool(data["periode_isclosed"])},
                     { "allowsaldoawalentry",  Utils.obj2bool(data["periode_allowsaldoawalentry"])},
                     { "created_date",  data["periode_createdate"]},
-                    { "created_by",  getAuthInfo(data["periode_createby"])},
+                    { "created_by",  getAuthInfo(data["periode_createby"], true)},
                     { "is_disabled", false }
                 };
                 result.addData("master_period", insertRow);

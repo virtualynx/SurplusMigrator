@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace SurplusMigrator.Tasks {
-    class TransactionJournal : _BaseTask, RemappableId {
+    class TransactionJournal : _BaseTask {
         public TransactionJournal(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
@@ -109,8 +109,6 @@ namespace SurplusMigrator.Tasks {
                 //}
                 tbudgetid = Utils.obj2str(data["budget_id"]);
 
-                string disabled_by = null;
-
                 result.addData(
                     "transaction_journal",
                     new RowData<ColumnName, object>() {
@@ -134,7 +132,7 @@ namespace SurplusMigrator.Tasks {
                         { "advertiserid",  Utils.obj2int(data["advertiser_id"])==0? null: data["advertiser_id"]},
                         { "advertiserbrandid",  Utils.obj2int(data["brand_id"])==0? null: data["brand_id"]},
                         { "paymenttypeid",  1},
-                        { "created_by", getAuthInfo(data["created_by"]) },
+                        { "created_by", getAuthInfo(data["created_by"], true) },
                         { "created_date",  data["created_dt"]},
                         { "is_disabled", Utils.obj2bool(data["jurnal_isdisabled"]) },
                         { "disabled_by", getAuthInfo(data["jurnal_isdisabledby"]) },
@@ -171,14 +169,6 @@ namespace SurplusMigrator.Tasks {
             new MasterVendorType(connections).run();
             new MasterVendor(connections).run();
             new TransactionBudget(connections).run(true);
-        }
-
-        protected override void afterFinishedCallback() {
-            IdRemapper.saveMap();
-        }
-
-        public void clearRemappingCache() {
-            IdRemapper.clearMapping("glreportdetailid");
         }
     }
 }

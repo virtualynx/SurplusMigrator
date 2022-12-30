@@ -6,11 +6,9 @@ using NpgsqlTypes;
 using SurplusMigrator.Exceptions;
 using SurplusMigrator.Libraries;
 using System;
-using System.CodeDom;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using ParamNotation = System.String;
@@ -23,6 +21,7 @@ namespace SurplusMigrator.Models {
         public string[] columns;
         private ColumnType<ColumnName, string> columnTypes = null;
         public string[] ids;
+        public ReferenceTable[] referenceTables = new ReferenceTable[] { };
         private int lastBatchSize = -1;
         private long dataCount = -1;
         private int fetchBatchMax = -1;
@@ -158,18 +157,18 @@ namespace SurplusMigrator.Models {
             return result;
         }
 
-        public TaskInsertStatus insertData(List<RowData<ColumnName, object>> inputs, bool truncateBeforeInsert, bool autoGenerateId = false) {
+        public TaskInsertStatus insertData(List<RowData<ColumnName, object>> inputs, bool truncateBeforeInsert, bool onlyTruncateMigratedData = true, bool autoGenerateIdentity = false) {
             TaskInsertStatus result = new TaskInsertStatus();
             List<DbInsertFail> failures = new List<DbInsertFail>();
             result.errors = failures;
 
             if(truncateBeforeInsert && !isAlreadyTruncated && getDataCount() > 0) {
-                truncate();
+                truncate(inputs);
                 isAlreadyTruncated = true;
             }
 
             //check & omit if attempted insert data is already in table
-            if(!autoGenerateId && ids!=null && ids.Length>0) {
+            if(ids!=null && ids.Length>0) {
                 omitDuplicatedData(failures, inputs);
                 if(inputs.Count == 0) { //all data are duplicates
                     return result;
@@ -182,8 +181,9 @@ namespace SurplusMigrator.Models {
                 inputColumns.Add(kv.Key);
             }
             string[] targetColumns = inputColumns.ToArray();
-            if(autoGenerateId) {
-                targetColumns = columns.Where(a => ids.Any(b => b != a)).ToArray();
+            if(autoGenerateIdentity) {
+                string identityColumnName = getIdentityColumnName();
+                targetColumns = columns.Where(a => a != identityColumnName).ToArray();
             }
 
             List<string> sqlParams = new List<string>();
@@ -346,65 +346,10 @@ namespace SurplusMigrator.Models {
                     if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                         throw new NotImplementedException();
                     } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                        //string query = @"
-                        //    select 
-                        //        sn.nspname as seq_schema,
-                        //        s.relname as seqname,
-                        //        st.nspname as tableschema,
-                        //        t.relname as tablename,
-                        //        at.attname as columname
-                        //    from 
-                        //        pg_class s
-                        //        join pg_namespace sn on sn.oid = s.relnamespace
-                        //        join pg_depend d on d.refobjid = s.oid
-                        //        join pg_attrdef a on d.objid = a.oid
-                        //        join pg_attribute at on at.attrelid = a.adrelid and at.attnum = a.adnum
-                        //        join pg_class t on t.oid = a.adrelid
-                        //        join pg_namespace st on st.oid = t.relnamespace
-                        //    where 
-                        //        s.relkind = 'S'
-                        //        and d.classid = 'pg_attrdef'::regclass
-                        //        and d.refclassid = 'pg_class'::regclass
-                        //        and sn.nspname = '[schema]'
-                        //        and st.nspname = '[schema]'
-                        //        and t.relname = '[tablename]'
-                        //    ;
-                        //";
+                        string identityColumn = getIdentityColumnName();
 
-                        string query = @"
-                            select 
-                                attname, 
-                                attidentity, 
-                                attgenerated
-                            from 
-                                pg_attribute
-                            where 
-                                attnum > 0
-                                and attidentity <> ''
-                                and attrelid = (
-    	                            select 
-			                            s.oid 
-		                            from 
-			                            pg_class s
-			                            join pg_namespace sn on sn.oid = s.relnamespace
-		                            where 
-			                            sn.nspname = '[schema]'
-			                            and relname = '[tablename]'
-                                )
-                            ;
-                        ";
-                        query = query.Replace("[schema]", connection.GetDbLoginInfo().schema);
-                        query = query.Replace("[tablename]", tableName);
-
-                        List<RowData<ColumnName, object>> rs_column_attr = new List<RowData<string, dynamic>>();
-                        NpgsqlCommand command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
-                        object identityColumnObj = command.ExecuteScalar();
-                        command.Dispose();
-
-                        if(identityColumnObj != null) {
-                            string identityColumn = identityColumnObj.ToString();
-
-                            query = @"
+                        if(identityColumn != null) {
+                            string query = @"
                                 SELECT 
 	                                schemaname,
 	                                sequencename
@@ -420,7 +365,7 @@ namespace SurplusMigrator.Models {
                             query = query.Replace("[identity_column]", identityColumn);
 
                             List<RowData<ColumnName, object>> rs_sequencer = new List<RowData<string, dynamic>>();
-                            command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
+                            NpgsqlCommand command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
                             NpgsqlDataReader reader = command.ExecuteReader();
                             while(reader.Read()) {
                                 RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
@@ -494,17 +439,146 @@ namespace SurplusMigrator.Models {
             return success;
         }
 
-        private void truncate(bool cascade = true) {
-            string options = "";
-            if(cascade) {
-                options += " CASCADE";
-            }
-            MyConsole.Information("Truncate " + connection.GetDbLoginInfo().schema + "." + tableName + "" + options);
+        private string getIdentityColumnName() {
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                throw new System.NotImplementedException();
+                throw new NotImplementedException();
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                executeNonQuery("TRUNCATE TABLE \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + options);
+                string query = @"
+                    select 
+                        attname, 
+                        attidentity, 
+                        attgenerated
+                    from 
+                        pg_attribute
+                    where 
+                        attnum > 0
+                        and attidentity <> ''
+                        and attrelid = (
+    	                    select 
+			                    s.oid 
+		                    from 
+			                    pg_class s
+			                    join pg_namespace sn on sn.oid = s.relnamespace
+		                    where 
+			                    sn.nspname = '[schema]'
+			                    and relname = '[tablename]'
+                        )
+                    ;
+                ";
+                query = query.Replace("[schema]", connection.GetDbLoginInfo().schema);
+                query = query.Replace("[tablename]", tableName);
+
+                NpgsqlCommand command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
+                object identityColumnObj = command.ExecuteScalar();
+                command.Dispose();
+
+                return identityColumnObj?.ToString();
             }
+
+            throw new NotImplementedException("Only SQL-Server and PostgreSql database is supported");
+        }
+
+        private void truncate(List<RowData<ColumnName, object>> inputs, bool onlyTruncateMigratedData = true, bool cascade = true) {
+            string truncateOption = "";
+            if(cascade) {
+                truncateOption += " CASCADE";
+            }
+            MyConsole.Information("Truncate " + connection.GetDbLoginInfo().schema + "." + tableName + "" + truncateOption);
+            try {
+                if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                    throw new System.NotImplementedException();
+                } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                    if(onlyTruncateMigratedData) {
+                        if(!columns.Any(a => a == "created_by")) {
+                            throw new System.NotImplementedException("Does not have column created_by");
+                        }
+                        if(cascade) {
+                            foreach(ReferenceTable refTable in referenceTables) {
+                                List<dynamic> refIds = new List<dynamic>();
+                                string apostrophe = null;
+                                foreach(RowData<ColumnName, object> data in inputs) {
+                                    dynamic dataObj = data[refTable.foreignKey];
+                                    if(dataObj != null) {
+                                        if(apostrophe == null) {
+                                            if(dataObj.GetType() == typeof(string)) {
+                                                apostrophe = "'";
+                                            } else {
+                                                apostrophe = "";
+                                            }
+                                        }
+                                        if(!refIds.Contains(dataObj)) {
+                                            refIds.Add(dataObj);
+                                        }
+                                    }
+                                }
+                                string[] refTableColumns = getColumnNames(refTable.tablename);
+                                string additionalCondition = "";
+                                if(refTableColumns.Contains("created_by")) {
+                                    additionalCondition = " created_by->>'Id' is null and ";
+                                }
+                                executeNonQuery("DELETE FROM \"" + connection.GetDbLoginInfo().schema + "\".\"" + refTable.tablename + "\" where " + additionalCondition + refTable.principalKey + " in(" + apostrophe + String.Join(apostrophe+","+ apostrophe, refIds) + apostrophe + ")");
+                            }
+                        }
+                        executeNonQuery("DELETE FROM \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" where created_by->>'Id' is null");
+                    } else {
+                        executeNonQuery("TRUNCATE TABLE \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + truncateOption);
+                    }
+                }
+            } catch(NotImplementedException) {
+                throw;
+            } catch(Exception e) {
+                var a = 1;
+            }
+        }
+
+        private string[] getColumnNames(string tablename) {
+            List<string> result = new List<string>();
+
+            if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                throw new NotImplementedException();
+            } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                string query = @"
+                    select 
+                        attname
+                    from 
+                        pg_attribute
+                    where 
+                        attnum > 0
+                        and attrelid = (
+    	                    select 
+			                    s.oid 
+		                    from 
+			                    pg_class s
+			                    join pg_namespace sn on sn.oid = s.relnamespace
+		                    where 
+			                    sn.nspname = '[schema]'
+			                    and relname = '[tablename]'
+                        )
+                    ;
+                ";
+                query = query.Replace("[schema]", connection.GetDbLoginInfo().schema);
+                query = query.Replace("[tablename]", tablename);
+
+                List<RowData<ColumnName, object>> rs_columns = new List<RowData<string, dynamic>>();
+                NpgsqlCommand command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
+                NpgsqlDataReader reader = command.ExecuteReader();
+                while(reader.Read()) {
+                    RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
+                    dynamic data = reader.GetValue(reader.GetOrdinal("attname"));
+                    if(data.GetType() == typeof(System.DBNull)) {
+                        data = null;
+                    } else if(data.GetType() == typeof(string)) {
+                        data = data.ToString().Trim();
+                    }
+                    result.Add(data);
+                }
+                reader.Close();
+                command.Dispose();
+
+                return result.ToArray();
+            }
+
+            throw new NotImplementedException("Only SQL-Server and PostgreSql database is supported");
         }
 
         private void omitDuplicatedData(List<DbInsertFail> failures, List<RowData<ColumnName, object>> inputs) {

@@ -256,7 +256,7 @@ namespace SurplusMigrator.Tasks {
                         //{ "approveddate",  data[""]},
                         { "transactiontypeid",  data["salesorder_jurnaltypeid"]},
 
-                        { "created_by", getAuthInfo(data["salesorder_entry_by"]) },
+                        { "created_by", getAuthInfo(data["salesorder_entry_by"], true) },
                         { "created_date",  data["salesorder_entry_dt"]},
                         { "is_disabled", Utils.obj2bool(data["salesorder_iscanceled"]) },
                         //{ "disabled_by",  new AuthInfo(){ FullName = Utils.obj2str(data["jurnal_isdisabledby"]) } },

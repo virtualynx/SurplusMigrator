@@ -115,7 +115,7 @@ namespace SurplusMigrator.Tasks {
                     { "vendortypeid",  data["rekanantype_id"]},
                     { "vendorcategoryid",  1},
                     { "created_date",  data["rekanan_Create_dt"]},
-                    { "created_by", getAuthInfo(data["rekanan_Create_by"]) },
+                    { "created_by", getAuthInfo(data["rekanan_Create_by"], true) },
                     { "is_disabled", !Utils.obj2bool(data["rekanan_active"]) },
                     { "modified_date",  data["rekanan_modify_date"]},
                     { "modified_by", getAuthInfo(data["rekanan_modify_by"]) },

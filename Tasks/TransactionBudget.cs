@@ -225,7 +225,7 @@ namespace SurplusMigrator.Tasks {
                         { "showinventorydepartmentid",  Utils.obj2int(data["showinventorydepartment_id"]) },
                         { "showinventorytimezoneid",  Utils.obj2int(data["showinventorytimezone_id"])==0? 1: data["showinventorytimezone_id"]},
                         { "created_date",  data["budget_entrydt"]},
-                        { "created_by", getAuthInfo(data["budget_entryby"]) },
+                        { "created_by", getAuthInfo(data["budget_entryby"], true) },
                         { "is_disabled", !Utils.obj2bool(data["budget_isactive"]) },
                         { "disabled_date",  data["budget_disabledate"]},
                         { "disabled_by", getAuthInfo(data["budget_disabledby"]) },

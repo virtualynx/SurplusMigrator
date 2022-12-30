@@ -140,7 +140,7 @@ namespace SurplusMigrator.Tasks {
                         { "duration_seconds", Utils.obj2int(data["eps_duration_seconds"])},
                         { "classification",  data["eps_classification"]},
                         { "created_date", created_dt},
-                        { "created_by", getAuthInfo(createdDateMaps[prabudget_program_id]["created_by"]) },
+                        { "created_by", getAuthInfo(createdDateMaps[prabudget_program_id]["created_by"], true) },
                         { "is_disabled", false}
                     }
                 );

@@ -52,7 +52,7 @@ namespace SurplusMigrator.Tasks {
                     { "name",  data["prodtype_name"]},
                     { "nameshort",  data["prodtype_nameshort"]},
                     { "created_date",  data["prodtype_entry_dt"]},
-                    { "created_by", getAuthInfo(data["prodtype_entry_by"]) },
+                    { "created_by", getAuthInfo(data["prodtype_entry_by"], true) },
                     { "is_disabled", !Utils.obj2bool(data["prodtype_isactive"]) }
                 };
                 result.addData("master_prod_type", insertRow);

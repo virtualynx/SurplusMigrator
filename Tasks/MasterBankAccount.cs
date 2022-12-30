@@ -95,7 +95,7 @@ namespace SurplusMigrator.Tasks {
                         { "address",  String.Join(", ", addressList)},
                         { "accountid",  data["bankacc_account"]},
                         { "created_date",  data["bankacc_createdt"]},
-                        { "created_by", getAuthInfo(data["bankacc_createby"]) },
+                        { "created_by", getAuthInfo(data["bankacc_createby"], true) },
                         { "is_disabled", !Utils.obj2bool(data["bankacc_active"]) }
                     }
                 );

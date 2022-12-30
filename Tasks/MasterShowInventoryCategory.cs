@@ -52,7 +52,7 @@ namespace SurplusMigrator.Tasks {
                     { "showinventorycategoryid",  data["showinventorycategory_id"]},
                     { "name",  data["showinventorycategory_name"]},
                     { "created_date",  data["showinventorycategory_createddate"]},
-                    { "created_by", getAuthInfo(data["showinventorycategory_createdby"]) },
+                    { "created_by", getAuthInfo(data["showinventorycategory_createdby"], true) },
                     { "is_disabled", Utils.obj2bool(data["showinventorycategory_isdisabled"]) }
                 };
                 result.addData("master_show_inventory_category", insertRow);

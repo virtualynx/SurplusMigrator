@@ -53,7 +53,7 @@ namespace SurplusMigrator.Tasks {
                         { "glreportid",  glreportid},
                         { "name",  data["Name"]},
                         { "created_date",  data["Create_dt"]},
-                        { "created_by", getAuthInfo(data["Create_by"]) },
+                        { "created_by", getAuthInfo(data["Create_by"], true) },
                         { "is_disabled", false }
                     }
                 );

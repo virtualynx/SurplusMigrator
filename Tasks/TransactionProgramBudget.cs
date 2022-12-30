@@ -140,7 +140,7 @@ namespace SurplusMigrator.Tasks {
                     { "showinventorytimezoneid",  showinventorytimezoneid!=0? showinventorytimezoneid: null},
                     { "programbudgetcontenttypeid",  data["prabudget_program_contenttype_id"]},
                     { "created_date",  data["created_dt"]},
-                    { "created_by", getAuthInfo(data["created_by"]) },
+                    { "created_by", getAuthInfo(data["created_by"], true) },
                     { "is_disabled", Utils.obj2bool(data["prabudget_program_isdisable"]) },
                     { "disabled_date",  data["prabudget_program_isdisable_dt"]},
                     { "disabled_by", getAuthInfo(data["prabudget_program_isdisable_by"]) },

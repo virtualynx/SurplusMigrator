@@ -188,7 +188,7 @@ namespace SurplusMigrator.Tasks {
                         { "bilyet_effectivedate",  null},
                         { "received_by",  null},
                         { "created_date",  data["created_dt"]},
-                        { "created_by", getAuthInfo(data["created_by"]) },
+                        { "created_by", getAuthInfo(data["created_by"], true) },
                         { "is_disabled", Utils.obj2bool(data["jurnal_isdisabled"]) },
                         { "disabled_date",  data["jurnal_isdisableddt"]},
                         { "disabled_by", getAuthInfo(data["jurnal_isdisabledby"]) },

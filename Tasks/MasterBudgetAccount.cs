@@ -108,7 +108,7 @@ namespace SurplusMigrator.Tasks {
                         { "joinacc_id",  data["account_join"]},
                         { "otheracc_id",  data["account_oth"]},
                         { "created_date",  data["projectacc_createdt"]},
-                        { "created_by", getAuthInfo(data["projectacc_createby"]) },
+                        { "created_by", getAuthInfo(data["projectacc_createby"], true) },
                         { "is_disabled", !Utils.obj2bool(data["projectacc_isactive"]) },
                     }
                 );

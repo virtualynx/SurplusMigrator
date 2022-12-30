@@ -97,7 +97,7 @@ namespace SurplusMigrator.Tasks {
                         { "logproof_ply", Utils.obj2int(data["logpr"])},
                         { "salesperson", Utils.obj2str(data["salesperson"])},
                         { "created_date",  data["create_date"]},
-                        { "created_by",  getAuthInfo(data["create_by"])},
+                        { "created_by",  getAuthInfo(data["create_by"], true)},
                         { "is_disabled", !Utils.obj2bool(data["active"]) },
                         { "modified_date",  data["modify_date"]},
                         { "modified_by",  getAuthInfo(data["modify_by"])},

@@ -65,7 +65,7 @@ namespace SurplusMigrator.Tasks {
                         { "cb_name",  data["cb_name"]},
                         { "rpt_name",  data["rpt_name"]},
                         { "trf_code",  data["trf_code"]},
-                        { "created_by", getAuthInfo(data["entry_by"]) },
+                        { "created_by", getAuthInfo(data["entry_by"], true) },
                         { "created_date",  data["entry_dt"]},
                         { "is_disabled", !Utils.obj2bool(data["active"]) },
                         { "disabled_by",  null },

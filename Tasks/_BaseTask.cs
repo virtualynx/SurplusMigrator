@@ -28,7 +28,7 @@ namespace SurplusMigrator.Tasks {
             this.connections = connections;
         }
 
-        public bool run(bool truncateBeforeInsert = false, int readBatchSize = defaultReadBatchSize, bool autoGenerateId = false) {
+        public bool run(bool truncateBeforeInsert = false, bool onlyTruncateMigratedData = true, int readBatchSize = defaultReadBatchSize, bool autoGenerateIdentity = false) {
             if(isAlreadyRun()) return true;
 
             //if being run from method runDependencies
@@ -106,7 +106,7 @@ namespace SurplusMigrator.Tasks {
                 while((fetchedData = getSourceData(sourceTables, readBatchSize)).Count > 0) {
                     MappedData mappedData = mapData(fetchedData);
                     foreach(Table dest in destinationTables) {
-                        TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), truncateBeforeInsert, autoGenerateId);
+                        TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), truncateBeforeInsert, autoGenerateIdentity);
                         successCount += taskStatus.successCount;
                         failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
                         failureCount += mappedData.getError(dest.tableName).Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
@@ -129,7 +129,7 @@ namespace SurplusMigrator.Tasks {
                         }
                     }
                     foreach(Table dest in destinationTables) {
-                        TaskInsertStatus taskStatus = dest.insertData(staticDatas.getData(dest.tableName), truncateBeforeInsert, autoGenerateId);
+                        TaskInsertStatus taskStatus = dest.insertData(staticDatas.getData(dest.tableName), truncateBeforeInsert, autoGenerateIdentity);
                         successCount += taskStatus.successCount;
                         failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
                         duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
@@ -442,6 +442,17 @@ namespace SurplusMigrator.Tasks {
             }
 
             return result.ToArray();
+        }
+
+        protected AuthInfo getAuthInfo(object personName, bool generateDefaultIfNull = false) {
+            string personNameStr = Utils.obj2str(personName);
+            if(personName != null) {
+                return new AuthInfo() { FullName = personNameStr };
+            }else if(generateDefaultIfNull) {
+                return DefaultValues.CREATED_BY;
+            }
+
+            return null;
         }
 
         protected virtual List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
