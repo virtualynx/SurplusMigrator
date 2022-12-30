@@ -205,6 +205,17 @@ namespace SurplusMigrator.Tasks {
             result.addData(
                 "master_transaction_type",
                 new RowData<ColumnName, object>() {
+                    { "transactiontypeid",  "OT"},
+                    { "name",  "Official Travel"},
+                    { "transactiontypegroupid",  10},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_transaction_type",
+                new RowData<ColumnName, object>() {
                     { "transactiontypeid",  "PA"},
                     { "name",  "PA"},
                     { "transactiontypegroupid",  1},

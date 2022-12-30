@@ -17,7 +17,7 @@ using System.Text.RegularExpressions;
 using System.IO;
 
 namespace SurplusMigrator.Tasks {
-    class TransactionBudgetDetail : _BaseTask, RemappableId {
+    class TransactionBudgetDetail : _BaseTask {
         /**
          * here holds ids of the missing TransactionBudget data
          * these TransactionBudget data also does not referred anywhere on TransactionJournal
@@ -152,9 +152,10 @@ namespace SurplusMigrator.Tasks {
 
             foreach(RowData<ColumnName, object> data in inputs) {
                 string tbudgetid = null;
-                if(Utils.obj2long(data["budget_id"]) > 0) {
-                    tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
-                }
+                //if(Utils.obj2long(data["budget_id"]) > 0) {
+                //    tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
+                //}
+                tbudgetid = Utils.obj2str(data["budget_id"]);
 
                 string budgetaccountid = Utils.obj2long(data["projectacc_id"])!=0? data["projectacc_id"].ToString(): null;
                 long budgetdetil_id = Utils.obj2long(data["budgetdetil_id"]);
@@ -163,8 +164,10 @@ namespace SurplusMigrator.Tasks {
                 }
 
                 DateTime created_date = Utils.obj2datetime(data["budgetdetil_date"]);
-                string tbudget_detailid = Sequencer.getId("BGTD", (DateTime)created_date);
-                IdRemapper.add("tbudget_detailid", budgetdetil_id, tbudget_detailid);
+                //string tbudget_detailid = SequencerString.getId("BGTD", (DateTime)created_date);
+                //IdRemapper.add("tbudget_detailid", budgetdetil_id, tbudget_detailid);
+
+                string tbudget_detailid = budgetdetil_id.ToString();
 
                 result.addData(
                     "transaction_budget_detail",
@@ -307,12 +310,12 @@ namespace SurplusMigrator.Tasks {
             return missingCreationDateIds;
         }
 
-        public void clearRemappingCache() {
-            IdRemapper.clearMapping("tbudget_detailid");
-        }
+        //protected override void afterFinishedCallback() {
+        //    IdRemapper.saveMap();
+        //}
 
-        protected override void afterFinishedCallback() {
-            IdRemapper.saveMap();
-        }
+        //public void clearRemappingCache() {
+        //    IdRemapper.clearMapping("tbudget_detailid");
+        //}
     }
 }

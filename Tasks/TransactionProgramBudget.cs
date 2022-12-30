@@ -140,12 +140,12 @@ namespace SurplusMigrator.Tasks {
                     { "showinventorytimezoneid",  showinventorytimezoneid!=0? showinventorytimezoneid: null},
                     { "programbudgetcontenttypeid",  data["prabudget_program_contenttype_id"]},
                     { "created_date",  data["created_dt"]},
-                    { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["created_by"]) } },
+                    { "created_by", getAuthInfo(data["created_by"]) },
                     { "is_disabled", Utils.obj2bool(data["prabudget_program_isdisable"]) },
                     { "disabled_date",  data["prabudget_program_isdisable_dt"]},
-                    { "disabled_by",  new AuthInfo(){ FullName = Utils.obj2str(data["prabudget_program_isdisable_by"]) } },
+                    { "disabled_by", getAuthInfo(data["prabudget_program_isdisable_by"]) },
                     { "modified_date",  data["modified_dt"]},
-                    { "modified_by",  new AuthInfo(){ FullName = Utils.obj2str(data["modified_by"]) } },
+                    { "modified_by", getAuthInfo(data["modified_by"]) },
                 };
                 result.addData("transaction_program_Budget", insertRow);
             }

@@ -139,6 +139,10 @@ namespace SurplusMigrator.Tasks {
                     }
                 }
 
+                foreach(Table dest in destinationTables) {
+                    dest.updateSequencer();
+                }
+
                 MyConsole.Information("Task " + this.GetType().Name + " finished. (success: " + successCount + ", fails: " + failureCount + ", duplicate: " + duplicateCount + ")");
                 setAlreadyRun();
             } catch(TaskConfigException e) {
@@ -175,7 +179,7 @@ namespace SurplusMigrator.Tasks {
             _alreadyRunMap[taskName] = true;
         }
 
-        protected private DbInsertFail[] nullifyMissingReferences(
+        protected DbInsertFail[] nullifyMissingReferences(
             string foreignColumnName,
             string referencedTableName,
             string referencedColumnName,
@@ -183,7 +187,7 @@ namespace SurplusMigrator.Tasks {
             List<RowData<ColumnName, object>> inputs
         ) {
             List<DbInsertFail> result = new List<DbInsertFail> ();
-            List<object> idsOfInputs = new List<object>();
+            List<dynamic> idsOfInputs = new List<dynamic>();
 
             foreach(RowData<ColumnName, object> row in inputs) {
                 object data = row[foreignColumnName];
@@ -214,7 +218,7 @@ namespace SurplusMigrator.Tasks {
 
             if(idsOfInputs.Count == 0) return result.ToArray(); //all reference is either 0 or null
 
-            List<object> queriedReferencedIds = new List<object>();
+            List<dynamic> queriedReferencedIds = new List<dynamic>();
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 SqlConnection conn = (SqlConnection)connection.GetDbConnection();
                 string inclusionParams=null;
@@ -245,7 +249,7 @@ namespace SurplusMigrator.Tasks {
                 throw new System.NotImplementedException();
             }
 
-            List<object> missingRefIds = new List<object>();
+            List<dynamic> missingRefIds = new List<dynamic>();
             foreach(RowData<ColumnName, object> row in inputs) {
                 object data = row[foreignColumnName];
                 if(data == null) continue;
@@ -305,7 +309,7 @@ namespace SurplusMigrator.Tasks {
             return result.ToArray();
         }
 
-        protected private DbInsertFail[] skipsIfMissingReferences(
+        protected DbInsertFail[] skipsIfMissingReferences(
             string foreignColumnName,
             string referencedTableName,
             string referencedColumnName,

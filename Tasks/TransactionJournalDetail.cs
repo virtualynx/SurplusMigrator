@@ -135,19 +135,22 @@ namespace SurplusMigrator.Tasks {
                 string tjournal_detailid = data["jurnal_id"].ToString().Substring(0, 2)+"D"+ data["jurnal_id"].ToString().Substring(2)+ data["jurnaldetil_line"].ToString();
                 
                 string tbudgetid = null;
-                if(Utils.obj2long(data["budget_id"]) > 0) {
-                    tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
-                }
-                string tbudget_detailid = null;
-                if(Utils.obj2long(data["budgetdetil_id"]) > 0) {
-                    tbudget_detailid = IdRemapper.get("tbudget_detailid", Utils.obj2long(data["budgetdetil_id"])).ToString();
-                }
-                string tjournalid = Utils.obj2str(data["jurnal_id"]).ToUpper();
+                //if(Utils.obj2long(data["budget_id"]) > 0) {
+                //    tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
+                //}
+                tbudgetid = Utils.obj2str(data["budget_id"]);
+                tbudgetid = tbudgetid == "0" ? null : tbudgetid;
 
+                string tbudget_detailid = null;
+                //if(Utils.obj2long(data["budgetdetil_id"]) > 0) {
+                //    tbudget_detailid = IdRemapper.get("tbudget_detailid", Utils.obj2long(data["budgetdetil_id"])).ToString();
+                //}
+                tbudget_detailid = Utils.obj2str(data["budgetdetil_id"]);
+                tbudget_detailid = tbudget_detailid == "0" ? null : tbudget_detailid;
+
+                string tjournalid = Utils.obj2str(data["jurnal_id"]).ToUpper();
                 string accountid = Utils.obj2str(data["acc_id"]);
-                if(accountid == "0") {
-                    accountid = null;
-                }
+                accountid = accountid == "0" ? null : accountid;
                 
                 string ref_id = Utils.obj2str(data["ref_id"]);
                 string ref_line = Utils.obj2str(data["ref_line"]);
@@ -185,10 +188,10 @@ namespace SurplusMigrator.Tasks {
                         { "bilyet_effectivedate",  null},
                         { "received_by",  null},
                         { "created_date",  data["created_dt"]},
-                        { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["created_by"]) } },
-                        { "is_disabled", Utils.obj2bool(data["jurnal_isdisabled"])},
+                        { "created_by", getAuthInfo(data["created_by"]) },
+                        { "is_disabled", Utils.obj2bool(data["jurnal_isdisabled"]) },
                         { "disabled_date",  data["jurnal_isdisableddt"]},
-                        { "disabled_by",  new AuthInfo(){ FullName = Utils.obj2str(data["jurnal_isdisabledby"]) } },
+                        { "disabled_by", getAuthInfo(data["jurnal_isdisabledby"]) },
                         { "modified_date",  null},
                         { "modified_by",  null},
                         //{ "budgetdetail_name",  data[""]},

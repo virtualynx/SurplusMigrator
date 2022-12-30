@@ -1,80 +1,88 @@
-using Microsoft.Data.SqlClient;
-using Npgsql;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
-using SurplusMigrator.Tasks;
-using System;
-using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 
 namespace SurplusMigrator.Tasks {
-  class AspNetUsers : _BaseTask {
+    class AspNetUsers : _BaseTask {
         public AspNetUsers(DbConnection_[] connections) : base(connections) {
-            DbConnection_ surplusDev = new DbConnection_(new DbLoginInfo() { 
-                host = "172.16.123.121",
-                port = 5432,
-                username = "postgres",
-                password = "initrans7",
-                dbname = "insosys",
-                schema = "dev",
-                type = "POSTGRESQL"
-            });
-
-            sources = new TableInfo[] {
-                new TableInfo() {
-                    connection = surplusDev,
-                    tableName = "AspNetUsers",
-                    columns = new string[] {
-                        "moduleid",
-                        "name",
-                        "endpoint",
-                        "type",
-                        "created_date",
-                        "created_by",
-                        "is_disabled"
-                    },
-                    ids = new string[] { "moduleid" }
-                }
-            };
+            sources = new TableInfo[] {};
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
                     tableName = "AspNetUsers",
                     columns = new string[] {
-                        "moduleid",
-                        "name",
-                        "endpoint",
-                        "type",
-                        "created_date",
-                        "created_by",
-                        "is_disabled"
+                        "id",
+                        "nik",
+                        "fullname",
+                        "username",
+                        "departmentid",
+                        "is_disabled",
+                        "occupationid",
+                        "usergroupid",
+                        "emailconfirmed",
+                        "phonenumberconfirmed",
+                        "twofactorenabled",
+                        "lockoutenabled",
+                        "accessfailedcount",
+                        "email",
+                        "phonenumber"
                     },
-                    ids = new string[] { "moduleid" }
+                    ids = new string[] { "id" }
                 }
             };
         }
 
-        protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
-            return sourceTables.Where(a => a.tableName == "master_module").FirstOrDefault().getDatas(batchSize);
-        }
-
-        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        protected override MappedData getStaticData() {
             MappedData result = new MappedData();
 
-            foreach(RowData<ColumnName, object> data in inputs) {
-                RowData<ColumnName, object> insertRow = new RowData<ColumnName, object>() {
-                    { "moduleid",  data["moduleid"]},
-                    { "name",  data["name"]},
-                    { "endpoint",  data["endpoint"]},
-                    { "type",  data["type"]},
-                    { "created_date",  DateTime.Now},
-                    { "created_by",  DefaultValues.CREATED_BY},
-                    { "is_disabled", !Utils.obj2bool(data["is_disabled"]) }
-                };
-                result.addData("master_module", insertRow);
+            JsonElement json = Utils.getDataFromJson("_AspNetUsers_");
+            var objEnum = json.EnumerateObject();
+            objEnum.MoveNext();
+            var firstElement = objEnum.Current.Value;
+            var length = firstElement.GetArrayLength();
+            for(int a = 0; a < length; a++) {
+                var ele = firstElement[a];
+                string isdisabled = ele.GetProperty("isdisabled").ToString().ToLower();
+                string emailconfirmed = ele.GetProperty("emailconfirmed").ToString().ToLower();
+                string phonenumberconfirmed = ele.GetProperty("phonenumberconfirmed").ToString().ToLower();
+                string twofactorenabled = ele.GetProperty("twofactorenabled").ToString().ToLower();
+                string lockoutenabled = ele.GetProperty("lockoutenabled").ToString().ToLower();
+
+                result.addData(
+                    "AspNetUsers",
+                    new RowData<ColumnName, object>() {
+                        { "id", Utils.obj2str(ele.GetProperty("id"))},
+                        { "nik", Utils.obj2str(ele.GetProperty("nik"))},
+                        { "fullname", Utils.obj2str(ele.GetProperty("fullname"))},
+                        { "username", Utils.obj2str(ele.GetProperty("username"))},
+                        { "departmentid", Utils.obj2str(ele.GetProperty("departmentid"))},
+                        { "isdisabled", isdisabled == "true" ? true : false},
+                        { "occupationid", Utils.obj2int(ele.GetProperty("occupationid"))},
+                        { "usergroupid", Utils.obj2int(ele.GetProperty("modulegroupid"))},
+                        { "emailconfirmed", emailconfirmed == "true" ? true : false},
+                        { "phonenumberconfirmed", phonenumberconfirmed == "true" ? true : false},
+                        { "twofactorenabled", twofactorenabled == "true" ? true : false},
+                        { "lockoutenabled", lockoutenabled == "true" ? true : false},
+                        { "accessfailedcount", Utils.obj2int(ele.GetProperty("accessfailedcount"))},
+                        { "email", Utils.obj2str(ele.GetProperty("email"))},
+                        { "phonenumber", Utils.obj2str(ele.GetProperty("phonenumber"))}
+                    }
+                );
             }
 
             return result;
+        }
+
+        protected override void runDependencies() {
+            new MasterOccupation(connections).run();
+            {
+                {
+                    new MasterModule(connections).run();
+                }
+                new MasterUserGroup(connections).run();
+            }
+            new Relation_Module_UserGroup(connections).run();
         }
     }
 }

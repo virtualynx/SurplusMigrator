@@ -20,7 +20,7 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "migrate",
+      "schema": "_live",
       "type": "POSTGRESQL"
     },
     {
@@ -42,9 +42,10 @@
       "type": "MSSQL"
     }
   ],
-  "pre_queries_paths": "../../../SurplusMigrator-ExternalSource/Queries-Pre",
-  "post_queries_paths": "../../../SurplusMigrator-ExternalSource/Queries-Post",
+  "pre_queries_pathx": "../../../SurplusMigrator-ExternalSource/Queries-Pre",
+  "post_queries_path": "../../../SurplusMigrator-ExternalSource/Queries-Post",
   "excel_sources_path": "../../../SurplusMigrator-ExternalSource/Excels",
+  "json_sources_path": "../../../SurplusMigrator-ExternalSource/Jsons",
   "excluded_tables": {
     "source": [
     ],
@@ -55,25 +56,33 @@
       "master_glreport_detail",
       "master_glreport_subdetail",
       "transaction_budget",
+
       "transaction_journal",
       "transaction_budget_detail",
       "transaction_journal_detail",
       "transaction_journal_reval",
-      "transaction_journal_saldo"
+      "transaction_journal_saldo",
+      "master_vendor_bill",
+      "transaction_sales_order"
     ]
   },
   "truncated_tables": [
+    "master_user_group",
+    "relation_module_usergroup",
+
     "master_account_relation",
     "master_account_general_ledger_sign",
     "master_glreport",
     "master_glreport_detail",
     "master_glreport_subdetail",
     "transaction_budget",
+    "transaction_program_budget_eps_detail",
     "transaction_journal",
     "transaction_budget_detail",
     "transaction_journal_detail",
     "transaction_journal_reval",
     "transaction_journal_saldo",
+    "master_vendor_bill",
     "transaction_sales_order"
   ]
 }

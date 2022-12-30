@@ -89,6 +89,24 @@ namespace SurplusMigrator.Tasks {
             result.addData(
                 "master_account",
                 new RowData<ColumnName, object>() {
+                    { "accountid",  "0"},
+                    { "name",  "Unknown Migration"},
+                    { "nameshort",  "Unknown-Migration"},
+                    { "descr",  "To accomodate 0-value reference to Account for old migration data"},
+                    { "isgroup",  false},
+                    { "parent",  null},
+                    { "path",  null},
+                    { "ismonetary", false},
+                    { "accountsubgroupid",  null},
+                    { "accounttypeid",  null},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_account",
+                new RowData<ColumnName, object>() {
                     { "accountid",  "1234358"},
                     { "name",  "Missing data 1234358"},
                     { "nameshort",  "Missing data 1234358"},

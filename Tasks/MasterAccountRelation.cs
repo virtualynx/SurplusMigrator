@@ -73,7 +73,7 @@ namespace SurplusMigrator.Tasks {
                 new ExcelColumn(){ name="account_id_UangMuka", ordinal=7 },
                 new ExcelColumn(){ name="account_id_hutang", ordinal=9 }
             };
-            List<RowData<ColumnName, object>> datas = Utils.getFromExcel("Analisa Account Relation.xlsx", columns, "Mapping Account");
+            List<RowData<ColumnName, object>> datas = Utils.getDataFromExcel("Analisa Account Relation.xlsx", columns, "Mapping Account");
 
             int rowNumber = 1;
             foreach(RowData<ColumnName, object> row in datas) {

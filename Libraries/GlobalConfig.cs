@@ -29,5 +29,9 @@ namespace SurplusMigrator.Libraries {
         public static string getExcelSourcesPath() {
             return _config.excel_sources_path;
         }
+
+        public static string getJsonSourcesPath() {
+            return _config.json_sources_path;
+        }
     }
 }

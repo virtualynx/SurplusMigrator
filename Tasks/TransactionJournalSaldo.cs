@@ -79,10 +79,10 @@ namespace SurplusMigrator.Tasks {
                         { "foreignrate",  data["jurnalsaldo_foreignrate"]},
                         { "idramount",  data["jurnalsaldo_idr"]},
                         { "created_date",  Utils.obj2datetime(data["jurnalsaldo_createdate"])},
-                        { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["jurnalsaldo_createby"]) } },
+                        { "created_by", getAuthInfo(data["jurnalsaldo_createby"]) },
                         { "is_disabled", false },
                         { "modified_date",  Utils.obj2datetime(data["jurnalsaldo_modifydate"])},
-                        { "modified_by",  new AuthInfo(){ FullName = Utils.obj2str(data["jurnalsaldo_modifyby"]) } },
+                        { "modified_by", getAuthInfo(data["jurnalsaldo_modifyby"]) },
                     }
                 );
             }

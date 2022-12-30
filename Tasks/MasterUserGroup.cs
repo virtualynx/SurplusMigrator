@@ -8,21 +8,21 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-  class MasterModuleGroup : _BaseTask {
-        public MasterModuleGroup(DbConnection_[] connections) : base(connections) {
+  class MasterUserGroup : _BaseTask {
+        public MasterUserGroup(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
-                    tableName = "master_module_group",
+                    tableName = "master_user_group",
                     columns = new string[] {
-                        "modulegroupid",
+                        "usergroupid",
                         "name",
                         "created_date",
                         "created_by",
                         "is_disabled"
                     },
-                    ids = new string[] { "modulegroupid" }
+                    ids = new string[] { "usergroupid" }
                 }
             };
         }
@@ -31,9 +31,9 @@ namespace SurplusMigrator.Tasks {
             MappedData result = new MappedData();
 
             result.addData(
-                "master_module_group",
+                "master_user_group",
                 new RowData<ColumnName, object>() {
-                    { "modulegroupid",  1},
+                    { "usergroupid",  1},
                     { "name",  "Administrator"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
@@ -41,9 +41,9 @@ namespace SurplusMigrator.Tasks {
                 }
             );
             result.addData(
-                "master_module_group",
+                "master_user_group",
                 new RowData<ColumnName, object>() {
-                    { "modulegroupid",  2},
+                    { "usergroupid",  2},
                     { "name",  "User"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},

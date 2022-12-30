@@ -1,24 +1,23 @@
 using SurplusMigrator.Models;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-    class MasterProgramBudgetContenttype : _BaseTask {
-        public MasterProgramBudgetContenttype(DbConnection_[] connections) : base(connections) {
+    class MasterPaymentCategory : _BaseTask {
+        public MasterPaymentCategory(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
-                    tableName = "master_program_budget_contenttype",
+                    tableName = "master_payment_category",
                     columns = new string[] {
-                        "programbudgetcontenttypeid",
+                        "paymentcategoryid",
                         "name",
                         "created_date",
                         "created_by",
                         "is_disabled"
                     },
-                    ids = new string[] { "programbudgetcontenttypeid" }
+                    ids = new string[] { "paymentcategoryid" }
                 }
             };
         }
@@ -27,20 +26,20 @@ namespace SurplusMigrator.Tasks {
             MappedData result = new MappedData();
 
             result.addData(
-                "master_program_budget_contenttype",
+                "master_payment_category",
                 new RowData<ColumnName, object>() {
-                    { "programbudgetcontenttypeid",  1},
-                    { "name",  "Program"},
+                    { "paymentcategoryid",  1},
+                    { "name",  "Pelunasan"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_program_budget_contenttype",
+                "master_payment_category",
                 new RowData<ColumnName, object>() {
-                    { "programbudgetcontenttypeid",  2},
-                    { "name",  "Digital"},
+                    { "paymentcategoryid",  2},
+                    { "name",  "Termin"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
@@ -48,6 +47,10 @@ namespace SurplusMigrator.Tasks {
             );
 
             return result;
+        }
+
+        protected override void runDependencies() {
+            new MasterTransactionType(connections).run();
         }
     }
 }

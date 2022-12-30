@@ -49,7 +49,7 @@ namespace SurplusMigrator.Tasks {
                     { "showinventorydepartmentid",  data["showinventorydepartment_id"]},
                     { "name",  data["showinventorydepartment_name"]},
                     { "created_date",  data["showinventorydepartment_createddate"]},
-                    { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["showinventorydepartment_createdby"]) } },
+                    { "created_by", getAuthInfo(data["showinventorydepartment_createdby"]) },
                     { "is_disabled", Utils.obj2bool(data["showinventorydepartment_isdisabled"]) }
                 };
                 result.addData("master_show_inventory_department", insertRow);
@@ -67,7 +67,7 @@ namespace SurplusMigrator.Tasks {
                     { "showinventorydepartmentid",  0},
                     { "name",  "Empty - Migrations"},
                     { "created_date",  DateTime.Now},
-                    { "created_by",  new AuthInfo(){ FullName = "System" } },
+                    { "created_by", DefaultValues.CREATED_BY },
                     { "is_disabled", false }
                 }
             );

@@ -120,6 +120,16 @@ namespace SurplusMigrator.Tasks {
                     { "is_disabled", false }
                 }
             );
+            result.addData(
+                "master_transaction_type_group",
+                new RowData<ColumnName, object>() {
+                    { "transactiontypegroupid",  10},
+                    { "name",  "Official Travel"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
 
             return result;
         }

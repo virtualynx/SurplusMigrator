@@ -53,7 +53,7 @@ namespace SurplusMigrator.Tasks {
                         { "glreportid",  glreportid},
                         { "name",  data["Name"]},
                         { "created_date",  data["Create_dt"]},
-                        { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["Create_by"])} },
+                        { "created_by", getAuthInfo(data["Create_by"]) },
                         { "is_disabled", false }
                     }
                 );
@@ -62,8 +62,12 @@ namespace SurplusMigrator.Tasks {
             return result;
         }
 
-        protected override void afterFinishedCallback() {
-            IdRemapper.saveMap();
-        }
+        //protected override void afterFinishedCallback() {
+        //    IdRemapper.saveMap();
+        //}
+
+        //public void clearRemappingCache() {
+        //    IdRemapper.clearMapping("glreportid");
+        //}
     }
 }

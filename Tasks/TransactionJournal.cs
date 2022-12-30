@@ -1,3 +1,4 @@
+using SurplusMigrator.Interfaces;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System.Collections.Generic;
@@ -5,7 +6,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace SurplusMigrator.Tasks {
-    class TransactionJournal : _BaseTask {
+    class TransactionJournal : _BaseTask, RemappableId {
         public TransactionJournal(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
@@ -103,9 +104,12 @@ namespace SurplusMigrator.Tasks {
 
             foreach(RowData<ColumnName, object> data in inputs) {
                 string tbudgetid = null;
-                if(Utils.obj2int(data["budget_id"]) > 0) {
-                    tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
-                }
+                //if(Utils.obj2int(data["budget_id"]) > 0) {
+                //    tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
+                //}
+                tbudgetid = Utils.obj2str(data["budget_id"]);
+
+                string disabled_by = null;
 
                 result.addData(
                     "transaction_journal",
@@ -130,12 +134,12 @@ namespace SurplusMigrator.Tasks {
                         { "advertiserid",  Utils.obj2int(data["advertiser_id"])==0? null: data["advertiser_id"]},
                         { "advertiserbrandid",  Utils.obj2int(data["brand_id"])==0? null: data["brand_id"]},
                         { "paymenttypeid",  1},
-                        { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["created_by"]) } },
+                        { "created_by", getAuthInfo(data["created_by"]) },
                         { "created_date",  data["created_dt"]},
                         { "is_disabled", Utils.obj2bool(data["jurnal_isdisabled"]) },
-                        { "disabled_by",  new AuthInfo(){ FullName = Utils.obj2str(data["jurnal_isdisabledby"]) } },
+                        { "disabled_by", getAuthInfo(data["jurnal_isdisabledby"]) },
                         { "disabled_date",  data["jurnal_isdisableddt"] },
-                        { "modified_by",  new AuthInfo(){ FullName = Utils.obj2str(data["modified_by"]) } },
+                        { "modified_by", getAuthInfo(data["modified_by"]) },
                         { "modified_date",  data["modified_dt"] },
                         { "is_posted", Utils.obj2bool(data["jurnal_isposted"]) },
                         { "posted_by",  data["jurnal_ispostedby"] },
@@ -170,7 +174,11 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override void afterFinishedCallback() {
-            base.afterFinishedCallback();
+            IdRemapper.saveMap();
+        }
+
+        public void clearRemappingCache() {
+            IdRemapper.clearMapping("glreportdetailid");
         }
     }
 }

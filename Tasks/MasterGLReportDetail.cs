@@ -1,3 +1,4 @@
+using SurplusMigrator.Interfaces;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System;
@@ -5,7 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-    class MasterGLReportDetail : _BaseTask {
+    class MasterGLReportDetail : _BaseTask, RemappableId {
         public MasterGLReportDetail(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
@@ -50,7 +51,7 @@ namespace SurplusMigrator.Tasks {
             MappedData result = new MappedData();
 
             foreach(RowData<ColumnName, object> data in inputs) {
-                string dummy = Sequencer.getId("DUMMY_GLRD", DateTime.Now).Substring("DUMMY_GLRD".Length + "yyMMdd".Length);
+                string dummy = SequencerString.getId("DUMMY_GLRD", DateTime.Now).Substring("DUMMY_GLRD".Length + "yyMMdd".Length);
                 int glreportdetailid = Utils.obj2int(dummy);
                 string codeAndRowTag = data["code"].ToString() + "_" + data["row"].ToString();
                 IdRemapper.add("glreportdetailid", codeAndRowTag, glreportdetailid);
@@ -80,6 +81,10 @@ namespace SurplusMigrator.Tasks {
 
         protected override void afterFinishedCallback() {
             IdRemapper.saveMap();
+        }
+
+        public void clearRemappingCache() {
+            IdRemapper.clearMapping("glreportdetailid");
         }
     }
 }

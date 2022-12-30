@@ -1,6 +1,7 @@
 using Microsoft.Data.SqlClient;
 using Npgsql;
 using SurplusMigrator.Exceptions;
+using SurplusMigrator.Interfaces;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using SurplusMigrator.Models.Others;
@@ -11,7 +12,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace SurplusMigrator.Tasks {
-    class TransactionSalesOrder : _BaseTask {
+    class TransactionSalesOrder : _BaseTask, RemappableId {
         private Gen21Integration gen21;
 
         public TransactionSalesOrder(DbConnection_[] connections) : base(connections) {
@@ -202,12 +203,22 @@ namespace SurplusMigrator.Tasks {
                     }
                 }
 
+                string vendorbillidTag = Utils.obj2str(data["salesorder_agency"]) + "-" + Utils.obj2str(data["salesorder_agency_addr"]);
+                int vendorbillid = 0;
+                try {
+                    vendorbillid = IdRemapper.get("vendorbillid", vendorbillidTag);
+                } catch(Exception e) {
+                    if(e.Message.StartsWith("RemappedId map does not have mapping for id-columnname")) {
+
+                    }
+                }
+
                 result.addData(
                     "transaction_sales_order",
                     new RowData<ColumnName, object>() {
                         { "tsalesorderid",  data["salesorder_id"]},
                         { "vendorid",  data["salesorder_agency"]},
-                        { "vendorbillid",  data["salesorder_agency_addr"]},
+                        { "vendorbillid",  vendorbillid},
                         { "mediaordernumber",  data["salesorder_ext_ref"]},
                         { "jobid",  data["salesorder_ext_ref2"]},
                         { "date",  data["salesorder_dt"]},
@@ -223,16 +234,16 @@ namespace SurplusMigrator.Tasks {
                         { "currencyid",  data["salesorder_currency"]},
                         { "foreignamount",  data["salesorder_amount"]},
                         { "foreignrate",  data["salesorder_rate"]},
-                        { "additionalamount",  data["salesorder_amount_add"]},
-                        { "cancelationamount",  data["salesorder_amount_cancel"]},
+                        { "additionalamount", Utils.obj2decimal(data["salesorder_amount_add"])},
+                        { "cancelationamount", Utils.obj2decimal(data["salesorder_amount_cancel"])},
                         { "commision",  data["salesorder_comm"]},
-                        { "buyer",  data["salesorder_buyer"]},
+                        { "buyer", Utils.obj2decimal(data["salesorder_buyer"])},
                         { "salesareaid",  data["salesorder_area"]},
                         { "contractnumber",  data["salesorder_traffic_id"]},
                         { "invoiceformatid",  data["salesorder_format_inv"]},
                         { "invoiceply",  data["salesorder_ply_inv"]},
                         { "invoicetypeid",  data["salesorder_inv_type"]},
-                        { "isdirect",  Utils.obj2bool(data["salesorder_direct"])},
+                        { "isdirect", Utils.obj2bool(Utils.obj2int(data["salesorder_direct"]))},
                         { "description",  data["salesorder_descr"]},
                         { "accountid",  data["salesorder_account"]},
                         { "mo",  data["salesorder_mo_avail"]},
@@ -245,7 +256,7 @@ namespace SurplusMigrator.Tasks {
                         //{ "approveddate",  data[""]},
                         { "transactiontypeid",  data["salesorder_jurnaltypeid"]},
 
-                        { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["salesorder_entry_by"]) } },
+                        { "created_by", getAuthInfo(data["salesorder_entry_by"]) },
                         { "created_date",  data["salesorder_entry_dt"]},
                         { "is_disabled", Utils.obj2bool(data["salesorder_iscanceled"]) },
                         //{ "disabled_by",  new AuthInfo(){ FullName = Utils.obj2str(data["jurnal_isdisabledby"]) } },
@@ -263,10 +274,17 @@ namespace SurplusMigrator.Tasks {
             return result;
         }
 
-        private string getTransactionType(string tjournalid) {
-            Match match = Regex.Match(tjournalid, @"[a-zA-Z]+");
+        /**
+         * Because Gen21Integration.getAdvertiserId() and Gen21Integration.getAdvertiserBrandId
+         * is using IdRemapper.add()
+         */
+        protected override void afterFinishedCallback() {
+            IdRemapper.saveMap();
+        }
 
-            return match.Groups[0].Value.ToUpper();
+        public void clearRemappingCache() {
+            IdRemapper.clearMapping("advertiserid");
+            IdRemapper.clearMapping("advertiserbrandid");
         }
 
         protected override void runDependencies() {
@@ -274,10 +292,9 @@ namespace SurplusMigrator.Tasks {
             new MasterCurrency(connections).run();
             new MasterAccount(connections).run();
             new MasterTransactionType(connections).run();
-        }
-
-        protected override void afterFinishedCallback() {
-            IdRemapper.saveMap();
+            new MasterInvoiceFormat(connections).run();
+            new MasterInvoiceType(connections).run();
+            new MasterVendorBill(connections).run();
         }
     }
 }

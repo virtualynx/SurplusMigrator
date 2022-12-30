@@ -1,29 +1,28 @@
-using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
 
 namespace SurplusMigrator.Tasks {
-    class MasterSource : _BaseTask {
-        public MasterSource(DbConnection_[] connections) : base(connections) {
+    class MasterTrafficAdvertiser : _BaseTask {
+        public MasterTrafficAdvertiser(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
-                    tableName = "master_source",
+                    tableName = "master_trafficadvertiser",
                     columns = new string[] {
-                        "source_id",
-                        "source_descr",
-                        "type_id",
+                        "code",
+                        "trafficadvertiser_line",
+                        "trafficadvertiser_name",
+                        "trafficadvertiser_isactive"
                     },
-                    ids = new string[] { "source_id" }
+                    ids = new string[] { "code", "trafficadvertiser_line" }
                 }
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
-                    tableName = "master_source",
+                    tableName = "master_traffic_advertiser",
                     columns = new string[] {
                         "sourceid",
                         "description",
@@ -318,36 +317,7 @@ namespace SurplusMigrator.Tasks {
                 }
             );
 
-            JsonElement json = Utils.getDataFromJson("master_source");
-            var objEnum = json.EnumerateObject();
-            objEnum.MoveNext();
-            var firstElement = objEnum.Current.Value;
-            var length = firstElement.GetArrayLength();
-            for(int a = 0; a < length; a++) {
-                var ele = firstElement[a];
-                string sourceid = Utils.obj2str(ele.GetProperty("sourceid"));
-                string is_disabled = ele.GetProperty("is_disabled").ToString().ToLower();
-                if(result.getData("master_source").Any(a => a["sourceid"].ToString() == sourceid)) {
-                    continue;
-                }
-                result.addData(
-                    "master_source",
-                    new RowData<ColumnName, object>() {
-                        { "sourceid", sourceid},
-                        { "description", Utils.obj2str(ele.GetProperty("description"))},
-                        { "transactiontypeid", Utils.obj2str(ele.GetProperty("transactiontypeid"))},
-                        { "created_date", DateTime.Now},
-                        { "created_by", DefaultValues.CREATED_BY},
-                        { "is_disabled", is_disabled == "true" ? true : false }
-                    }
-                );
-            }
-
             return result;
-        }
-
-        protected override void runDependencies() {
-            new MasterTransactionType(connections).run();
         }
     }
 }

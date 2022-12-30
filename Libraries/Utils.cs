@@ -8,6 +8,7 @@ using System.IO;
 using System.Text.Json;
 using Excel = Microsoft.Office.Interop.Excel;
 using System.Runtime.InteropServices;
+using System.Globalization;
 
 namespace SurplusMigrator.Libraries {
     class Utils {
@@ -25,7 +26,16 @@ namespace SurplusMigrator.Libraries {
         }
         public static bool obj2bool(object o) {
             if(o == null) return false;
-            return Utils.obj2int(o) == 0 ? false : true;
+            Type type = o.GetType();
+            if(type == typeof(int) || type == typeof(Byte)) {
+                return Utils.obj2int(o) == 0 ? false : true;
+            } else if(type == typeof(Decimal)) {
+                return Utils.obj2decimal(o) == 0 ? false : true;
+            } else if(type == typeof(bool)) {
+                return (bool)o;
+            } else {
+                throw new Exception("Unable to convert " + o.ToString() + "(" + type.ToString() +") into boolean");
+            }
         }
         public static string obj2str(object o) {
             if(o == null) return null;
@@ -36,6 +46,10 @@ namespace SurplusMigrator.Libraries {
         public static DateTime obj2datetime(object o) {
             if(o == null) throw new Exception("obj2datetime argument is null");
             return Convert.ToDateTime(o);
+        }
+        public static DateTime? stringUtc2datetime(string str) {
+            if(str == null) return null;
+            return DateTime.ParseExact(str, "yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture);
         }
         public static DateTime? obj2datetimeNullable(object o) {
             if(o == null) return null;
@@ -78,7 +92,7 @@ namespace SurplusMigrator.Libraries {
             File.WriteAllText(savePath, JsonSerializer.Serialize(missingReference));
         }
 
-        public static List<RowData<ColumnName, object>> getFromExcel(string filename, ExcelColumn[] columns, string sheetName = null) {
+        public static List<RowData<ColumnName, object>> getDataFromExcel(string filename, ExcelColumn[] columns, string sheetName = null) {
             List<RowData<ColumnName, object>> result = new List<RowData<ColumnName, object>>();
 
             string sConnection = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=<filename>;Extended Properties=\"Excel 12.0;HDR=No;IMEX=1\"";
@@ -119,7 +133,7 @@ namespace SurplusMigrator.Libraries {
             return result;
         }
 
-        public static List<RowData<ColumnName, object>> getFromExcel_v2(string filename, ExcelColumn[] columns, string sheetName = null) {
+        public static List<RowData<ColumnName, object>> getDataFromExcel_v2(string filename, ExcelColumn[] columns, string sheetName = null) {
             List<RowData<ColumnName, object>> result = new List<RowData<ColumnName, object>>();
 
             Excel.Application xlApp = new Excel.Application();
@@ -181,6 +195,31 @@ namespace SurplusMigrator.Libraries {
             Marshal.ReleaseComObject(xlApp);
 
             return result;
+        }
+
+        public static dynamic getDataFromJson(string filenameTag) {
+            DirectoryInfo d = new DirectoryInfo(GlobalConfig.getJsonSourcesPath());
+
+            FileInfo[] Files = d.GetFiles(filenameTag+"*.json");
+            string filename = null;
+
+            foreach(FileInfo file in Files) {
+                filename = file.Name;
+            }
+
+            if(filename == null) {
+                throw new FileNotFoundException();
+            }
+
+            string path = GlobalConfig.getJsonSourcesPath() + "\\" + filename;
+            if(File.Exists(path)) {
+                using(StreamReader r = new StreamReader(path)) {
+                    string jsonText = r.ReadToEnd();
+                    return JsonSerializer.Deserialize<dynamic>(jsonText);
+                }
+            } else {
+                throw new FileNotFoundException("File " + path + " not found");
+            }
         }
     }
 }

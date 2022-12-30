@@ -27,6 +27,19 @@ namespace SurplusMigrator.Tasks {
         protected override MappedData getStaticData() {
             MappedData result = new MappedData();
 
+            //found in TransactionSalesOrder's reference
+            result.addData(
+                "master_invoice_format",
+                new RowData<ColumnName, object>() {
+                    { "invoiceformatid",  0},
+                    { "name",  "Unknown"},
+                    { "dw",  null},
+                    { "code",  0},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
             result.addData(
                 "master_invoice_format",
                 new RowData<ColumnName, object>() {

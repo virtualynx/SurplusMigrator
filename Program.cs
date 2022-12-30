@@ -60,6 +60,7 @@ namespace SurplusMigrator {
                 }
 
                 IdRemapper.loadMap();
+
                 {
                     { //pre-requirement for AspNetUsers
                         {
@@ -68,11 +69,11 @@ namespace SurplusMigrator {
                                 {
                                     new MasterModule(connections).run();
                                 }
-                                new MasterModuleGroup(connections).run();
+                                new MasterUserGroup(connections).run();
                             }
-                            //new RelationModule_ModuleGroup(connections).run(); //using query instead
+                            new Relation_Module_UserGroup(connections).run();
                         }
-                        //new AspNetUsers(connections).run(); //using query instead
+                        new AspNetUsers(connections).run();
                     }
                 }
 
@@ -112,6 +113,9 @@ namespace SurplusMigrator {
                     new MasterGLReportSubDetail(connections).run();
                 }
 
+                new MasterSequencer(connections).run();
+                new MasterPaymentCategory(connections).run();
+
                 { //start of TransactionJournal 
                     {//--pre-req for TransactionJournal
                         new MasterAccountCa(connections).run();
@@ -126,7 +130,7 @@ namespace SurplusMigrator {
                         new MasterVendorCategory(connections).run();
                         new MasterVendorType(connections).run();
                         new MasterVendor(connections).run();
-                        {//---pre-req for TransactionBudget
+                        {//---pre-req for TransactionBudget & TransactionProgramBudgetEpsDetail
                             new MasterProdType(connections).run();
                             new MasterProjectType(connections).run();
                             new MasterShowInventoryCategory(connections).run();
@@ -139,6 +143,7 @@ namespace SurplusMigrator {
                             }
                             new TransactionProgramBudget(connections).run();
                         }
+                        new TransactionProgramBudgetEpsDetail(connections).run();
                         new TransactionBudget(connections).run();
                     }
                     new TransactionJournal(connections).run();
@@ -166,6 +171,7 @@ namespace SurplusMigrator {
                     {
                         new MasterInvoiceFormat(connections).run();
                         new MasterInvoiceType(connections).run();
+                        new MasterVendorBill(connections).run();
                     }
                     new TransactionSalesOrder(connections).run();
                 }

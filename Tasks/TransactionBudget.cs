@@ -8,9 +8,10 @@ using SurplusMigrator.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 
 namespace SurplusMigrator.Tasks {
-  class TransactionBudget : _BaseTask, RemappableId{
+  class TransactionBudget : _BaseTask {
         public TransactionBudget(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
@@ -156,9 +157,27 @@ namespace SurplusMigrator.Tasks {
         protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
+            List<long> budget_ids = new List<long>();
             foreach(RowData<ColumnName, object> data in inputs) {
-                string tbudgetid = Sequencer.getId("BGT", Utils.obj2datetime(data["budget_entrydt"]));
-                IdRemapper.add("tbudgetid", data["budget_id"], tbudgetid);
+                long budget_id = Utils.obj2long(data["budget_id"]);
+                if(!budget_ids.Contains(budget_id)) {
+                    budget_ids.Add(budget_id);
+                }
+            }
+
+            Dictionary<long, string> prabudget_program_ref = getPrabudgetProgramRefs(budget_ids.ToArray());
+
+            foreach(RowData<ColumnName, object> data in inputs) {
+                //string tbudgetid = SequencerString.getId("BGT", Utils.obj2datetime(data["budget_entrydt"]));
+                //IdRemapper.add("tbudgetid", data["budget_id"], tbudgetid);
+
+                long budget_id = Utils.obj2long(data["budget_id"]);
+                string tbudgetid = Utils.obj2str(data["budget_id"]);
+
+                string tprogrambudgetid = null;
+                if(prabudget_program_ref.ContainsKey(budget_id)) {
+                    tprogrambudgetid = prabudget_program_ref[budget_id];
+                }
 
                 result.addData(
                     "transaction_budget",
@@ -206,13 +225,13 @@ namespace SurplusMigrator.Tasks {
                         { "showinventorydepartmentid",  Utils.obj2int(data["showinventorydepartment_id"]) },
                         { "showinventorytimezoneid",  Utils.obj2int(data["showinventorytimezone_id"])==0? 1: data["showinventorytimezone_id"]},
                         { "created_date",  data["budget_entrydt"]},
-                        { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["budget_entryby"]) } },
+                        { "created_by", getAuthInfo(data["budget_entryby"]) },
                         { "is_disabled", !Utils.obj2bool(data["budget_isactive"]) },
                         { "disabled_date",  data["budget_disabledate"]},
-                        { "disabled_by",  new AuthInfo(){ FullName = Utils.obj2str(data["budget_disabledby"]) } },
+                        { "disabled_by", getAuthInfo(data["budget_disabledby"]) },
                         { "modified_date",  data["budget_lasteditdt"]},
-                        { "modified_by",  new AuthInfo(){ FullName = Utils.obj2str(data["budget_lasteditby"]) } },
-                        { "tprogrambudgetid",  null},
+                        { "modified_by", getAuthInfo(data["budget_lasteditby"]) },
+                        { "tprogrambudgetid",  tprogrambudgetid},
                         { "apprauthby",  data["budget_apprby"]},
                         { "apprauthdate",  data["budget_apprdt"]},
                         { "apprreqby",  null},
@@ -226,6 +245,42 @@ namespace SurplusMigrator.Tasks {
             return result;
         }
 
+        private Dictionary<long, string> getPrabudgetProgramRefs(long[] budget_ids) {
+            Dictionary<long, string> result = new Dictionary<long, string>();
+
+            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault().GetDbConnection();
+            SqlCommand command = new SqlCommand("select prabudget_program_id, budget_id from [dbo].[program_budget_ref] where budget_id in (" + String.Join(",", budget_ids) + ")", conn);
+            SqlDataReader dataReader = command.ExecuteReader();
+
+            try {
+                while(dataReader.Read()) {
+                    long budget_id = Utils.obj2long(dataReader.GetValue(dataReader.GetOrdinal("budget_id")));
+                    string prabudget_program_id = Utils.obj2str(dataReader.GetValue(dataReader.GetOrdinal("prabudget_program_id")));
+
+                    if(result.ContainsKey(budget_id)) {
+                        throw new Exception("budget_id " + budget_id + " has more than 1 prabudget_program reference");
+                    }
+
+                    result.Add(budget_id, prabudget_program_id);
+                }
+            } catch(Exception) {
+                throw;
+            } finally {
+                dataReader.Close();
+                command.Dispose();
+            }
+
+            return result;
+        }
+
+        //protected override void afterFinishedCallback() {
+        //    IdRemapper.saveMap();
+        //}
+
+        //public void clearRemappingCache() {
+        //    IdRemapper.clearMapping("tbudgetid");
+        //}
+
         protected override void runDependencies() {
             new MasterProdType(connections).run();
             new MasterProjectType(connections).run();
@@ -234,14 +289,6 @@ namespace SurplusMigrator.Tasks {
             new MasterShowInventoryTimezone(connections).run();
             new MasterTvProgramType(connections).run();
             new TransactionProgramBudget(connections).run();
-        }
-
-        public void clearRemappingCache() {
-            IdRemapper.clearMapping("tbudgetid");
-        }
-
-        protected override void afterFinishedCallback() {
-            IdRemapper.saveMap();
         }
     }
 }

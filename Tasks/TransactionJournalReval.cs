@@ -66,10 +66,10 @@ namespace SurplusMigrator.Tasks {
                         { "currencyid",  currencyid},
                         { "foreignrate",  data["exrate_mid"]},
                         { "created_date",  Utils.obj2datetime(data["create_dt"])},
-                        { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["create_by"]) } },
+                        { "created_by", getAuthInfo(data["create_by"]) },
                         { "is_disabled", false },
                         { "modified_date",  Utils.obj2datetime(data["modified_dt"])},
-                        { "modified_by",  new AuthInfo(){ FullName = Utils.obj2str(data["modified_by"]) } },
+                        { "modified_by", getAuthInfo(data["modified_by"]) },
                     }
                 );
             }

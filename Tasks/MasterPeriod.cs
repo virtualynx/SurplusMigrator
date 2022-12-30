@@ -57,10 +57,6 @@ namespace SurplusMigrator.Tasks {
             MappedData result = new MappedData();
 
             foreach(RowData<ColumnName, object> data in inputs) {
-                AuthInfo auth = new AuthInfo() {
-                    FullName = data["periode_createby"]!=null? data["periode_createby"].ToString() : null
-                };
-
                 RowData<ColumnName, object> insertRow = new RowData<ColumnName, object>() {
                     { "periodid",  data["periode_id"]},
                     { "name",  data["periode_name"]},
@@ -69,7 +65,7 @@ namespace SurplusMigrator.Tasks {
                     { "isclosed",  Utils.obj2bool(data["periode_isclosed"])},
                     { "allowsaldoawalentry",  Utils.obj2bool(data["periode_allowsaldoawalentry"])},
                     { "created_date",  data["periode_createdate"]},
-                    { "created_by",  auth},
+                    { "created_by",  getAuthInfo(data["periode_createby"])},
                     { "is_disabled", false }
                 };
                 result.addData("master_period", insertRow);

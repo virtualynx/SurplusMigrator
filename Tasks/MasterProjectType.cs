@@ -51,7 +51,7 @@ namespace SurplusMigrator.Tasks {
                         { "projecttypeid",  data["projecttype_id"]},
                         { "name",  data["projecttype_name"]},
                         { "created_date",  data["projecttype_entry_dt"]},
-                        { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["projecttype_entry_by"]) } },
+                        { "created_by", getAuthInfo(data["projecttype_entry_by"]) },
                         { "is_disabled", !Utils.obj2bool(data["projecttype_isactive"]) }
                     }
                 );

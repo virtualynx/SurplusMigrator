@@ -1,41 +1,12 @@
-using Microsoft.Data.SqlClient;
-using Npgsql;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
-using SurplusMigrator.Tasks;
-using System;
-using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 
 namespace SurplusMigrator.Tasks {
-  class MasterModule : _BaseTask {
+    class MasterModule : _BaseTask {
         public MasterModule(DbConnection_[] connections) : base(connections) {
-            DbConnection_ surplusDev = new DbConnection_(new DbLoginInfo() { 
-                host = "172.16.123.121",
-                port = 5432,
-                username = "postgres",
-                password = "initrans7",
-                dbname = "insosys",
-                schema = "dev",
-                type = "POSTGRESQL"
-            });
-
-            sources = new TableInfo[] {
-                new TableInfo() {
-                    connection = surplusDev,
-                    tableName = "master_module",
-                    columns = new string[] {
-                        "moduleid",
-                        "name",
-                        "endpoint",
-                        "type",
-                        "created_date",
-                        "created_by",
-                        "is_disabled"
-                    },
-                    ids = new string[] { "moduleid" }
-                }
-            };
+            sources = new TableInfo[] {};
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
@@ -54,24 +25,30 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
-            return sourceTables.Where(a => a.tableName == "master_module").FirstOrDefault().getDatas(batchSize);
-        }
-
-        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        protected override MappedData getStaticData() {
             MappedData result = new MappedData();
 
-            foreach(RowData<ColumnName, object> data in inputs) {
-                RowData<ColumnName, object> insertRow = new RowData<ColumnName, object>() {
-                    { "moduleid",  data["moduleid"]},
-                    { "name",  data["name"]},
-                    { "endpoint",  data["endpoint"]},
-                    { "type",  data["type"]},
-                    { "created_date",  DateTime.Now},
-                    { "created_by",  DefaultValues.CREATED_BY},
-                    { "is_disabled", data["is_disabled"] }
-                };
-                result.addData("master_module", insertRow);
+            JsonElement json = Utils.getDataFromJson("master_module");
+            var objEnum = json.EnumerateObject();
+            objEnum.MoveNext();
+            var firstElement = objEnum.Current.Value;
+            var length = firstElement.GetArrayLength();
+            for(int a = 0; a < length; a++) {
+                var module = firstElement[a];
+                string isDisabledStr = module.GetProperty("is_disabled").ToString().ToLower();
+                bool isDisabled = isDisabledStr == "true" ? true : false;
+                result.addData(
+                    "master_module",
+                    new RowData<ColumnName, object>() {
+                        { "moduleid", Utils.obj2int(module.GetProperty("moduleid"))},
+                        { "name", Utils.obj2str(module.GetProperty("name"))},
+                        { "endpoint", Utils.obj2str(module.GetProperty("endpoint"))},
+                        { "type", Utils.obj2str(module.GetProperty("type"))},
+                        { "created_date", Utils.stringUtc2datetime(Utils.obj2str(module.GetProperty("created_date")))},
+                        { "created_by", Utils.obj2str(module.GetProperty("created_by"))},
+                        { "is_disabled", isDisabled}
+                    }
+                );
             }
 
             return result;

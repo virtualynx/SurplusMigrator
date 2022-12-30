@@ -1,3 +1,4 @@
+using SurplusMigrator.Interfaces;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System;
@@ -8,7 +9,7 @@ using idNameTag = System.String;
 using newId = System.String;
 
 namespace SurplusMigrator.Tasks {
-    class MasterBudgetAccount : _BaseTask {
+    class MasterBudgetAccount : _BaseTask, RemappableId {
         public MasterBudgetAccount(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
@@ -107,13 +108,21 @@ namespace SurplusMigrator.Tasks {
                         { "joinacc_id",  data["account_join"]},
                         { "otheracc_id",  data["account_oth"]},
                         { "created_date",  data["projectacc_createdt"]},
-                        { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["projectacc_createby"]) } },
+                        { "created_by", getAuthInfo(data["projectacc_createby"]) },
                         { "is_disabled", !Utils.obj2bool(data["projectacc_isactive"]) },
                     }
                 );
             }
 
             return result;
+        }
+
+        protected override void afterFinishedCallback() {
+            IdRemapper.saveMap();
+        }
+
+        public void clearRemappingCache() {
+            IdRemapper.clearMapping("budgetaccountid");
         }
 
         protected override MappedData getStaticData() {

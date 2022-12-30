@@ -1,5 +1,6 @@
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -51,11 +52,40 @@ namespace SurplusMigrator.Tasks {
                     { "name",  data["prodtype_name"]},
                     { "nameshort",  data["prodtype_nameshort"]},
                     { "created_date",  data["prodtype_entry_dt"]},
-                    { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["prodtype_entry_by"]) } },
+                    { "created_by", getAuthInfo(data["prodtype_entry_by"]) },
                     { "is_disabled", !Utils.obj2bool(data["prodtype_isactive"]) }
                 };
                 result.addData("master_prod_type", insertRow);
             }
+
+            return result;
+        }
+
+        protected override MappedData getStaticData() {
+            MappedData result = new MappedData();
+
+            //result.addData(
+            //    "master_prod_type",
+            //    new RowData<ColumnName, object>() {
+            //        { "prodtypeid", 5},
+            //        { "name", "Magazine"},
+            //        { "nameshort", "Magazine"},
+            //        { "created_date", DateTime.Now},
+            //        { "created_by", DefaultValues.CREATED_BY },
+            //        { "is_disabled", false }
+            //    }
+            //);
+            //result.addData(
+            //    "master_prod_type",
+            //    new RowData<ColumnName, object>() {
+            //        { "prodtypeid", 6},
+            //        { "name", "Digital"},
+            //        { "nameshort", "Digital"},
+            //        { "created_date", DateTime.Now},
+            //        { "created_by", DefaultValues.CREATED_BY },
+            //        { "is_disabled", false }
+            //    }
+            //);
 
             return result;
         }

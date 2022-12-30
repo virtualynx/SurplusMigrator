@@ -1,16 +1,18 @@
 using LinqKit;
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Npgsql;
 using NpgsqlTypes;
 using SurplusMigrator.Exceptions;
 using SurplusMigrator.Libraries;
 using System;
+using System.CodeDom;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-
 using ParamNotation = System.String;
 
 namespace SurplusMigrator.Models {
@@ -322,7 +324,7 @@ namespace SurplusMigrator.Models {
             return columnTypes;
         }
 
-        public bool setSequence(int num) {
+        public bool setSequencer(int num) {
             int affectedRow = 0;
             string sequenceName = tableName + "_" + ids[0] + "_seq";
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
@@ -332,6 +334,164 @@ namespace SurplusMigrator.Models {
             }
 
             return affectedRow > 0;
+        }
+
+        public bool updateSequencer() {
+            bool success = false;
+            bool retry = false;
+            do {
+                try {
+                    int affectedRow = 0;
+
+                    if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                        throw new NotImplementedException();
+                    } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                        //string query = @"
+                        //    select 
+                        //        sn.nspname as seq_schema,
+                        //        s.relname as seqname,
+                        //        st.nspname as tableschema,
+                        //        t.relname as tablename,
+                        //        at.attname as columname
+                        //    from 
+                        //        pg_class s
+                        //        join pg_namespace sn on sn.oid = s.relnamespace
+                        //        join pg_depend d on d.refobjid = s.oid
+                        //        join pg_attrdef a on d.objid = a.oid
+                        //        join pg_attribute at on at.attrelid = a.adrelid and at.attnum = a.adnum
+                        //        join pg_class t on t.oid = a.adrelid
+                        //        join pg_namespace st on st.oid = t.relnamespace
+                        //    where 
+                        //        s.relkind = 'S'
+                        //        and d.classid = 'pg_attrdef'::regclass
+                        //        and d.refclassid = 'pg_class'::regclass
+                        //        and sn.nspname = '[schema]'
+                        //        and st.nspname = '[schema]'
+                        //        and t.relname = '[tablename]'
+                        //    ;
+                        //";
+
+                        string query = @"
+                            select 
+                                attname, 
+                                attidentity, 
+                                attgenerated
+                            from 
+                                pg_attribute
+                            where 
+                                attnum > 0
+                                and attidentity <> ''
+                                and attrelid = (
+    	                            select 
+			                            s.oid 
+		                            from 
+			                            pg_class s
+			                            join pg_namespace sn on sn.oid = s.relnamespace
+		                            where 
+			                            sn.nspname = '[schema]'
+			                            and relname = '[tablename]'
+                                )
+                            ;
+                        ";
+                        query = query.Replace("[schema]", connection.GetDbLoginInfo().schema);
+                        query = query.Replace("[tablename]", tableName);
+
+                        List<RowData<ColumnName, object>> rs_column_attr = new List<RowData<string, dynamic>>();
+                        NpgsqlCommand command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
+                        object identityColumnObj = command.ExecuteScalar();
+                        command.Dispose();
+
+                        if(identityColumnObj != null) {
+                            string identityColumn = identityColumnObj.ToString();
+
+                            query = @"
+                                SELECT 
+	                                schemaname,
+	                                sequencename
+                                FROM 
+                                    pg_sequences
+                                WHERE
+                                    schemaname = '[schema]'
+                                    and sequencename = '[tablename]_[identity_column]_seq'
+                            ";
+
+                            query = query.Replace("[schema]", connection.GetDbLoginInfo().schema);
+                            query = query.Replace("[tablename]", tableName);
+                            query = query.Replace("[identity_column]", identityColumn);
+
+                            List<RowData<ColumnName, object>> rs_sequencer = new List<RowData<string, dynamic>>();
+                            command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
+                            NpgsqlDataReader reader = command.ExecuteReader();
+                            while(reader.Read()) {
+                                RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
+                                for(int a = 0; a < reader.FieldCount; a++) {
+                                    string columnName = reader.GetName(a);
+                                    dynamic data = reader.GetValue(a);
+                                    if(data.GetType() == typeof(System.DBNull)) {
+                                        data = null;
+                                    } else if(data.GetType() == typeof(string)) {
+                                        data = data.ToString().Trim();
+                                    }
+                                    rowData.Add(columnName, data);
+                                }
+                                rs_sequencer.Add(rowData);
+                            }
+                            reader.Close();
+                            command.Dispose();
+
+                            if(rs_sequencer.Count > 0) {
+                                if(rs_sequencer.Count > 1) {
+                                    throw new Exception("Found 2 sequencer for table " + tableName);
+                                }
+
+                                string sequencerColumnName = rs_sequencer[0]["sequencename"].ToString();
+                                sequencerColumnName = sequencerColumnName.Replace(tableName + "_", "");
+                                sequencerColumnName = sequencerColumnName.Replace("_seq", "");
+
+                                query = @"
+                                SELECT 
+	                                [column]
+                                FROM 
+                                    [schema].[tablename]
+                                ORDER BY
+                                    [column] desc
+                                LIMIT 1
+                            ";
+
+                                query = query.Replace("[column]", sequencerColumnName);
+                                query = query.Replace("[schema]", connection.GetDbLoginInfo().schema);
+                                query = query.Replace("[tablename]", tableName);
+
+                                command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
+                                long lastId = Int64.Parse(command.ExecuteScalar().ToString());
+                                command.Dispose();
+
+                                //query = @"SELECT setval('[sequencer_name]', [last_id], true)";
+                                query = @"ALTER SEQUENCE [sequencer_name] RESTART WITH [last_id];";
+                                query = query.Replace("[sequencer_name]", rs_sequencer[0]["sequencename"].ToString());
+                                query = query.Replace("[last_id]", lastId.ToString());
+
+                                command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
+                                affectedRow = command.ExecuteNonQuery();
+                            }
+                        }
+                    }
+
+                    if(affectedRow > 0) {
+                        success = true;
+                    }
+
+                    retry = false;
+                } catch(Exception e) {
+                    if(isConnectionProblem(e)) {
+                        retry = true;
+                    } else {
+                        throw;
+                    }
+                }
+            }while(retry);
+
+            return success;
         }
 
         private void truncate(bool cascade = true) {
