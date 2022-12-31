@@ -108,6 +108,7 @@ namespace SurplusMigrator.Tasks {
                 //    tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
                 //}
                 tbudgetid = Utils.obj2str(data["budget_id"]);
+                tbudgetid = tbudgetid == "0" ? null : tbudgetid;
 
                 result.addData(
                     "transaction_journal",

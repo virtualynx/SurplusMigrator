@@ -13,5 +13,6 @@ namespace SurplusMigrator.Models
         public string post_queries_path { get; set; }
         public string excel_sources_path { get; set; }
         public string json_sources_path { get; set; }
+        public TableRelation[] table_relations { get; set; }
     }
 }

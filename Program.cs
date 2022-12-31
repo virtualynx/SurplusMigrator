@@ -88,6 +88,10 @@ namespace SurplusMigrator {
                     }
                 }
 
+                new MasterSequencer(connections).run();
+                new MasterPaymentCategory(connections).run();
+                new MasterObjective(connections).run();
+
                 {
                     { //master_account
                         {//pre-req for MasterAccount
@@ -112,9 +116,6 @@ namespace SurplusMigrator {
                     }
                     new MasterGLReportSubDetail(connections).run();
                 }
-
-                new MasterSequencer(connections).run();
-                new MasterPaymentCategory(connections).run();
 
                 { //start of TransactionJournal 
                     {//--pre-req for TransactionJournal

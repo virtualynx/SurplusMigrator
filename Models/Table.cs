@@ -11,6 +11,8 @@ using System.Data;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+using static Npgsql.Replication.PgOutput.Messages.TruncateMessage;
 using ParamNotation = System.String;
 
 namespace SurplusMigrator.Models {
@@ -21,12 +23,11 @@ namespace SurplusMigrator.Models {
         public string[] columns;
         private ColumnType<ColumnName, string> columnTypes = null;
         public string[] ids;
-        public ReferenceTable[] referenceTables = new ReferenceTable[] { };
+        public TableRelation[] referenceTables = new TableRelation[] { };
         private int lastBatchSize = -1;
         private long dataCount = -1;
         private int fetchBatchMax = -1;
         private int fetchBatchCounter = 1;
-        private bool isAlreadyTruncated = false;
 
         private const string OMIT_PATTERN_FOREIGN_KEY = "Key \\((.*)\\)=\\((.*)\\) is not present in table \"(.*)\"";
         private const string OMIT_PATTERN_NOT_NULL = "null value in column \"(.*)\" violates not-null constraint";
@@ -162,9 +163,8 @@ namespace SurplusMigrator.Models {
             List<DbInsertFail> failures = new List<DbInsertFail>();
             result.errors = failures;
 
-            if(truncateBeforeInsert && !isAlreadyTruncated && getDataCount() > 0) {
-                truncate(inputs);
-                isAlreadyTruncated = true;
+            if(truncateBeforeInsert && !GlobalConfig.isAlreadyTruncated(tableName) && getDataCount() > 0) {
+                truncate(onlyTruncateMigratedData);
             }
 
             //check & omit if attempted insert data is already in table
@@ -478,107 +478,86 @@ namespace SurplusMigrator.Models {
             throw new NotImplementedException("Only SQL-Server and PostgreSql database is supported");
         }
 
-        private void truncate(List<RowData<ColumnName, object>> inputs, bool onlyTruncateMigratedData = true, bool cascade = true) {
-            string truncateOption = "";
-            if(cascade) {
-                truncateOption += " CASCADE";
-            }
-            MyConsole.Information("Truncate " + connection.GetDbLoginInfo().schema + "." + tableName + "" + truncateOption);
+        private void truncate(bool onlyTruncateMigratedData = true, bool cascade = true) {
             try {
+                string query;
                 if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                    throw new System.NotImplementedException();
+                    throw new NotImplementedException();
                 } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                     if(onlyTruncateMigratedData) {
                         if(!columns.Any(a => a == "created_by")) {
-                            throw new System.NotImplementedException("Does not have column created_by");
+                            throw new NotImplementedException("Does not have column created_by");
                         }
                         if(cascade) {
-                            foreach(ReferenceTable refTable in referenceTables) {
-                                List<dynamic> refIds = new List<dynamic>();
-                                string apostrophe = null;
-                                foreach(RowData<ColumnName, object> data in inputs) {
-                                    dynamic dataObj = data[refTable.foreignKey];
-                                    if(dataObj != null) {
-                                        if(apostrophe == null) {
-                                            if(dataObj.GetType() == typeof(string)) {
-                                                apostrophe = "'";
-                                            } else {
-                                                apostrophe = "";
-                                            }
-                                        }
-                                        if(!refIds.Contains(dataObj)) {
-                                            refIds.Add(dataObj);
-                                        }
-                                    }
-                                }
-                                string[] refTableColumns = getColumnNames(refTable.tablename);
-                                string additionalCondition = "";
-                                if(refTableColumns.Contains("created_by")) {
-                                    additionalCondition = " created_by->>'Id' is null and ";
-                                }
-                                executeNonQuery("DELETE FROM \"" + connection.GetDbLoginInfo().schema + "\".\"" + refTable.tablename + "\" where " + additionalCondition + refTable.principalKey + " in(" + apostrophe + String.Join(apostrophe+","+ apostrophe, refIds) + apostrophe + ")");
+                            TableRelation relation = GlobalConfig.getTableRelation(tableName);
+                            if(relation!=null) {
+                                truncateRelation(relation, onlyTruncateMigratedData, cascade);
                             }
                         }
-                        executeNonQuery("DELETE FROM \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" where created_by->>'Id' is null");
+                        query = "DELETE FROM \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" where created_by->>'Id' is null";
+                        MyConsole.Information(query);
                     } else {
-                        executeNonQuery("TRUNCATE TABLE \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + truncateOption);
+                        query = "TRUNCATE TABLE \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + (cascade ? " CASCADE" : "");
+                        MyConsole.Information(query);
                     }
+                    int affectedRow = executeNonQuery(query, null, 15*60);
+                    MyConsole.Information(affectedRow + " data deleted from " + tableName);
                 }
             } catch(NotImplementedException) {
                 throw;
+            } catch(PostgresException e) { 
+                if(e.Message.Contains("violates foreign key constraint")) {
+                    throw new TaskConfigException(e.Message);
+                }
             } catch(Exception e) {
-                var a = 1;
+                throw;
             }
         }
 
-        private string[] getColumnNames(string tablename) {
-            List<string> result = new List<string>();
-
-            if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                throw new NotImplementedException();
-            } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                string query = @"
-                    select 
-                        attname
-                    from 
-                        pg_attribute
-                    where 
-                        attnum > 0
-                        and attrelid = (
-    	                    select 
-			                    s.oid 
-		                    from 
-			                    pg_class s
-			                    join pg_namespace sn on sn.oid = s.relnamespace
-		                    where 
-			                    sn.nspname = '[schema]'
-			                    and relname = '[tablename]'
-                        )
-                    ;
-                ";
-                query = query.Replace("[schema]", connection.GetDbLoginInfo().schema);
-                query = query.Replace("[tablename]", tablename);
-
-                List<RowData<ColumnName, object>> rs_columns = new List<RowData<string, dynamic>>();
-                NpgsqlCommand command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
-                NpgsqlDataReader reader = command.ExecuteReader();
-                while(reader.Read()) {
-                    RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
-                    dynamic data = reader.GetValue(reader.GetOrdinal("attname"));
-                    if(data.GetType() == typeof(System.DBNull)) {
-                        data = null;
-                    } else if(data.GetType() == typeof(string)) {
-                        data = data.ToString().Trim();
+        private void truncateRelation(TableRelation relation, bool onlyTruncateMigratedData, bool cascade) {
+            try {
+                if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                    throw new NotImplementedException();
+                } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                    foreach(string relTable in relation.relations) {
+                        TableRelation childRelation = GlobalConfig.getTableRelation(relTable);
+                        if(childRelation != null) {
+                            truncateRelation(childRelation, onlyTruncateMigratedData, cascade);
+                        }
+                        doTruncate(relTable, onlyTruncateMigratedData, cascade);
                     }
-                    result.Add(data);
+                    if(relation.tablename != tableName) {
+                        doTruncate(relation.tablename, onlyTruncateMigratedData, cascade);
+                    }
                 }
-                reader.Close();
-                command.Dispose();
-
-                return result.ToArray();
+            } catch(PostgresException e) {
+                if(e.Message.Contains("violates foreign key constraint")) {
+                    throw new TaskConfigException(e.Message);
+                } else {
+                    throw;
+                }
+            } catch(Exception e) {
+                throw;
             }
+        }
 
-            throw new NotImplementedException("Only SQL-Server and PostgreSql database is supported");
+        private void doTruncate(string tablename, bool onlyTruncateMigratedData, bool cascade) {
+            if(GlobalConfig.isAlreadyTruncated(tablename)) return;
+            string[] relTableColumns = QueryUtils.getColumnNames(connection, tablename);
+            string onlyTruncateMigratedDataCondition = null;
+            if(onlyTruncateMigratedData && relTableColumns.Contains("created_by")) {
+                onlyTruncateMigratedDataCondition = " where created_by->>'Id' is null";
+            }
+            string query;
+            if(onlyTruncateMigratedDataCondition != null) {
+                query = "DELETE FROM \"" + connection.GetDbLoginInfo().schema + "\".\"" + tablename + "\"" + onlyTruncateMigratedDataCondition;
+            } else {
+                query = "TRUNCATE TABLE \"" + connection.GetDbLoginInfo().schema + "\".\"" + tablename + "\"" + (cascade ? " CASCADE" : "");
+            }
+            MyConsole.Information(query);
+            int affectedRow = executeNonQuery(query, null, 15*60);
+            MyConsole.Information(affectedRow + " data deleted from " + tablename);
+            GlobalConfig.setAlreadyTruncated(tablename);
         }
 
         private void omitDuplicatedData(List<DbInsertFail> failures, List<RowData<ColumnName, object>> inputs) {
@@ -785,13 +764,16 @@ namespace SurplusMigrator.Models {
             return result;
         }
 
-        public int executeNonQuery(string sql, List<Dictionary<ParamNotation, object>> args = null) {
+        public int executeNonQuery(string sql, List<Dictionary<ParamNotation, object>> args = null, int timeout = -1) {
             int result = 0;
             bool retry = false;
             do {
                 try {
                     if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                         SqlCommand command = new SqlCommand(sql, (SqlConnection)connection.GetDbConnection());
+                        if(timeout > -1) {
+                            command.CommandTimeout = timeout;
+                        }
                         if(args != null) {
                             foreach(Dictionary<ParamNotation, object> arg in args) {
                                 foreach(KeyValuePair<ParamNotation, object> entry in arg) {
@@ -803,6 +785,9 @@ namespace SurplusMigrator.Models {
                         command.Dispose();
                     } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                         NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)connection.GetDbConnection());
+                        if(timeout > -1) {
+                            command.CommandTimeout = timeout;
+                        }
                         if(args != null) {
                             foreach(Dictionary<ParamNotation, object> arg in args) {
                                 foreach(KeyValuePair<ParamNotation, object> entry in arg) {

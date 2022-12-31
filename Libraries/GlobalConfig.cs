@@ -8,6 +8,7 @@ using System.Data.OleDb;
 namespace SurplusMigrator.Libraries {
     class GlobalConfig {
         private static AppConfig _config;
+        private static List<string> _alreadyTruncated = new List<string>();
 
         public static void loadConfig(AppConfig config) {
             _config = config;
@@ -32,6 +33,20 @@ namespace SurplusMigrator.Libraries {
 
         public static string getJsonSourcesPath() {
             return _config.json_sources_path;
+        }
+
+        public static TableRelation getTableRelation(string tablename) {
+            return _config.table_relations.Where(a => a.tablename == tablename).FirstOrDefault();
+        }
+
+        public static bool isAlreadyTruncated(string tablename) {
+            return _alreadyTruncated.Contains(tablename);
+        }
+
+        public static void setAlreadyTruncated(string tablename) {
+            if(!_alreadyTruncated.Contains(tablename)) {
+                _alreadyTruncated.Add(tablename);
+            }
         }
     }
 }
