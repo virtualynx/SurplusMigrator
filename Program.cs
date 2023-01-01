@@ -152,10 +152,11 @@ namespace SurplusMigrator {
 
                 { //start of TransactionJournalDetail
                     {//--pre-req for TransactionJournalDetail
-                        {//pre-req for MasterBankAccount
+                        {//pre-req for MasterBankAccount & MasterArtistAccount
                             new MasterBank(connections).run();
                         }
                         new MasterBankAccount(connections).run();
+                        new MasterArtistAccount(connections).run();
                         new MasterJournalReferenceType(connections).run();
                         {//---pre-req for TransactionBudgetDetail
                             new MasterBudgetAccount(connections).run();

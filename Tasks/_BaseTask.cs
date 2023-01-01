@@ -106,7 +106,7 @@ namespace SurplusMigrator.Tasks {
                 while((fetchedData = getSourceData(sourceTables, readBatchSize)).Count > 0) {
                     MappedData mappedData = mapData(fetchedData);
                     foreach(Table dest in destinationTables) {
-                        TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), truncateBeforeInsert, autoGenerateIdentity);
+                        TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), truncateBeforeInsert, onlyTruncateMigratedData, autoGenerateIdentity);
                         successCount += taskStatus.successCount;
                         failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
                         failureCount += mappedData.getError(dest.tableName).Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
@@ -129,7 +129,7 @@ namespace SurplusMigrator.Tasks {
                         }
                     }
                     foreach(Table dest in destinationTables) {
-                        TaskInsertStatus taskStatus = dest.insertData(staticDatas.getData(dest.tableName), truncateBeforeInsert, autoGenerateIdentity);
+                        TaskInsertStatus taskStatus = dest.insertData(staticDatas.getData(dest.tableName), truncateBeforeInsert, onlyTruncateMigratedData, autoGenerateIdentity);
                         successCount += taskStatus.successCount;
                         failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
                         duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;

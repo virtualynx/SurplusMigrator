@@ -147,7 +147,7 @@ namespace SurplusMigrator.Models {
                     fetchBatchCounter++;
                     retry = false;
                 } catch(Exception e) {
-                    if(isConnectionProblem(e)) {
+                    if(QueryUtils.isConnectionProblem(e)) {
                         retry = true;
                     } else {
                         throw;
@@ -158,7 +158,7 @@ namespace SurplusMigrator.Models {
             return result;
         }
 
-        public TaskInsertStatus insertData(List<RowData<ColumnName, object>> inputs, bool truncateBeforeInsert, bool onlyTruncateMigratedData = true, bool autoGenerateIdentity = false) {
+        public TaskInsertStatus insertData(List<RowData<ColumnName, object>> inputs, bool truncateBeforeInsert, bool onlyTruncateMigratedData, bool autoGenerateIdentity) {
             TaskInsertStatus result = new TaskInsertStatus();
             List<DbInsertFail> failures = new List<DbInsertFail>();
             result.errors = failures;
@@ -303,7 +303,7 @@ namespace SurplusMigrator.Models {
                             command.Dispose();
                             retry = false;
                         } catch(Exception e) {
-                            if(isConnectionProblem(e)) {
+                            if(QueryUtils.isConnectionProblem(e)) {
                                 retry = true;
                             } else {
                                 throw;
@@ -428,7 +428,7 @@ namespace SurplusMigrator.Models {
 
                     retry = false;
                 } catch(Exception e) {
-                    if(isConnectionProblem(e)) {
+                    if(QueryUtils.isConnectionProblem(e)) {
                         retry = true;
                     } else {
                         throw;
@@ -480,28 +480,16 @@ namespace SurplusMigrator.Models {
 
         private void truncate(bool onlyTruncateMigratedData = true, bool cascade = true) {
             try {
-                string query;
                 if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                     throw new NotImplementedException();
                 } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                    if(onlyTruncateMigratedData) {
-                        if(!columns.Any(a => a == "created_by")) {
-                            throw new NotImplementedException("Does not have column created_by");
+                    if(cascade) {
+                        TableRelation relation = GlobalConfig.getTableRelation(tableName);
+                        if(relation != null) {
+                            truncateRelation(relation, onlyTruncateMigratedData, cascade);
                         }
-                        if(cascade) {
-                            TableRelation relation = GlobalConfig.getTableRelation(tableName);
-                            if(relation!=null) {
-                                truncateRelation(relation, onlyTruncateMigratedData, cascade);
-                            }
-                        }
-                        query = "DELETE FROM \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" where created_by->>'Id' is null";
-                        MyConsole.Information(query);
-                    } else {
-                        query = "TRUNCATE TABLE \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"" + (cascade ? " CASCADE" : "");
-                        MyConsole.Information(query);
                     }
-                    int affectedRow = executeNonQuery(query, null, 15*60);
-                    MyConsole.Information(affectedRow + " data deleted from " + tableName);
+                    doTruncate(tableName, onlyTruncateMigratedData, cascade);
                 }
             } catch(NotImplementedException) {
                 throw;
@@ -753,7 +741,7 @@ namespace SurplusMigrator.Models {
                     }
                     retry = false;
                 } catch(Exception e) {
-                    if(isConnectionProblem(e)) {
+                    if(QueryUtils.isConnectionProblem(e)) {
                         retry = true;
                     } else {
                         throw;
@@ -800,7 +788,7 @@ namespace SurplusMigrator.Models {
                     }
                     retry = false;
                 } catch(Exception e) {
-                    if(isConnectionProblem(e)) {
+                    if(QueryUtils.isConnectionProblem(e)) {
                         retry = true;
                     } else {
                         throw;
@@ -841,7 +829,7 @@ namespace SurplusMigrator.Models {
                     }
                     retry = false;
                 } catch(Exception e) {
-                    if(isConnectionProblem(e)) {
+                    if(QueryUtils.isConnectionProblem(e)) {
                         retry = true;
                     } else {
                         throw;
@@ -948,47 +936,6 @@ namespace SurplusMigrator.Models {
             Match match = Regex.Match(paramNotation, "@(.*)_([0-9]+)");
 
             return match.Groups[1].Value;
-        }
-        private bool isConnectionProblem(Exception e) {
-            bool result = false;
-
-            if(
-                e.Message.Contains("The timeout period elapsed prior to completion of the operation or the server is not responding")
-                && e.InnerException.Message == "The wait operation timed out."
-            ) {
-                result = true;
-            }
-            if(
-                e.Message.Contains("A network-related or instance-specific error occurred while establishing a connection to SQL Server")
-                && e.Message.Contains("established connection failed because connected host has failed to respond")
-            ) {
-                result = true;
-            }
-            if(
-                e.Message.Contains("A transport-level error has occurred when sending the request to the server")
-                && e.Message.Contains("An existing connection was forcibly closed by the remote host")
-            ) {
-                result = true;
-            }
-            if(
-                e.Message.Contains("Exception while reading from stream")
-                && e.InnerException.Message == "Timeout during reading attempt"
-            ) {
-                result = true;
-            }
-            if(
-                e.Message == "Exception while writing to stream"
-                && e.InnerException.Message == "Timeout during writing attempt"
-            ) {
-                result = true;
-            }
-
-            if(result == true) {
-                MyConsole.Warning("Connection problem, retrying ...");
-                System.Threading.Thread.Sleep(2000);
-            }
-
-            return result;
         }
     }
 }

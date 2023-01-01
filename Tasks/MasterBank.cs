@@ -154,6 +154,28 @@ namespace SurplusMigrator.Tasks {
                     { "is_disabled", false }
                 }
             );
+            result.addData(
+                "master_bank",
+                new RowData<ColumnName, object>() {
+                    { "bankid",  19},
+                    { "name",  "Missing Reference in master_artist_account"},
+                    { "code",  "???-19"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_bank",
+                new RowData<ColumnName, object>() {
+                    { "bankid",  20},
+                    { "name",  "Missing Reference in master_artist_account"},
+                    { "code",  "???-20"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
 
             return result;
         }
