@@ -93,6 +93,11 @@ namespace SurplusMigrator {
                 new MasterObjective(connections).run();
 
                 {
+                    new MasterStudioGroup(connections).run();
+                }
+                new MasterStudio(connections).run();
+
+                {
                     { //master_account
                         {//pre-req for MasterAccount
                             new MasterAccountReport(connections).run();
