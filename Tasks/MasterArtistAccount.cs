@@ -6,6 +6,8 @@ using System.Linq;
 
 namespace SurplusMigrator.Tasks {
     class MasterArtistAccount : _BaseTask {
+        private static Dictionary<string, bool> _problematicAccountAlreadyInserted = null;
+
         public MasterArtistAccount(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
@@ -42,6 +44,8 @@ namespace SurplusMigrator.Tasks {
                     ids = new string[] { "artistid", "number" }
                 }
             };
+
+            populateProblematicAccounts();
         }
 
         protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
@@ -51,6 +55,7 @@ namespace SurplusMigrator.Tasks {
         protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
+            inputs = excludeProblematicAccounts(inputs);
             addMissingArtist(inputs);
             foreach(RowData<ColumnName, object> data in inputs) {
                 string name = Utils.obj2str(data["artisbank_accountname"]);
@@ -100,21 +105,6 @@ namespace SurplusMigrator.Tasks {
             DbConnection_ connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault();
             var rs = QueryUtils.executeQuery(connection, query);
 
-            //List<RowData<ColumnName, object>> missingArtists = new List<RowData<string, object>>();
-            //foreach(var inputRow in inputs) {
-            //    bool skipped = false;
-            //    string artis_id = Utils.obj2str(inputRow["artis_id"]);
-            //    foreach(var rsRow in rs) {
-            //        string artistid = Utils.obj2str(rsRow["artistid"]);
-            //        if(artis_id == artistid && !skipped) {
-            //            skipped = true;
-            //            continue;
-            //        }
-            //    }
-            //    if(skipped)continue;
-            //    missingArtists.Add(inputRow);
-            //}
-
             List<RowData<ColumnName, object>> missingArtists = inputs.Where(inp_row => !rs.Any(rs_row => Utils.obj2str(inp_row["artis_id"]) == Utils.obj2str(rs_row["artistid"]))).ToList();
             if(missingArtists.Count == 0) return;
 
@@ -148,6 +138,68 @@ namespace SurplusMigrator.Tasks {
 
             var insertRs = QueryUtils.executeQuery(connection, queryInsert);
             var a = 1;
+        }
+
+        private List<RowData<ColumnName, object>> excludeProblematicAccounts(List<RowData<ColumnName, object>> inputs) {
+            List<RowData<ColumnName, object>> excluded = new List<RowData<ColumnName, object>>();
+            List<RowData<ColumnName, object>> firstDataOfProblematics = new List<RowData<ColumnName, object>>();
+
+            foreach(RowData<ColumnName, object> data in inputs) {
+                string artis_id = Utils.obj2str(data["artis_id"]);
+                string artisbank_rekening = Utils.obj2str(data["artisbank_rekening"]);
+                string tag = artis_id + "|" + artisbank_rekening;
+                if(_problematicAccountAlreadyInserted.ContainsKey(tag)) {
+                    bool alreadyInserted = _problematicAccountAlreadyInserted[tag];
+                    if(alreadyInserted) {
+                        excluded.Add(data);
+                    } else {
+                        firstDataOfProblematics.Add(data);
+                        _problematicAccountAlreadyInserted[tag] = true;
+                    }
+                }
+            }
+
+            List<RowData<ColumnName, object>> result = inputs.Where(
+                data => !excluded.Any(
+                    exc => 
+                        Utils.obj2str(data["artis_id"]) == Utils.obj2str(exc["artis_id"])
+                        && Utils.obj2str(data["artisbank_rekening"]) == Utils.obj2str(exc["artisbank_rekening"])
+                )
+            ).ToList();
+
+            result.AddRange(firstDataOfProblematics);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Ideally, an artist's account should be unique of artist_id & account_number
+        /// </summary>
+        private void populateProblematicAccounts() {
+            _problematicAccountAlreadyInserted = new Dictionary<string, bool>();
+
+            string query = @"
+                select 
+	                artis_id,
+	                artisbank_rekening
+                from 
+	                master_artisbank ma 
+                group by
+	                artis_id,
+	                artisbank_rekening
+                having 
+	                count(1) > 1
+                ;
+            "
+            ;
+
+            DbConnection_ efrm = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault();
+            var rs = QueryUtils.executeQuery(efrm, query);
+            foreach(var row in rs) {
+                string artis_id = Utils.obj2str(row["artis_id"]);
+                string artisbank_rekening = Utils.obj2str(row["artisbank_rekening"]);
+                _problematicAccountAlreadyInserted.Add(artis_id + "|" + artisbank_rekening, false);
+            }
         }
 
         protected override void runDependencies() {
