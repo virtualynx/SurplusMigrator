@@ -15,12 +15,21 @@
       "type": "MSSQL"
     },
     {
+      "host": "172.16.20.179",
+      "port": 1433,
+      "username": "sa",
+      "password": "controlroom",
+      "dbname": "E_START",
+      "schema": "dbo",
+      "type": "MSSQL"
+    },
+    {
       "host": "172.16.123.121",
       "port": 5432,
       "username": "postgres",
       "password": "initrans7",
-      "dbname": "insosys",
-      "schema": "migrate2",
+      "dbname": "privileges",
+      "schema": "dev",
       "type": "POSTGRESQL"
     },
     {
@@ -40,7 +49,42 @@
       "dbname": "HRIS",
       "schema": "dbo",
       "type": "MSSQL"
+    },
+    {
+      "host": "172.16.123.121",
+      "port": 5432,
+      "username": "postgres",
+      "password": "initrans7",
+      "dbname": "insosys",
+      "schema": "_migrate_live",
+      "type": "POSTGRESQL"
     }
+  ],
+  "pre_queries_path": "../../../SurplusMigrator-ExternalSource/Queries-Pre",
+  "post_queries_path": "../../../SurplusMigrator-ExternalSource/Queries-Post",
+  "excel_sources_path": "../../../SurplusMigrator-ExternalSource/Excels",
+  "json_sources_path": "../../../SurplusMigrator-ExternalSource/Jsons",
+  "excluded_tables": {
+    "source": [],
+    "destination": [
+    ]
+  },
+  "truncated_tables": [
+    "master_account_relation",
+    "master_account_general_ledger_sign",
+    "master_glreport",
+    "master_glreport_detail",
+    "master_glreport_subdetail",
+    "transaction_budget",
+    "transaction_program_budget_eps_detail",
+    "transaction_journal",
+    "master_artist_account",
+    "transaction_budget_detail",
+    "transaction_journal_detail",
+    "transaction_journal_reval",
+    "transaction_journal_saldo",
+    "master_vendor_bill",
+    "transaction_sales_order"
   ],
   "table_relations": [
     {
@@ -62,45 +106,5 @@
         "transaction_journal_detail"
       ]
     }
-  ],
-  "pre_queries_pathx": "../../../SurplusMigrator-ExternalSource/Queries-Pre",
-  "post_queries_path": "../../../SurplusMigrator-ExternalSource/Queries-Post",
-  "excel_sources_path": "../../../SurplusMigrator-ExternalSource/Excels",
-  "json_sources_path": "../../../SurplusMigrator-ExternalSource/Jsons",
-  "excluded_tables": {
-    "source": [],
-    "destination": [
-      "master_account_relation",
-      "master_account_general_ledger_sign",
-      "master_glreport",
-      "master_glreport_detail",
-      "master_glreport_subdetail",
-      "transaction_budget",
-      "transaction_program_budget_eps_detail",
-      "transaction_journal",
-      "transaction_budget_detail",
-      "transaction_journal_detail",
-      "transaction_journal_reval",
-      "transaction_journal_saldo",
-      "master_vendor_bill",
-      "transaction_sales_order"
-    ]
-  },
-  "truncated_tables": [
-    "master_account_relation",
-    "master_account_general_ledger_sign",
-    "master_glreport",
-    "master_glreport_detail",
-    "master_glreport_subdetail",
-    "transaction_budget",
-    "transaction_program_budget_eps_detail",
-    "transaction_journal",
-    "master_artist_account",
-    "transaction_budget_detail",
-    "transaction_journal_detail",
-    "transaction_journal_reval",
-    "transaction_journal_saldo",
-    "master_vendor_bill",
-    "transaction_sales_order"
   ]
 }

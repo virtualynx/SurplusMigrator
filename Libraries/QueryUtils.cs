@@ -68,6 +68,7 @@ namespace SurplusMigrator.Libraries {
                         pg_attribute
                     where 
                         attnum > 0
+                        AND NOT attisdropped
                         and attrelid = (
     	                    select 
 			                    s.oid 

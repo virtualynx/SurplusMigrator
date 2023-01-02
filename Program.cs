@@ -187,6 +187,9 @@ namespace SurplusMigrator {
                     QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault());
                     qe.execute(config.post_queries_path);
                 }
+
+                new _MigrateProductionData(connections).run();
+
             } catch(Exception e) {
                 MyConsole.Error("Program stopped abnormally due to some error");
             } finally { 
