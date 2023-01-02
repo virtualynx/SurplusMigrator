@@ -174,7 +174,7 @@ namespace SurplusMigrator.Tasks {
                         advertisercode = gen21.getAdvertiserId(advertiserid);
                     } catch(MissingDataException) {
                         nullAdvertiserOrBrandErrors.Add(new DbInsertFail() {
-                            info = "Missing reference in table (" + missingReferenceAdvertiser.referencedTableName + "), value (" + missingReferenceAdvertiser.referencedColumnName + ")%(" + String.Join(", ", data) + ") is not exist",
+                            info = "Missing reference to table (" + missingReferenceAdvertiser.referencedTableName + ")",
                             severity = DbInsertFail.DB_FAIL_SEVERITY_WARNING,
                             type = DbInsertFail.DB_FAIL_TYPE_FOREIGNKEY_VIOLATION,
                             loggedInFilename = logFilenameMissingAdvertiser
@@ -192,7 +192,7 @@ namespace SurplusMigrator.Tasks {
                         advertiserbrandcode = gen21.getAdvertiserBrandId(advertiserbrandid);
                     } catch(MissingDataException) {
                         nullAdvertiserOrBrandErrors.Add(new DbInsertFail() {
-                            info = "Missing reference in table (" + missingReferenceBrand.referencedTableName + "), value (" + missingReferenceBrand.referencedColumnName + ")%(" + String.Join(", ", data) + ") is not exist",
+                            info = "Missing reference to table (" + missingReferenceBrand.referencedTableName + ")",
                             severity = DbInsertFail.DB_FAIL_SEVERITY_WARNING,
                             type = DbInsertFail.DB_FAIL_TYPE_FOREIGNKEY_VIOLATION,
                             loggedInFilename = logFilenameMissingBrand
