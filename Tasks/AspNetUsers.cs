@@ -28,12 +28,91 @@ namespace SurplusMigrator.Tasks {
                         "email",
                         "phonenumber"
                     },
-                    ids = new string[] { "id" }
+                    ids = new string[] { "nik" }
                 }
             };
         }
 
         protected override MappedData getStaticData() {
+            return getDataFromMasterEisAktif();
+        }
+
+        private MappedData getDataFromMasterEisAktif() {
+            MappedData result = new MappedData();
+
+            string query = @"
+                select 
+	                uuid_generate_v4() as id,
+	                master_eis.nik, 
+	                master_eis.""name"", 
+	                case when coalesce(TRIM(master_eis.department_code), '') <> '' then 
+		                master_eis.department_code
+	                else
+		                case when coalesce(TRIM(master_eis.division_code), '') <> '' then 
+			                master_eis.division_code
+		                else
+			                master_eis.directorate_code
+		                end
+	                end as unit_code,
+	                master_eis.email, 
+	                master_eis.phone
+                from 
+	                dblink(
+		                'dbname=integration port=5432 host=172.16.123.121 user=postgres password=initrans7'::text, 
+		                '
+			                SELECT 
+				                ""NIK"" as nik, 
+				                ""Nama"" as name,
+				                department_code,
+				                division_code,
+				                directorate_code,
+				                email,
+				                ""NomorHP"" as phone
+			                FROM 
+				                hris.""MasterEisAktif""
+		                '::text
+	                ) master_eis (
+		                nik character varying(10), 
+		                ""name"" character varying(100), 
+		                department_code character varying(50), 
+		                division_code character varying(50), 
+		                directorate_code character varying(50), 
+		                email character varying(200), 
+		                phone character varying(25)
+	                )
+                ;
+            ";
+
+            var surplus_conn = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault();
+            var rs = QueryUtils.executeQuery(surplus_conn, query);
+
+            foreach(var row in rs) {
+                result.addData(
+                    "AspNetUsers",
+                    new RowData<ColumnName, object>() {
+                        { "id", row["id"]},
+                        { "nik", row["nik"]},
+                        { "fullname", row["name"]},
+                        { "username", row["name"]},
+                        { "departmentid", row["unit_code"]},
+                        { "isdisabled", false},
+                        { "occupationid", 1},
+                        { "usergroupid", 1},
+                        { "emailconfirmed", false},
+                        { "phonenumberconfirmed", false},
+                        { "twofactorenabled", false},
+                        { "lockoutenabled", false},
+                        { "accessfailedcount", 0},
+                        { "email", row["email"]},
+                        { "phonenumber", row["phone"]}
+                    }
+                );
+            }
+
+            return result;
+        }
+
+        private MappedData getDataFromJSON() {
             MappedData result = new MappedData();
 
             JsonElement json = Utils.getDataFromJson("_AspNetUsers_");

@@ -886,7 +886,8 @@ namespace SurplusMigrator.Models {
                     (
                         data.GetType() == typeof(decimal) ||
                         data.GetType() == typeof(int) ||
-                        data.GetType() == typeof(long)
+                        data.GetType() == typeof(long) ||
+                        data.GetType() == typeof(Guid)
                     ) &&
                     (columnDbType == NpgsqlDbType.Varchar || columnDbType == NpgsqlDbType.Text)
                 ) {
