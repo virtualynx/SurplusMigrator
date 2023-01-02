@@ -238,7 +238,7 @@ namespace SurplusMigrator.Tasks {
                         { "cancelationamount", Utils.obj2decimal(data["salesorder_amount_cancel"])},
                         { "commision",  data["salesorder_comm"]},
                         { "buyer", Utils.obj2decimal(data["salesorder_buyer"])},
-                        { "salesareaid",  data["salesorder_area"]},
+                        { "salesareaid", Utils.obj2int(data["salesorder_area"])},
                         { "contractnumber",  data["salesorder_traffic_id"]},
                         { "invoiceformatid",  data["salesorder_format_inv"]},
                         { "invoiceply",  data["salesorder_ply_inv"]},
