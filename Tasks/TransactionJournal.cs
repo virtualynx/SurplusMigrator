@@ -10,7 +10,7 @@ namespace SurplusMigrator.Tasks {
         public TransactionJournal(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "transaksi_jurnal",
                     columns = new string[] {
                         "jurnal_id",
@@ -54,7 +54,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "transaction_journal",
                     columns = new string[] {
                         "tjournalid",
@@ -100,7 +100,7 @@ namespace SurplusMigrator.Tasks {
         protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
-            nullifyMissingReferences("rekanan_id", "master_rekanan", "rekanan_id", connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(), inputs);
+            nullifyMissingReferences("rekanan_id", "master_rekanan", "rekanan_id", connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(), inputs);
 
             foreach(RowData<ColumnName, object> data in inputs) {
                 string tbudgetid = null;

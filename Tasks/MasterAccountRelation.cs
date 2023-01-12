@@ -12,7 +12,7 @@ namespace SurplusMigrator.Tasks {
         public MasterAccountRelation(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "master_accountrelation",
                     columns = new string[] { "accdebit_id", "acccredit_id" },
                     ids = new string[] { "accdebit_id", "acccredit_id" },
@@ -20,22 +20,21 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_account_relation",
                     columns = new string[] {
                         "accountid",
                         "account_bymhd_id",
                         "account_debt_id",
                         "account_dp_id",
+                        "prodtypeid",
                         "created_date",
                         "created_by",
                         "is_disabled"
                     },
                     ids = new string[] { 
                         "accountid", 
-                        "account_bymhd_id",
-                        "account_debt_id",
-                        "account_dp_id"
+                        "account_bymhd_id"
                     },
                 }
             };
@@ -54,6 +53,7 @@ namespace SurplusMigrator.Tasks {
                     { "account_bymhd_id", Utils.obj2str(data["acccredit_id"])},
                     { "account_debt_id", null},
                     { "account_dp_id", null},
+                    { "prodtypeid", 0},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
@@ -64,10 +64,17 @@ namespace SurplusMigrator.Tasks {
             return result;
         }
 
+        protected override void runDependencies() {
+            new MasterProdType(connections).run();
+            new MasterBudgetAccount(connections).run();
+        }
+
         protected override MappedData getStaticData() {
             MappedData result = new MappedData();
 
             ExcelColumn[] columns = new ExcelColumn[] {
+                new ExcelColumn(){ name="type", ordinal=0 },
+                new ExcelColumn(){ name="projectacc_id", ordinal=1 },
                 new ExcelColumn(){ name="account_id", ordinal=3 },
                 new ExcelColumn(){ name="account_id_bymhd", ordinal=5 },
                 new ExcelColumn(){ name="account_id_UangMuka", ordinal=7 },
@@ -77,6 +84,8 @@ namespace SurplusMigrator.Tasks {
 
             int rowNumber = 1;
             foreach(RowData<ColumnName, object> row in datas) {
+                var type = row["type"];
+                var projectacc_id = row["projectacc_id"];
                 var account_id = row["account_id"];
                 var account_id_bymhd = row["account_id_bymhd"];
                 var account_id_UangMuka = row["account_id_UangMuka"];
@@ -100,6 +109,8 @@ namespace SurplusMigrator.Tasks {
                         { "account_bymhd_id", account_id_bymhd},
                         { "account_debt_id", account_id_hutang},
                         { "account_dp_id", account_id_UangMuka},
+                        { "accountid", account_id},
+                        { "prodtypeid", 0},
                         { "created_date",  DateTime.Now},
                         { "created_by",  DefaultValues.CREATED_BY},
                         { "is_disabled", false }

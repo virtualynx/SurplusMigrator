@@ -7,6 +7,8 @@ namespace SurplusMigrator.Models
         }
 
         public DbLoginInfo[] databases { get; set; }
+        public string[] job_playlist { get; set; } = new string[] { };
+        public string[] job_order { get; set; }
         public ExcludedTables excluded_tables { get; set; }
         public string[] truncated_tables { get; set; }
         public string pre_queries_path { get; set; }

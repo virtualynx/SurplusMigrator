@@ -9,7 +9,7 @@ namespace SurplusMigrator.Tasks {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_show_inventory_timezone",
                     columns = new string[] {
                         "showinventorytimezoneid",

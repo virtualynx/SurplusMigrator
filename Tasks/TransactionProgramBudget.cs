@@ -12,7 +12,7 @@ namespace SurplusMigrator.Tasks {
         public TransactionProgramBudget(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "prabudget_program",
                     columns = new string[] {
                         "prabudget_program_id",
@@ -56,7 +56,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "transaction_program_Budget",
                     columns = new string[] {
                         "tprogrambudgetid",

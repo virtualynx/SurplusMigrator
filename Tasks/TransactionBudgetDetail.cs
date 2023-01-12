@@ -35,7 +35,7 @@ namespace SurplusMigrator.Tasks {
         public TransactionBudgetDetail(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "transaksi_budgetdetil",
                     columns = new string[] {
                         "budgetdetil_id",
@@ -68,7 +68,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "transaction_budget_detail",
                     columns = new string[] {
                         "tbudget_detailid",
@@ -118,7 +118,7 @@ namespace SurplusMigrator.Tasks {
                 "budget_id",
                 "transaksi_budget",
                 "budget_id",
-                connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                 inputs
             );
             if(missingRefErrors.Length > 0) {
@@ -214,7 +214,7 @@ namespace SurplusMigrator.Tasks {
 
             if(nullBudgetAndDateIds.Count > 0) {
                 //check if the data is actually being referenced in skipsIfUnreferenced
-                SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault().GetDbConnection();
+                SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault().GetDbConnection();
                 SqlCommand command = new SqlCommand("select jurnal_id, jurnaldetil_line, budgetdetil_id from [dbo].[transaksi_jurnaldetil] where budgetdetil_id in (" + String.Join(",", nullBudgetAndDateIds) + ")", conn);
                 SqlDataReader dataReader = command.ExecuteReader();
 
@@ -283,7 +283,7 @@ namespace SurplusMigrator.Tasks {
                 }
             }
 
-            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault().GetDbConnection();
+            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault().GetDbConnection();
             SqlCommand command = new SqlCommand("select budget_id, budget_entrydt from [dbo].[transaksi_budget] where budget_id in (" + String.Join(",", budgetIdRefs) + ")", conn);
             SqlDataReader dataReader = command.ExecuteReader();
 

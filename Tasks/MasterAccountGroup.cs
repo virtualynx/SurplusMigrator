@@ -12,7 +12,7 @@ namespace SurplusMigrator.Tasks {
         public MasterAccountGroup(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "master_accgroup",
                     columns = new string[] { "accgroup_id", "accgroup_name", "accgroup_position", "accrpt_id" },
                     ids = new string[] { "accgroup_id" }
@@ -20,7 +20,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_account_group",
                     columns = new string[] {
                         "accountgroupid",

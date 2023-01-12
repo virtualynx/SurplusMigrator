@@ -25,7 +25,7 @@ namespace SurplusMigrator.Libraries {
             if(_currencyIdMaps == null) {
                 _currencyIdMaps = new Dictionary<string, int>();
 
-                DbConnection_ connection_ = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault();
+                DbConnection_ connection_ = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault();
                 NpgsqlConnection conn = (NpgsqlConnection)connection_.GetDbConnection();
                 NpgsqlCommand command = new NpgsqlCommand("select currencyid, shortname from \"" + connection_.GetDbLoginInfo().schema + "\".\"master_currency\"", conn);
                 NpgsqlDataReader dataReader = command.ExecuteReader();

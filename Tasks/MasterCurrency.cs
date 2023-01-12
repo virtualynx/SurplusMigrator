@@ -10,7 +10,7 @@ namespace SurplusMigrator.Tasks {
         public MasterCurrency(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "master_currency",
                     columns = new string[] {
                         "currency_id",
@@ -24,7 +24,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_currency",
                     columns = new string[] {
                         "currencyid",
@@ -73,7 +73,7 @@ namespace SurplusMigrator.Tasks {
                 }
             );
 
-            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault().GetDbConnection();
+            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault().GetDbConnection();
             SqlCommand command = new SqlCommand("select max(currency_id) from [dbo].[master_currency]", conn);
             long largestCurrencyId = Convert.ToInt64(command.ExecuteScalar());
 

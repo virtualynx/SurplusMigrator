@@ -11,7 +11,7 @@ namespace SurplusMigrator.Tasks {
         public TransactionProgramBudgetEpsDetail(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "program_detil_eps",
                     columns = new string[] {
                         "prabudget_program_id",
@@ -49,7 +49,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "transaction_program_budget_eps_detail",
                     columns = new string[] {
                         "tprogrambudget_epsdetailid",
@@ -160,7 +160,7 @@ namespace SurplusMigrator.Tasks {
                 }
             }
 
-            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault().GetDbConnection();
+            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault().GetDbConnection();
             SqlCommand command = new SqlCommand("select prabudget_program_id, created_by, created_dt from [dbo].[prabudget_program] where prabudget_program_id in ('" + String.Join("','", prabudgetProgramIds) + "')", conn);
             SqlDataReader dataReader = command.ExecuteReader();
 

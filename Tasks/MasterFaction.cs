@@ -1,3 +1,4 @@
+using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System;
 using System.Collections.Generic;
@@ -8,7 +9,7 @@ namespace SurplusMigrator.Tasks {
         public MasterFaction(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "master_golongan",
                     columns = new string[] {
                         "golongan_id",
@@ -19,7 +20,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_faction",
                     columns = new string[] {
                         "factionid",

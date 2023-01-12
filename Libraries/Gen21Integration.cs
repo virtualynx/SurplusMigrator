@@ -162,7 +162,14 @@ namespace SurplusMigrator.Libraries {
             sql = sql.Replace("[column]", String.Join(",", columns));
             sql = sql.Replace("[table]", table);
 
-            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault().GetDbConnection();
+            var dbConn = connections.Where(a =>
+                    a.GetDbLoginInfo().host == "172.16.20.179"
+                    && a.GetDbLoginInfo().dbname == "E_FRM"
+                    && a.GetDbLoginInfo().type == "MSSQL"
+                )
+                .FirstOrDefault();
+
+            SqlConnection conn = (SqlConnection)dbConn.GetDbConnection();
             SqlCommand command = new SqlCommand(sql, conn);
 
             foreach(KeyValuePair<string, dynamic> entry in filters) {
@@ -226,7 +233,7 @@ namespace SurplusMigrator.Libraries {
             sql = sql.Replace("[column]", String.Join(",", columns));
             sql = sql.Replace("[table]", table);
 
-            NpgsqlConnection conn = (NpgsqlConnection)connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault().GetDbConnection();
+            NpgsqlConnection conn = (NpgsqlConnection)connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault().GetDbConnection();
             NpgsqlCommand command = new NpgsqlCommand(sql, conn);
 
             foreach(KeyValuePair<string, dynamic> entry in filters) {

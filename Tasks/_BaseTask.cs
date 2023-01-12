@@ -9,8 +9,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection.Metadata;
-using System.Text.Json;
 
 using TaskName = System.String;
 
@@ -41,7 +39,7 @@ namespace SurplusMigrator.Tasks {
                 sources.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName)) ||
                 destinations.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName))
             ) {
-                MyConsole.Information(this.GetType().Name + " is skipped because it's excluded in config");
+                MyConsole.Information(this.GetType().Name + " is skipped because it's excluded in config file");
                 return false;
             }
 
@@ -50,7 +48,13 @@ namespace SurplusMigrator.Tasks {
             //truncate options is in the config file
             if(destinations.Any(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))) {
                 truncateBeforeInsert = true;
-                MyConsole.Information("Applying truncating option from the config file");
+                List<string> tableNames = new List<string>();
+                foreach(var dest in destinations) {
+                    if(GlobalConfig.isTruncatedTable(dest.tableName)) {
+                        tableNames.Add(dest.tableName);
+                    }
+                }
+                MyConsole.Information("Using truncating options from the config file for: "+String.Join(", ", tableNames));
             }
 
             _startedAt = DateTime.Now;

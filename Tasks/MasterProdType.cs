@@ -9,7 +9,7 @@ namespace SurplusMigrator.Tasks {
         public MasterProdType(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "master_prodtype",
                     columns = new string[] {
                         "prodtype_id",
@@ -24,7 +24,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_prod_type",
                     columns = new string[] {
                         "prodtypeid",
@@ -64,28 +64,28 @@ namespace SurplusMigrator.Tasks {
         protected override MappedData getStaticData() {
             MappedData result = new MappedData();
 
-            //result.addData(
-            //    "master_prod_type",
-            //    new RowData<ColumnName, object>() {
-            //        { "prodtypeid", 5},
-            //        { "name", "Magazine"},
-            //        { "nameshort", "Magazine"},
-            //        { "created_date", DateTime.Now},
-            //        { "created_by", DefaultValues.CREATED_BY },
-            //        { "is_disabled", false }
-            //    }
-            //);
-            //result.addData(
-            //    "master_prod_type",
-            //    new RowData<ColumnName, object>() {
-            //        { "prodtypeid", 6},
-            //        { "name", "Digital"},
-            //        { "nameshort", "Digital"},
-            //        { "created_date", DateTime.Now},
-            //        { "created_by", DefaultValues.CREATED_BY },
-            //        { "is_disabled", false }
-            //    }
-            //);
+            result.addData(
+                "master_prod_type",
+                new RowData<ColumnName, object>() {
+                    { "prodtypeid", 0},
+                    { "name", "<Unknown>"},
+                    { "nameshort", "<Unknown>"},
+                    { "created_date", DateTime.Now},
+                    { "created_by", DefaultValues.CREATED_BY },
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_prod_type",
+                new RowData<ColumnName, object>() {
+                    { "prodtypeid", 5},
+                    { "name", "Digital"},
+                    { "nameshort", "Digital"},
+                    { "created_date", DateTime.Now},
+                    { "created_by", DefaultValues.CREATED_BY },
+                    { "is_disabled", false }
+                }
+            );
 
             return result;
         }

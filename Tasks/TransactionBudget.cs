@@ -15,7 +15,7 @@ namespace SurplusMigrator.Tasks {
         public TransactionBudget(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "transaksi_budget",
                     columns = new string[] {
                         "budget_id",
@@ -85,7 +85,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "transaction_budget",
                     columns = new string[] {
                         "tbudgetid",
@@ -248,7 +248,7 @@ namespace SurplusMigrator.Tasks {
         private Dictionary<long, string> getPrabudgetProgramRefs(long[] budget_ids) {
             Dictionary<long, string> result = new Dictionary<long, string>();
 
-            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault().GetDbConnection();
+            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault().GetDbConnection();
             SqlCommand command = new SqlCommand("select prabudget_program_id, budget_id from [dbo].[program_budget_ref] where budget_id in (" + String.Join(",", budget_ids) + ")", conn);
             SqlDataReader dataReader = command.ExecuteReader();
 

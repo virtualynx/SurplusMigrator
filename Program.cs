@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 
 namespace SurplusMigrator {
@@ -55,144 +56,22 @@ namespace SurplusMigrator {
 
             try {
                 if(config.pre_queries_path != null) {
-                    QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault());
+                    QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault());
                     qe.execute(config.pre_queries_path);
                 }
 
                 IdRemapper.loadMap();
 
-                {
-                    { //pre-requirement for AspNetUsers
-                        {
-                            new MasterOccupation(connections).run();
-                            {
-                                {
-                                    new MasterModule(connections).run();
-                                }
-                                new MasterUserGroup(connections).run();
-                            }
-                            new Relation_Module_UserGroup(connections).run();
-                        }
-                        new AspNetUsers(connections).run();
-                    }
+                OrderedJob[] jobs = getAllJob(config);
+
+                foreach(var job in jobs) {
+                    var taskType = Type.GetType("SurplusMigrator.Tasks." + job.taskName);
+                    var instantiatedObject = Activator.CreateInstance(taskType, new object[] { connections }) as _BaseTask;
+                    instantiatedObject.run();
                 }
-
-                {
-                    { //master_faction
-                        {
-                            new MasterFaction(connections).run();
-                            new MasterZone(connections).run();
-                        }
-                        new MasterFactionZoneRate(connections).run();
-                        new RelationFactionPosition(connections).run();
-                    }
-                }
-
-                new MasterSequencer(connections).run();
-                new MasterPaymentCategory(connections).run();
-                new MasterObjective(connections).run();
-
-                {
-                    new MasterStudioGroup(connections).run();
-                }
-                new MasterStudio(connections).run();
-
-                {
-                    { //master_account
-                        {//pre-req for MasterAccount
-                            new MasterAccountReport(connections).run();
-                            new MasterAccountGroup(connections).run();
-                            new MasterAccountSubGroup(connections).run();
-                            new MasterAccountSubType(connections).run();
-                            new MasterAccountType(connections).run();
-                        }
-                        new MasterAccount(connections).run();
-                    }
-                    new MasterAccountRelation(connections).run();
-                    new MasterAccountGLSign(connections).run();
-                }
-
-                {
-                    {
-                        {
-                            new MasterGLReport(connections).run();
-                        }
-                        new MasterGLReportDetail(connections).run();
-                    }
-                    new MasterGLReportSubDetail(connections).run();
-                }
-
-                { //start of TransactionJournal 
-                    {//--pre-req for TransactionJournal
-                        new MasterAccountCa(connections).run();
-                        new MasterAdvertiser(connections).run();
-                        new MasterAdvertiserBrand(connections).run();
-                        new MasterCurrency(connections).run();
-                        new MasterPaymentType(connections).run();
-                        new MasterPeriod(connections).run();
-                        new MasterTransactionTypeGroup(connections).run();
-                        new MasterTransactionType(connections).run();
-                        new MasterSource(connections).run();
-                        new MasterVendorCategory(connections).run();
-                        new MasterVendorType(connections).run();
-                        new MasterVendor(connections).run();
-                        {//---pre-req for TransactionBudget & TransactionProgramBudgetEpsDetail
-                            new MasterProdType(connections).run();
-                            new MasterProjectType(connections).run();
-                            new MasterShowInventoryCategory(connections).run();
-                            new MasterShowInventoryDepartment(connections).run();
-                            new MasterShowInventoryTimezone(connections).run();
-                            new MasterTvProgramType(connections).run();
-                            {//----pre-req for TransactionProgramBudget
-                                new MasterProgramBudgetContenttype(connections).run();
-                                new MasterProgramBudgetType(connections).run();
-                            }
-                            new TransactionProgramBudget(connections).run();
-                        }
-                        new TransactionProgramBudgetEpsDetail(connections).run();
-                        new TransactionBudget(connections).run();
-                    }
-                    new TransactionJournal(connections).run();
-                }
-
-                { //start of TransactionJournalDetail
-                    {//--pre-req for TransactionJournalDetail
-                        {//pre-req for MasterBankAccount & MasterArtistAccount
-                            new MasterBank(connections).run();
-                        }
-                        new MasterBankAccount(connections).run();
-                        new MasterArtistAccount(connections).run();
-                        new MasterJournalReferenceType(connections).run();
-                        {//---pre-req for TransactionBudgetDetail
-                            new MasterBudgetAccount(connections).run();
-                        }
-                        new TransactionBudgetDetail(connections).run();
-                    }
-                    new TransactionJournalDetail(connections).run();
-                }
-
-                new TransactionJournalReval(connections).run();
-                new TransactionJournalSaldo(connections).run();
-
-                {
-                    {
-                        new MasterInvoiceFormat(connections).run();
-                        new MasterInvoiceType(connections).run();
-                        new MasterVendorBill(connections).run();
-                    }
-                    new TransactionSalesOrder(connections).run();
-                }
-
-                if(config.post_queries_path != null) {
-                    QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault());
-                    qe.execute(config.post_queries_path);
-                }
-
-                new _MigrateProductionData(connections).run();
-
             } catch(Exception e) {
                 MyConsole.Error("Program stopped abnormally due to some error");
-            } finally { 
+            } finally {
                 IdRemapper.saveMap();
                 foreach(DbConnection_ con in connections) {
                     con.Close();
@@ -204,6 +83,56 @@ namespace SurplusMigrator {
 
             Console.WriteLine("\n\nPress any key to exit ...");
             Console.ReadLine();
+        }
+
+        private static OrderedJob[] getAllJob(AppConfig config) {
+            List<OrderedJob> orderedJobs = new List<OrderedJob>();
+
+            if(config.job_playlist.Length > 0) {
+                int order = 0;
+                foreach(var taskName in config.job_playlist) {
+                    orderedJobs.Add(new OrderedJob() {
+                        taskName = taskName,
+                        order = order++
+                    });
+                }
+
+                return orderedJobs.ToArray();
+            } else {
+                var taskList = Assembly.GetExecutingAssembly().GetTypes()
+                .Where(t =>
+                    t.Namespace == "SurplusMigrator.Tasks"
+                    && !t.Name.StartsWith("<>")
+                    && !t.Name.StartsWith("_")
+                )
+                .ToList();
+
+                foreach(var task in taskList) {
+                    orderedJobs.Add(new OrderedJob() {
+                        taskName = task.Name,
+                        order = getJobOrder(config, task.Name)
+                    });
+                }
+
+                OrderedJob[] orderedJobsArr = orderedJobs.ToArray();
+
+                Array.Sort(
+                    orderedJobsArr,
+                    delegate (OrderedJob x, OrderedJob y) { return x.order - y.order; }
+                );
+
+                return orderedJobsArr;
+            }
+        }
+
+        private static int getJobOrder(AppConfig config, string taskName) {
+            for(int a = 0; a < config.job_order.Length; a++) {
+                if(config.job_order[a] == taskName) {
+                    return a;
+                }
+            }
+
+            return Int32.MaxValue;
         }
     }
 }

@@ -8,7 +8,7 @@ namespace SurplusMigrator.Tasks {
         public TransactionJournalSaldo(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "transaksi_jurnalsaldo",
                     columns = new string[] {
                         "channel_id",
@@ -31,7 +31,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "transaction_journal_saldo",
                     columns = new string[] {
                         "periodid",
@@ -63,7 +63,7 @@ namespace SurplusMigrator.Tasks {
                 "acc_id",
                 "master_acc",
                 "acc_id",
-                connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                 inputs
             );
 

@@ -13,7 +13,7 @@ namespace SurplusMigrator.Tasks {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_transaction_type_group",
                     columns = new string[] {
                         "transactiontypegroupid",

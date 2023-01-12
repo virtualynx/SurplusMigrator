@@ -18,7 +18,7 @@ namespace SurplusMigrator.Tasks {
         public TransactionSalesOrder(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "transaksi_salesorder",
                     columns = new string[] {
                         "salesorder_id",
@@ -76,7 +76,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "transaction_sales_order",
                     columns = new string[] {
                         "tsalesorderid",
@@ -163,7 +163,7 @@ namespace SurplusMigrator.Tasks {
                 missingReferenceBrand = Utils.loadJson<MissingReference>(logFilenameMissingBrand);
             } catch(FileNotFoundException) { }
 
-            nullifyMissingReferences("salesorder_agency", "master_rekanan", "rekanan_id", connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(), inputs);
+            nullifyMissingReferences("salesorder_agency", "master_rekanan", "rekanan_id", connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(), inputs);
 
             List<DbInsertFail> nullAdvertiserOrBrandErrors = new List<DbInsertFail>();
             foreach(RowData<ColumnName, object> data in inputs) {

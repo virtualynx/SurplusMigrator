@@ -1,36 +1,23 @@
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using Microsoft.Office.Interop.Excel;
-using Serilog.Core;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
-using System.Xml.Linq;
 
 namespace SurplusMigrator.Tasks {
     class _MigrateProductionData : _BaseTask {
-        public _MigrateProductionData(DbConnection_[] connections) : base(connections) {
-            sources = new TableInfo[] {
-            };
-            destinations = new TableInfo[] {
-            };
-        }
+        private DbConnection_ sourceConnection;
 
-        private DbConnection_ sourceConnection = new DbConnection_(
-            new DbLoginInfo() {
-                host = "172.16.123.121",
-                port = 5432,
-                username = "postgres",
-                password = "initrans7",
-                dbname = "insosys",
-                schema = "_live",
-                type = "POSTGRESQL"
-            }    
-        );
+        private const int DEFAULT_BATCH_SIZE = 200;
 
-        private List<string> excludedTables = new List<string>() {
+        private Dictionary<string, int> batchsizeMap = new Dictionary<string, int>() {
+            { "transaction_budget", 500},
+            { "transaction_budget_detail", 3500},
+            { "transaction_journal", 3500 },
+            { "transaction_journal_detail", 5000 }
+        };
+
+        private string[] excludedTables = new string[] {
             "AspNetRoleClaims",
             "AspNetRoles",
             "AspNetUserClaims",
@@ -42,75 +29,101 @@ namespace SurplusMigrator.Tasks {
             "dataprotectionkeys"
         };
 
+        private string[] onlyMigrateTables = new string[] {
+            
+        };
+
+        public _MigrateProductionData(DbConnection_[] connections) : base(connections) {
+            sources = new TableInfo[] {
+            };
+            destinations = new TableInfo[] {
+            };
+
+            sourceConnection = connections.Where(a => a.GetDbLoginInfo().name == "surplus_live").FirstOrDefault();
+        }
+
         protected override MappedData getStaticData() {
             MappedData result = new MappedData();
 
             var tables = getTables();
 
-            var tagetConnection = connections.Where(
-                a =>
-                    a.GetDbLoginInfo().dbname == "insosys"
-                    && a.GetDbLoginInfo().type == "POSTGRESQL"
-                    && a.GetDbLoginInfo().schema != "_live"
-            ).FirstOrDefault();
+            var tagetConnection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault();
 
             foreach(var row in tables) {
                 try {
                     string tablename = row["table_name"].ToString();
                     var columns = QueryUtils.getColumnNames(sourceConnection, tablename);
 
-                    if(!columns.Any(a => a == "created_by")) {
-                        continue;
-                    }
-                    var sourceDatas = getSourceData(tablename);
+                    MyConsole.Information("Inserting into table " + tablename + " ... ");
 
-                    if(sourceDatas.Length == 0) continue;
-
-                    MyConsole.Information("Inserting into table " + tablename);
-
-                    QueryUtils.executeQuery(tagetConnection, "ALTER TABLE \"" + tablename + "\" DISABLE TRIGGER ALL;");
-
+                    var dataCount = QueryUtils.getDataCount(sourceConnection, tablename);
                     int insertedCount = 0;
-                    foreach(var rowSource in sourceDatas) {
+                    int batchSize = batchsizeMap.ContainsKey(tablename)? batchsizeMap[tablename] : DEFAULT_BATCH_SIZE;
+
+                    RowData<ColumnName, object>[] batchData;
+                    while((batchData = QueryUtils.getDataBatch(sourceConnection, tablename, false, batchSize)).Length > 0) {
                         try {
                             string query = @"
                                 insert into ""[target_schema]"".""[tablename]""([columns])
-                                values([values]);
+                                values [values];
                             ";
                             query = query.Replace("[target_schema]", tagetConnection.GetDbLoginInfo().schema);
                             query = query.Replace("[tablename]", tablename);
-                            query = query.Replace("[columns]", "\""+String.Join("\",\"", columns) +"\"");
-                            List<string> valueArgs = new List<string>();
-                            foreach(var map in rowSource) {
-                                string column = map.Key;
-                                object data = map.Value;
-                                string convertedData = null;
-                                if(data == null) {
-                                    convertedData = "NULL";
-                                } else if(data.GetType() == typeof(string)) {
-                                    convertedData = "'"+data.ToString()+"'";
-                                } else if(data.GetType() == typeof(bool)) {
-                                    convertedData = data.ToString().ToLower();
-                                } else if(data.GetType() == typeof(DateTime)) {
-                                    convertedData = "'"+((DateTime)data).ToString("yyyy-MM-dd HH:mm:ss.fff")+"'";
-                                } else {
-                                    convertedData = data.ToString();
+                            query = query.Replace("[columns]", "\"" + String.Join("\",\"", columns) + "\"");
+
+                            List<string> insertArgs = new List<string>();
+                            foreach(var rowSource in batchData) {
+                                List<string> valueArgs = new List<string>();
+                                foreach(var map in rowSource) {
+                                    string column = map.Key;
+                                    object data = map.Value;
+                                    Type t = data?.GetType();
+                                    string convertedData = null;
+                                    if(data == null) {
+                                        convertedData = "NULL";
+                                    } else if(data.GetType() == typeof(string)) {
+                                        string dataStr = data.ToString();
+                                        dataStr = dataStr.Replace("'", "''");
+                                        convertedData = "'" + dataStr + "'";
+                                    } else if(data.GetType() == typeof(bool)) {
+                                        convertedData = data.ToString().ToLower();
+                                    } else if(data.GetType() == typeof(DateTime)) {
+                                        convertedData = "'" + ((DateTime)data).ToString("yyyy-MM-dd HH:mm:ss.fff") + "'";
+                                    } else if(data.GetType() == typeof(TimeSpan)) {
+                                        convertedData = "'" + data.ToString() + "'";
+                                    } else {
+                                        convertedData = data.ToString();
+                                    }
+                                    valueArgs.Add(convertedData);
                                 }
-                                valueArgs.Add(convertedData);
+                                insertArgs.Add("(" + String.Join(",", valueArgs) + ")");
                             }
-                            query = query.Replace("[values]", String.Join(",", valueArgs));
-                            var rs = QueryUtils.executeQuery(tagetConnection, query);
-                            insertedCount++;
+                            query = query.Replace("[values]", String.Join(",", insertArgs));
+
+                            QueryUtils.toggleTrigger(tagetConnection, tablename, false);
+                            try {
+                                var rs = QueryUtils.executeQuery(tagetConnection, query);
+                            } catch(Exception e) {
+                                if(!e.Message.Contains("duplicate key value violates unique constraint")) {
+                                    MyConsole.Error(query);
+                                }
+                                throw;
+                            } finally {
+                                QueryUtils.toggleTrigger(tagetConnection, tablename, true);
+                            }
+                            insertedCount += batchData.Length;
+                            MyConsole.WriteLine(insertedCount + "/" + dataCount + " data inserted ... ");
                         } catch(Exception e) {
                             if(e.Message.Contains("duplicate key value violates unique constraint")) {
-                                //MyConsole.Warning(e.Message);
+                                MyConsole.Warning(e.Message);
                             } else {
                                 throw;
                             }
                         }
                     }
-                    QueryUtils.executeQuery(tagetConnection, "ALTER TABLE \"" + tablename + "\" ENABLE TRIGGER ALL;");
-                    MyConsole.Information("Successfully migrate "+ insertedCount + " data on table " + tablename);
+
+                    QueryUtils.toggleTrigger(tagetConnection, tablename, true);
+                    MyConsole.Information("Successfully migrate "+ insertedCount + "/"+ dataCount + " data on table " + tablename);
                 } catch(Exception) {
                     throw;
                 }
@@ -135,24 +148,13 @@ namespace SurplusMigrator.Tasks {
 
             var allTable = QueryUtils.executeQuery(sourceConnection, query);
 
-            return allTable.Where(a => !excludedTables.Any(b => Utils.obj2str(a["table_name"]) == b)).ToArray();
-        }
+            var filtered = allTable.Where(a => !excludedTables.Any(b => Utils.obj2str(a["table_name"]) == b)).ToArray();
 
-        private RowData<ColumnName, object>[] getSourceData(string tablename) {
-            var columns = QueryUtils.getColumnNames(sourceConnection, tablename);
-            string query = @"
-                select [columns] from ""[schema_name]"".""[tablename]""
-                where 
-                    created_by->> 'Id' is not null
-                ;
-            ";
-            query = query.Replace("[columns]", "\"" + String.Join("\",\"", columns) + "\"");
-            query = query.Replace("[schema_name]", sourceConnection.GetDbLoginInfo().schema);
-            query = query.Replace("[tablename]", tablename);
+            if(onlyMigrateTables.Length > 0) {
+                filtered = filtered.Where(a => onlyMigrateTables.Any(b => Utils.obj2str(a["table_name"]) == b)).ToArray();
+            }
 
-            var rs = QueryUtils.executeQuery(sourceConnection, query);
-
-            return rs.ToArray();
+            return filtered;
         }
     }
 }

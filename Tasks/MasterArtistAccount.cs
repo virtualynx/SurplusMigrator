@@ -11,7 +11,7 @@ namespace SurplusMigrator.Tasks {
         public MasterArtistAccount(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "master_artisbank",
                     columns = new string[] {
                         "artis_id",
@@ -28,7 +28,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_artist_account",
                     columns = new string[] {
                         "artistid",
@@ -102,7 +102,7 @@ namespace SurplusMigrator.Tasks {
                     artistid in ([artist_ids])
             ";
             query = query.Replace("[artist_ids]", "'" + String.Join("','", artistIds) + "'");
-            DbConnection_ connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault();
+            DbConnection_ connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault();
             var rs = QueryUtils.executeQuery(connection, query);
 
             List<RowData<ColumnName, object>> missingArtists = inputs.Where(inp_row => !rs.Any(rs_row => Utils.obj2str(inp_row["artis_id"]) == Utils.obj2str(rs_row["artistid"]))).ToList();
@@ -193,7 +193,7 @@ namespace SurplusMigrator.Tasks {
             "
             ;
 
-            DbConnection_ efrm = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault();
+            DbConnection_ efrm = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault();
             var rs = QueryUtils.executeQuery(efrm, query);
             foreach(var row in rs) {
                 string artis_id = Utils.obj2str(row["artis_id"]);

@@ -9,7 +9,7 @@ namespace SurplusMigrator.Tasks {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "AspNetUsers",
                     columns = new string[] {
                         "id",
@@ -83,7 +83,7 @@ namespace SurplusMigrator.Tasks {
                 ;
             ";
 
-            var surplus_conn = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault();
+            var surplus_conn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault();
             var rs = QueryUtils.executeQuery(surplus_conn, query);
 
             foreach(var row in rs) {

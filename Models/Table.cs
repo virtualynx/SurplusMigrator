@@ -1,6 +1,5 @@
 using LinqKit;
 using Microsoft.Data.SqlClient;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Npgsql;
 using NpgsqlTypes;
 using SurplusMigrator.Exceptions;
@@ -11,8 +10,6 @@ using System.Data;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
-using static Npgsql.Replication.PgOutput.Messages.TruncateMessage;
 using ParamNotation = System.String;
 
 namespace SurplusMigrator.Models {
@@ -245,7 +242,7 @@ namespace SurplusMigrator.Models {
                                 } else if(e.Message.Contains("duplicate key value violates unique constraint")) {
                                     throw new Exception("Unique constraint violation upon insert into " + tableName + ": " + e.Detail);
                                 } else {
-                                    //MyConsole.Error(e, "SQL error upon insert into " + tableName + ": " + e.Detail);
+                                    //MyConsole.Error(e, "SQL error upon insert into " + tablename + ": " + e.Detail);
                                     throw;
                                 }
                             } catch(NpgsqlException e) {
@@ -394,14 +391,11 @@ namespace SurplusMigrator.Models {
                                 sequencerColumnName = sequencerColumnName.Replace("_seq", "");
 
                                 query = @"
-                                SELECT 
-	                                [column]
-                                FROM 
-                                    [schema].[tablename]
-                                ORDER BY
-                                    [column] desc
-                                LIMIT 1
-                            ";
+                                    SELECT 
+	                                    MAX([column])
+                                    FROM 
+                                        [schema].[tablename]
+                                ";
 
                                 query = query.Replace("[column]", sequencerColumnName);
                                 query = query.Replace("[schema]", connection.GetDbLoginInfo().schema);
@@ -534,7 +528,7 @@ namespace SurplusMigrator.Models {
             string[] relTableColumns = QueryUtils.getColumnNames(connection, tablename);
             string onlyTruncateMigratedDataCondition = null;
             if(onlyTruncateMigratedData && relTableColumns.Contains("created_by")) {
-                onlyTruncateMigratedDataCondition = " where created_by->>'Id' is null";
+                onlyTruncateMigratedDataCondition = " where created_by is not null and created_by->>'Id' is null";
             }
             string query;
             if(onlyTruncateMigratedDataCondition != null) {
@@ -566,7 +560,7 @@ namespace SurplusMigrator.Models {
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 throw new System.NotImplementedException();
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                string sqlSelect = "select " + String.Join(",", ids) + " from \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" where (" + String.Join(",", ids) + ") in" + "(" + String.Join(',', sqlSelectParams) + ")";
+                string sqlSelect = "select \"" + String.Join("\",\"", ids) + "\" from \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" where (\"" + String.Join("\",\"", ids) + "\") in" + "(" + String.Join(',', sqlSelectParams) + ")";
                 selectResults = executeQuery(sqlSelect, sqlSelectArgs);
             }
 

@@ -22,7 +22,7 @@ namespace SurplusMigrator.Tasks {
         public TransactionJournalDetail(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "transaksi_jurnaldetil",
                     columns = new string[] {
                         "jurnal_id",
@@ -53,7 +53,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "transaction_journal_detail",
                     columns = new string[] {
                         "tjournal_detailid",
@@ -106,28 +106,28 @@ namespace SurplusMigrator.Tasks {
                 "budget_id",
                 "transaksi_budget",
                 "budget_id",
-                connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                 inputs
             );
             nullifyMissingReferences(
                 "budgetdetil_id",
                 "transaksi_budgetdetil",
                 "budgetdetil_id",
-                connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                 inputs
             );
             nullifyMissingReferences(
                 "rekanan_id",
                 "master_rekanan",
                 "rekanan_id",
-                connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                 inputs
             );
             nullifyMissingReferences(
                 "acc_id",
                 "master_acc",
                 "acc_id",
-                connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                 inputs
             );
 
@@ -246,7 +246,7 @@ namespace SurplusMigrator.Tasks {
                 }
             }
 
-            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault().GetDbConnection();
+            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault().GetDbConnection();
             SqlCommand command = new SqlCommand("select jurnal_id, created_dt, created_by, jurnal_isdisabled, jurnal_isdisableddt, jurnal_isdisabledby from [dbo].[transaksi_jurnal] where jurnal_id in ('" + String.Join("','", journalIds) + "')", conn);
             SqlDataReader dataReader = command.ExecuteReader();
 
