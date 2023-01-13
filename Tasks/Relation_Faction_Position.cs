@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-    class RelationFactionPosition : _BaseTask {
-        public RelationFactionPosition(DbConnection_[] connections) : base(connections) {
+    class Relation_Faction_Position : _BaseTask {
+        public Relation_Faction_Position(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),

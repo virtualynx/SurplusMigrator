@@ -11,6 +11,6 @@ namespace SurplusMigrator.Models
         /// <summary>
         /// flag to indicate whether the job should also run the dependencies
         /// </summary>
-        public bool cascade = false;
+        public bool cascade { get; set; } = false;
     }
 }
