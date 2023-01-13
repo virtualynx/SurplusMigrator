@@ -48,7 +48,6 @@ namespace SurplusMigrator.Libraries {
                 NpgsqlCommand command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
                 NpgsqlDataReader reader = command.ExecuteReader();
                 while(reader.Read()) {
-                    RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
                     dynamic data = reader.GetValue(reader.GetOrdinal("attname"));
                     if(data.GetType() == typeof(System.DBNull)) {
                         data = null;
@@ -87,7 +86,6 @@ namespace SurplusMigrator.Libraries {
                 SqlDataReader reader = command.ExecuteReader();
 
                 while(reader.Read()) {
-                    RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
                     dynamic data = reader.GetValue(reader.GetOrdinal("COLUMN_NAME"));
                     if(data.GetType() == typeof(System.DBNull)) {
                         data = null;
@@ -127,7 +125,6 @@ namespace SurplusMigrator.Libraries {
                 NpgsqlCommand command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
                 NpgsqlDataReader reader = command.ExecuteReader();
                 while(reader.Read()) {
-                    RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
                     dynamic data = reader.GetValue(reader.GetOrdinal("attname"));
                     if(data.GetType() == typeof(System.DBNull)) {
                         data = null;
@@ -221,7 +218,8 @@ namespace SurplusMigrator.Libraries {
             string tablename,
             bool onlyApplicationGeneratedData = true,
             int batchSize = 10000,
-            string[] ids = null
+            string[] ids = null,
+            bool verbose = false
         ) {
             var batchInfo = batchInfos.Where(a => 
                 a.dbLoginInfo == connection.GetDbLoginInfo() 
@@ -302,7 +300,10 @@ namespace SurplusMigrator.Libraries {
 
             int readUntil = batchInfo.dataRead + batchSize;
             readUntil = readUntil > batchInfo.dataCount ? batchInfo.dataCount : readUntil;
-            MyConsole.WriteLine("Read batch data " + tablename + " " + batchInfo.dataRead + " - " + readUntil + " / " + batchInfo.dataCount);
+            if(verbose) {
+                //MyConsole.WriteLine("Read batch data " + tablename + " " + batchInfo.dataRead + " - " + readUntil + " / " + batchInfo.dataCount);
+                MyConsole.WriteLine("Read batch data " + tablename + " " + readUntil + " / " + batchInfo.dataCount);
+            }
             var rs = executeQuery(connection, query);
 
             batchInfo.dataRead = readUntil;
@@ -313,6 +314,31 @@ namespace SurplusMigrator.Libraries {
         public static void toggleTrigger(DbConnection_ connection, string tablename, bool enable) {
             string enableStr = enable ? "ENABLE" : "DISABLE";
             executeQuery(connection, "ALTER TABLE \""+ connection .GetDbLoginInfo().schema+ "\".\"" + tablename + "\" "+ enableStr + " TRIGGER ALL;");
+        }
+
+        public static string getInsertArg(object data, Type targetType = null) {
+            string convertedData = null;
+
+            Type type = data?.GetType();
+            if(data == null || type == typeof(DBNull)) {
+                convertedData = "NULL";
+            } else if(type == typeof(string)) {
+                string dataStr = data.ToString();
+                dataStr = dataStr.Replace("'", "''");
+                convertedData = "'" + dataStr + "'";
+            } else if(type == typeof(bool)) {
+                convertedData = data.ToString().ToLower();
+            } else if(type == typeof(DateTime)) {
+                convertedData = "'" + ((DateTime)data).ToString("yyyy-MM-dd HH:mm:ss.fff") + "'";
+            } else if(type == typeof(TimeSpan)) {
+                convertedData = "'" + data.ToString() + "'";
+            } else if(type == typeof(int) || type == typeof(long) || type == typeof(decimal)) {
+                convertedData = data.ToString();
+            } else {
+                throw new Exception("Unknown data type: "+type?.ToString()+", value: "+data?.ToString());
+            }
+
+            return convertedData;
         }
 
         public static bool isConnectionProblem(Exception e) {

@@ -5,7 +5,12 @@ namespace SurplusMigrator.Models
 
         }
 
-        public string taskName { get; set; }
-        public int order { get; set; }
+        public string name { get; set; }
+        public int order { get; set; } = 0;
+
+        /// <summary>
+        /// flag to indicate whether the job should also run the dependencies
+        /// </summary>
+        public bool cascade = false;
     }
 }

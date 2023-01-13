@@ -125,6 +125,12 @@ namespace SurplusMigrator.Tasks {
             IdRemapper.clearMapping("budgetaccountid");
         }
 
+        protected override void runDependencies() {
+            new MasterAccount(connections).run();
+            new MasterAccountType(connections).run();
+            new MasterCurrency(connections).run();
+        }
+
         protected override MappedData getStaticData() {
             MappedData result = new MappedData();
 

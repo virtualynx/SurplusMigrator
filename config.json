@@ -57,7 +57,7 @@
       "type": "MSSQL"
     },
     {
-      "name": "surplus_live",
+      "name": "mirror_source",
       "host": "172.16.123.121",
       "port": 5432,
       "username": "postgres",
@@ -67,12 +67,22 @@
       "type": "POSTGRESQL"
     },
     {
+      "name": "mirror_target",
+      "host": "172.16.123.121",
+      "port": 5432,
+      "username": "postgres",
+      "password": "initrans7",
+      "dbname": "insosys",
+      "schema": "report_test_temp",
+      "type": "POSTGRESQL"
+    },
+    {
       "name": "e_frm",
       "host": "172.16.20.179",
       "port": 1433,
       "username": "sa",
       "password": "controlroom",
-      "dbname": "E_FRM_SURPLUS2",
+      "dbname": "E_FRM",
       "schema": "dbo",
       "type": "MSSQL"
     },
@@ -83,12 +93,12 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "_staging_temp",
+      "schema": "_live",
       "type": "POSTGRESQL"
     }
   ],
   "job_playlist": [
-    "_MigrateProductionData"
+    { "name": "MasterAccountRelation" }
   ],
   "pre_queries_pathx": "../../../SurplusMigrator-ExternalSource/Queries-Pre",
   "post_queries_path": "../../../SurplusMigrator-ExternalSource/Queries-Post",
@@ -97,7 +107,7 @@
   "excluded_tables": {
     "source": [],
     "destination": [
-      "master_account_relation",
+      "master_account_relation ",
       "master_account_general_ledger_sign",
       "master_glreport",
       "master_glreport_detail",
@@ -129,6 +139,27 @@
     "transaction_journal_saldo",
     "master_vendor_bill",
     "transaction_sales_order"
+  ],
+  "table_relations": [
+    {
+      "tablename": "transaction_budget",
+      "relations": [
+        "transaction_budget_detail",
+        "transaction_journal"
+      ]
+    },
+    {
+      "tablename": "transaction_budget_detail",
+      "relations": [
+        "transaction_journal_detail"
+      ]
+    },
+    {
+      "tablename": "transaction_journal",
+      "relations": [
+        "transaction_journal_detail"
+      ]
+    }
   ],
   "job_order": [
     "MasterOccupation",
@@ -216,26 +247,5 @@
     "MasterInvoiceType",
     "MasterVendorBill",
     "TransactionSalesOrder"
-  ],
-  "table_relations": [
-    {
-      "tablename": "transaction_budget",
-      "relations": [
-        "transaction_budget_detail",
-        "transaction_journal"
-      ]
-    },
-    {
-      "tablename": "transaction_budget_detail",
-      "relations": [
-        "transaction_journal_detail"
-      ]
-    },
-    {
-      "tablename": "transaction_journal",
-      "relations": [
-        "transaction_journal_detail"
-      ]
-    }
   ]
 }

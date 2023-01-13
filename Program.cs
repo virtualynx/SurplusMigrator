@@ -39,7 +39,8 @@ namespace SurplusMigrator {
                     string json = r.ReadToEnd();
                     config = JsonSerializer.Deserialize<AppConfig>(json);
                 }
-                MyConsole.Information("Configuration loaded : " + JsonSerializer.Serialize(config) + "\n");
+                //MyConsole.Information("Configuration loaded : " + JsonSerializer.Serialize(config) + "\n");
+                MyConsole.Information("Configuration loaded !\n");
             } catch(Exception e) {
                 MyConsole.Error(e, "Error upon loading config file");
                 return;
@@ -65,12 +66,16 @@ namespace SurplusMigrator {
                 OrderedJob[] jobs = getAllJob(config);
 
                 foreach(var job in jobs) {
-                    var taskType = Type.GetType("SurplusMigrator.Tasks." + job.taskName);
-                    var instantiatedObject = Activator.CreateInstance(taskType, new object[] { connections }) as _BaseTask;
-                    instantiatedObject.run();
+                    var taskType = Type.GetType("SurplusMigrator.Tasks." + job.name);
+                    if(taskType != null) {
+                        var instantiatedObject = Activator.CreateInstance(taskType, new object[] { connections }) as _BaseTask;
+                        instantiatedObject.run(job.cascade);
+                    } else {
+                        MyConsole.Warning("Task with name " + job.name + " cannot be found");
+                    }
                 }
             } catch(Exception e) {
-                MyConsole.Error("Program stopped abnormally due to some error");
+                MyConsole.Error(e, "Program stopped abnormally due to some error");
             } finally {
                 IdRemapper.saveMap();
                 foreach(DbConnection_ con in connections) {
@@ -90,27 +95,25 @@ namespace SurplusMigrator {
 
             if(config.job_playlist.Length > 0) {
                 int order = 0;
-                foreach(var taskName in config.job_playlist) {
-                    orderedJobs.Add(new OrderedJob() {
-                        taskName = taskName,
-                        order = order++
-                    });
+                foreach(var job in config.job_playlist) {
+                    job.order = order++;
                 }
 
-                return orderedJobs.ToArray();
+                return config.job_playlist;
             } else {
                 var taskList = Assembly.GetExecutingAssembly().GetTypes()
-                .Where(t =>
-                    t.Namespace == "SurplusMigrator.Tasks"
-                    && !t.Name.StartsWith("<>")
-                    && !t.Name.StartsWith("_")
+                .Where(a =>
+                    a.Namespace == "SurplusMigrator.Tasks"
+                    && !a.Name.StartsWith("<>")
+                    && !a.Name.StartsWith("_")
                 )
                 .ToList();
 
                 foreach(var task in taskList) {
                     orderedJobs.Add(new OrderedJob() {
-                        taskName = task.Name,
-                        order = getJobOrder(config, task.Name)
+                        name = task.Name,
+                        order = getJobOrder(config, task.Name),
+                        cascade = true
                     });
                 }
 

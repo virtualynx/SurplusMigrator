@@ -56,6 +56,11 @@ namespace SurplusMigrator.Libraries {
             if(stopwatch != null && showElapsed) {
                 elapsedTag = "[" + Utils.getElapsedTimeString(stopwatch.ElapsedMilliseconds) + " ERR) ";
             }
+            if(e.InnerException != null) {
+                Console.WriteLine(elapsedTag + e.InnerException.Message);
+                Console.WriteLine(e.InnerException.StackTrace);
+                Console.WriteLine("");
+            }
             Console.WriteLine(elapsedTag + str);
             //Console.WriteLine(e.ToString());
             Console.WriteLine(e.StackTrace);

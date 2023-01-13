@@ -62,6 +62,10 @@ namespace SurplusMigrator.Tasks {
             return result;
         }
 
+        protected override void runDependencies() {
+            new MasterAccountSubType(connections).run();
+        }
+
         protected override MappedData getStaticData() {
             MappedData result = new MappedData();
 

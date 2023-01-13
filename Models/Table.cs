@@ -155,7 +155,7 @@ namespace SurplusMigrator.Models {
             return result;
         }
 
-        public TaskInsertStatus insertData(List<RowData<ColumnName, object>> inputs, bool truncateBeforeInsert, bool onlyTruncateMigratedData, bool autoGenerateIdentity) {
+        public TaskInsertStatus insertData(List<RowData<ColumnName, object>> inputs, bool truncateBeforeInsert, bool onlyTruncateMigratedData) {
             TaskInsertStatus result = new TaskInsertStatus();
             List<DbInsertFail> failures = new List<DbInsertFail>();
             result.errors = failures;
@@ -177,12 +177,8 @@ namespace SurplusMigrator.Models {
             foreach(KeyValuePair<ColumnName, object> kv in inputs[0]) {
                 inputColumns.Add(kv.Key);
             }
-            string[] targetColumns = inputColumns.ToArray();
-            if(autoGenerateIdentity) {
-                string identityColumnName = getIdentityColumnName();
-                targetColumns = columns.Where(a => a != identityColumnName).ToArray();
-            }
 
+            string[] targetColumns = inputColumns.ToArray();
             List<string> sqlParams = new List<string>();
             List<Dictionary<ParamNotation, object>> sqlArguments = new List<Dictionary<ParamNotation, object>>();
             long insertedCount = 0;
@@ -556,6 +552,32 @@ namespace SurplusMigrator.Models {
                 sqlSelectParams.Add("(" + String.Join(",", paramTemp) + ")");
             }
 
+            List<RowData<ColumnName, object>> duplicatedDatas = new List<RowData<ColumnName, object>>();
+
+            //omit duplicated data in the input list itself
+            var idsGroupMap = new List<string>();
+            foreach(var row in inputs) {
+                List<string> keys = new List<string>();
+                foreach(string id in ids) {
+                    keys.Add(Utils.obj2str(row[id]));
+                }
+                string groupTag = String.Join("-", keys);
+                if(!idsGroupMap.Contains(groupTag)) {
+                    idsGroupMap.Add(groupTag);
+                } else {
+                    duplicatedDatas.Add(row);
+                    failures.Add(new DbInsertFail() {
+                        info = "Data already exists upon insert into " + tableName + ", value: " + JsonSerializer.Serialize(row),
+                        severity = DbInsertFail.DB_FAIL_SEVERITY_WARNING,
+                        type = DbInsertFail.DB_FAIL_TYPE_DUPLICATE
+                    });
+                }
+            }
+            foreach(var dupe in duplicatedDatas) {
+                inputs.Remove(dupe);
+            }
+
+            //omit input datas which already exist in db
             List<RowData<ColumnName, object>> selectResults = new List<RowData<ColumnName, object>>();
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 throw new System.NotImplementedException();
@@ -563,10 +585,8 @@ namespace SurplusMigrator.Models {
                 string sqlSelect = "select \"" + String.Join("\",\"", ids) + "\" from \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" where (\"" + String.Join("\",\"", ids) + "\") in" + "(" + String.Join(',', sqlSelectParams) + ")";
                 selectResults = executeQuery(sqlSelect, sqlSelectArgs);
             }
-
-            List<RowData<ColumnName, object>> duplicatedDatas = new List<RowData<ColumnName, object>>();
             foreach(RowData<ColumnName, object> rowSelect in selectResults) {
-                var predicate = PredicateBuilder.New<RowData<ParamNotation, object>>();
+                var predicate = PredicateBuilder.New<RowData<ColumnName, object>>();
                 foreach(string id in ids) {
                     predicate = predicate.And(rowData => rowData[id].ToString().Trim() == rowSelect[id].ToString().Trim());
                 }

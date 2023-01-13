@@ -24,9 +24,10 @@ namespace SurplusMigrator.Tasks {
 
         protected _BaseTask(DbConnection_[] connections) { 
             this.connections = connections;
+            _startedAt = DateTime.Now;
         }
 
-        public bool run(bool truncateBeforeInsert = false, bool onlyTruncateMigratedData = true, int readBatchSize = defaultReadBatchSize, bool autoGenerateIdentity = false) {
+        public bool run(bool includeDependencies = true, bool truncateBeforeInsert = false, bool onlyTruncateMigratedData = true, int readBatchSize = defaultReadBatchSize) {
             if(isAlreadyRun()) return true;
 
             //if being run from method runDependencies
@@ -57,7 +58,6 @@ namespace SurplusMigrator.Tasks {
                 MyConsole.Information("Using truncating options from the config file for: "+String.Join(", ", tableNames));
             }
 
-            _startedAt = DateTime.Now;
             bool allSuccess = true;
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -69,7 +69,9 @@ namespace SurplusMigrator.Tasks {
                     method.Invoke(this, new object[] { });
                 }
 
-                runDependencies();
+                if(includeDependencies) {
+                    runDependencies();
+                }
 
                 Table[] sourceTables;
                 Table[] destinationTables;
@@ -110,7 +112,7 @@ namespace SurplusMigrator.Tasks {
                 while((fetchedData = getSourceData(sourceTables, readBatchSize)).Count > 0) {
                     MappedData mappedData = mapData(fetchedData);
                     foreach(Table dest in destinationTables) {
-                        TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), truncateBeforeInsert, onlyTruncateMigratedData, autoGenerateIdentity);
+                        TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), truncateBeforeInsert, onlyTruncateMigratedData);
                         successCount += taskStatus.successCount;
                         failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
                         failureCount += mappedData.getError(dest.tableName).Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
@@ -129,17 +131,21 @@ namespace SurplusMigrator.Tasks {
                         if(destinationTables.Any(a => a.tableName == dest)) {
                             MyConsole.WriteLine(this.GetType().Name + " has " + staticDatas.Count(dest) + " static data to be inserted into [" + dest + "]");
                         } else {
-                            MyConsole.Warning(this.GetType().Name + " has " + staticDatas.Count(dest) + " static data to be inserted into [" + dest + "], but destination-table is not mapped in config");
+                            throw new TaskConfigException(this.GetType().Name + " has " + staticDatas.Count(dest) + " static data to be inserted into [" + dest + "], but destination-table is not mapped in config");
                         }
                     }
                     foreach(Table dest in destinationTables) {
-                        TaskInsertStatus taskStatus = dest.insertData(staticDatas.getData(dest.tableName), truncateBeforeInsert, onlyTruncateMigratedData, autoGenerateIdentity);
-                        successCount += taskStatus.successCount;
-                        failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
-                        duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
-                        allErrors.AddRange(taskStatus.errors);
-                        MyConsole.EraseLine();
-                        MyConsole.WriteLine("Total " + (successCount + failureCount + duplicateCount) + " data processed");
+                        var datas = staticDatas.getData(dest.tableName);
+                        for(int a = 0; a < datas.Count; a += readBatchSize) {
+                            var batchDatas = datas.Skip(a).Take(readBatchSize).ToList();
+                            TaskInsertStatus taskStatus = dest.insertData(batchDatas, truncateBeforeInsert, onlyTruncateMigratedData);
+                            successCount += taskStatus.successCount;
+                            failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
+                            duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
+                            allErrors.AddRange(taskStatus.errors);
+                            MyConsole.EraseLine();
+                            MyConsole.WriteLine("Total " + (successCount + failureCount + duplicateCount) + " data processed");
+                        }
                     }
                 }
 
@@ -147,6 +153,7 @@ namespace SurplusMigrator.Tasks {
                     dest.updateSequencer();
                 }
 
+                afterFinishedCallback();
                 MyConsole.Information("Task " + this.GetType().Name + " finished. (success: " + successCount + ", fails: " + failureCount + ", duplicate: " + duplicateCount + ")");
                 setAlreadyRun();
             } catch(TaskConfigException e) {
