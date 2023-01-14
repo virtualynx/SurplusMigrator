@@ -12,7 +12,7 @@ namespace SurplusMigrator.Tasks {
         public MasterShowInventoryCategory(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "master_showinventorycategory",
                     columns = new string[] {
                         "showinventorycategory_id",
@@ -26,7 +26,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_show_inventory_category",
                     columns = new string[] {
                         "showinventorycategoryid",
@@ -52,11 +52,28 @@ namespace SurplusMigrator.Tasks {
                     { "showinventorycategoryid",  data["showinventorycategory_id"]},
                     { "name",  data["showinventorycategory_name"]},
                     { "created_date",  data["showinventorycategory_createddate"]},
-                    { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["showinventorycategory_createdby"]) } },
+                    { "created_by", getAuthInfo(data["showinventorycategory_createdby"], true) },
                     { "is_disabled", Utils.obj2bool(data["showinventorycategory_isdisabled"]) }
                 };
                 result.addData("master_show_inventory_category", insertRow);
             }
+
+            return result;
+        }
+
+        protected override MappedData getStaticData() {
+            MappedData result = new MappedData();
+
+            result.addData(
+                "master_show_inventory_category",
+                new RowData<ColumnName, object>() {
+                    { "showinventorycategoryid",  0},
+                    { "name",  "Empty - Migrations"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY },
+                    { "is_disabled", false }
+                }
+            );
 
             return result;
         }

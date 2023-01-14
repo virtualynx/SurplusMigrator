@@ -1,5 +1,4 @@
-﻿using Npgsql;
-using Serilog;
+﻿using Serilog;
 using Serilog.Events;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
@@ -8,17 +7,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 
 namespace SurplusMigrator {
-    // transaction_journal          transaksi_jurnal
-    // transaction_journal_detail   transaksi_jurnaldetil
-    // master_glreport_subdetail    master_gl_report_row_acc
-    // master_glreport_detail       master_gl_report_row
-    // master_glreport              master_gl_report_row_h
-
-    // transaksi_jurnalkursreval    transaction_journal_reval
-    // transaksi_jurnalsaldo        transaction_journal_saldo
     internal class Program {
         static void Main(string[] args) {
             Stopwatch stopwatch = new Stopwatch();
@@ -46,7 +39,8 @@ namespace SurplusMigrator {
                     string json = r.ReadToEnd();
                     config = JsonSerializer.Deserialize<AppConfig>(json);
                 }
-                MyConsole.Information("Configuration loaded : " + JsonSerializer.Serialize(config) + "\n");
+                //MyConsole.Information("Configuration loaded : " + JsonSerializer.Serialize(config) + "\n");
+                MyConsole.Information("Configuration loaded !\n");
             } catch(Exception e) {
                 MyConsole.Error(e, "Error upon loading config file");
                 return;
@@ -61,82 +55,32 @@ namespace SurplusMigrator {
 
             DbConnection_[] connections = connList.ToArray();
 
-            IdRemapper.loadMap();
-
             try {
-                {
-                    { //master_account
-                        {//pre-req for MasterAccount
-                            new MasterAccountReport(connections).run();
-                            new MasterAccountGroup(connections).run();
-                            new MasterAccountSubGroup(connections).run();
-                            new MasterAccountSubType(connections).run();
-                            new MasterAccountType(connections).run();
-                        }
-                        new MasterAccount(connections).run();
-                    }
-                    {
-                        {
-                            new MasterGLReport(connections).run();
-                        }
-                        new MasterGLReportDetail(connections).run();
-                    }
-                    new MasterGLReportSubDetail(connections).run();
+                if(config.pre_queries_path != null) {
+                    QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault());
+                    qe.execute(config.pre_queries_path);
                 }
 
-                { //start of TransactionJournal 
-                    {//--pre-req for TransactionJournal
-                        new MasterAccountCa(connections).run();
-                        new MasterAdvertiser(connections).run();
-                        new MasterAdvertiserBrand(connections).run();
-                        new MasterCurrency(connections).run();
-                        new MasterPaymentType(connections).run();
-                        new MasterPeriod(connections).run();
-                        new MasterTransactionTypeGroup(connections).run();
-                        new MasterTransactionType(connections).run();
-                        new MasterSource(connections).run();
-                        new MasterVendorCategory(connections).run();
-                        new MasterVendorType(connections).run();
-                        new MasterVendor(connections).run();
-                        {//---pre-req for TransactionBudget
-                            new MasterProdType(connections).run();
-                            new MasterProjectType(connections).run();
-                            new MasterShowInventoryCategory(connections).run();
-                            new MasterShowInventoryDepartment(connections).run();
-                            new MasterShowInventoryTimezone(connections).run();
-                            new MasterTvProgramType(connections).run();
-                            {//----pre-req for TransactionProgramBudget
-                                new MasterProgramBudgetContenttype(connections).run();
-                                new MasterProgramBudgetType(connections).run();
-                            }
-                            new TransactionProgramBudget(connections).run();
-                        }
-                        new TransactionBudget(connections).run(); //
-                    }
-                    new TransactionJournal(connections).run(); //
-                }
+                IdRemapper.loadMap();
 
-                { //start of TransactionJournalDetail
-                    {//--pre-req for TransactionJournalDetail
-                        {//pre-req for MasterBankAccount
-                            new MasterBank(connections).run();
-                        }
-                        new MasterBankAccount(connections).run();
-                        new MasterJournalReferenceType(connections).run();
-                        {//---pre-req for TransactionBudgetDetail
-                            new MasterBudgetAccount(connections).run();
-                        }
-                        new TransactionBudgetDetail(connections).run(); //
+                OrderedJob[] jobs = getAllJob(config);
+
+                foreach(var job in jobs) {
+                    var taskType = Type.GetType("SurplusMigrator.Tasks." + job.name);
+                    if(taskType != null) {
+                        var instantiatedObject = Activator.CreateInstance(taskType, new object[] { connections }) as _BaseTask;
+                        instantiatedObject.run(job.cascade);
+                    } else {
+                        MyConsole.Warning("Task with name " + job.name + " cannot be found");
                     }
-                    new TransactionJournalDetail(connections).run(); //
                 }
-                
-                new TransactionJournalReval(connections).run(); //
-                new TransactionJournalSaldo(connections).run(); //
             } catch(Exception e) {
-                MyConsole.Error("Program stopped abnormally due to some error");
-            } finally { 
+                MyConsole.Error(e, "Program stopped abnormally due to some error");
+            } finally {
                 IdRemapper.saveMap();
+                foreach(DbConnection_ con in connections) {
+                    con.Close();
+                }
             }
 
             stopwatch.Stop();
@@ -144,6 +88,54 @@ namespace SurplusMigrator {
 
             Console.WriteLine("\n\nPress any key to exit ...");
             Console.ReadLine();
+        }
+
+        private static OrderedJob[] getAllJob(AppConfig config) {
+            List<OrderedJob> orderedJobs = new List<OrderedJob>();
+
+            if(config.job_playlist.Length > 0) {
+                int order = 0;
+                foreach(var job in config.job_playlist) {
+                    job.order = order++;
+                }
+
+                return config.job_playlist;
+            } else {
+                var taskList = Assembly.GetExecutingAssembly().GetTypes()
+                .Where(a =>
+                    a.Namespace == "SurplusMigrator.Tasks"
+                    && !a.Name.StartsWith("<>")
+                    && !a.Name.StartsWith("_")
+                )
+                .ToList();
+
+                foreach(var task in taskList) {
+                    orderedJobs.Add(new OrderedJob() {
+                        name = task.Name,
+                        order = getJobOrder(config, task.Name),
+                        cascade = true
+                    });
+                }
+
+                OrderedJob[] orderedJobsArr = orderedJobs.ToArray();
+
+                Array.Sort(
+                    orderedJobsArr,
+                    delegate (OrderedJob x, OrderedJob y) { return x.order - y.order; }
+                );
+
+                return orderedJobsArr;
+            }
+        }
+
+        private static int getJobOrder(AppConfig config, string taskName) {
+            for(int a = 0; a < config.job_order.Length; a++) {
+                if(config.job_order[a] == taskName) {
+                    return a;
+                }
+            }
+
+            return Int32.MaxValue;
         }
     }
 }

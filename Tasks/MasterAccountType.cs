@@ -12,7 +12,7 @@ namespace SurplusMigrator.Tasks {
         public MasterAccountType(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "master_acctype",
                     columns = new string[] {
                         "acctype_id",
@@ -25,7 +25,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_account_type",
                     columns = new string[] {
                         "accounttypeid",
@@ -60,6 +60,10 @@ namespace SurplusMigrator.Tasks {
             }
 
             return result;
+        }
+
+        protected override void runDependencies() {
+            new MasterAccountSubType(connections).run();
         }
 
         protected override MappedData getStaticData() {

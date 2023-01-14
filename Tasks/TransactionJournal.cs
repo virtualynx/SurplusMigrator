@@ -1,3 +1,4 @@
+using SurplusMigrator.Interfaces;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System.Collections.Generic;
@@ -9,7 +10,7 @@ namespace SurplusMigrator.Tasks {
         public TransactionJournal(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "transaksi_jurnal",
                     columns = new string[] {
                         "jurnal_id",
@@ -53,7 +54,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "transaction_journal",
                     columns = new string[] {
                         "tjournalid",
@@ -99,13 +100,15 @@ namespace SurplusMigrator.Tasks {
         protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
-            nullifyMissingReferences("rekanan_id", "master_rekanan", "rekanan_id", connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(), inputs);
+            nullifyMissingReferences("rekanan_id", "master_rekanan", "rekanan_id", connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(), inputs);
 
             foreach(RowData<ColumnName, object> data in inputs) {
                 string tbudgetid = null;
-                if(Utils.obj2int(data["budget_id"]) > 0) {
-                    tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
-                }
+                //if(Utils.obj2int(data["budget_id"]) > 0) {
+                //    tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
+                //}
+                tbudgetid = Utils.obj2str(data["budget_id"]);
+                tbudgetid = tbudgetid == "0" ? null : tbudgetid;
 
                 result.addData(
                     "transaction_journal",
@@ -130,12 +133,12 @@ namespace SurplusMigrator.Tasks {
                         { "advertiserid",  Utils.obj2int(data["advertiser_id"])==0? null: data["advertiser_id"]},
                         { "advertiserbrandid",  Utils.obj2int(data["brand_id"])==0? null: data["brand_id"]},
                         { "paymenttypeid",  1},
-                        { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["created_by"]) } },
+                        { "created_by", getAuthInfo(data["created_by"], true) },
                         { "created_date",  data["created_dt"]},
                         { "is_disabled", Utils.obj2bool(data["jurnal_isdisabled"]) },
-                        { "disabled_by",  new AuthInfo(){ FullName = Utils.obj2str(data["jurnal_isdisabledby"]) } },
+                        { "disabled_by", getAuthInfo(data["jurnal_isdisabledby"]) },
                         { "disabled_date",  data["jurnal_isdisableddt"] },
-                        { "modified_by",  new AuthInfo(){ FullName = Utils.obj2str(data["modified_by"]) } },
+                        { "modified_by", getAuthInfo(data["modified_by"]) },
                         { "modified_date",  data["modified_dt"] },
                         { "is_posted", Utils.obj2bool(data["jurnal_isposted"]) },
                         { "posted_by",  data["jurnal_ispostedby"] },
@@ -167,10 +170,6 @@ namespace SurplusMigrator.Tasks {
             new MasterVendorType(connections).run();
             new MasterVendor(connections).run();
             new TransactionBudget(connections).run(true);
-        }
-
-        protected override void afterFinishedCallback() {
-            base.afterFinishedCallback();
         }
     }
 }

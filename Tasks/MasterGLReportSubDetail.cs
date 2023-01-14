@@ -9,7 +9,7 @@ namespace SurplusMigrator.Tasks {
         public MasterGLReportSubDetail(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "master_gl_report_row_acc",
                     columns = new string[] {
                         "code",
@@ -19,14 +19,14 @@ namespace SurplusMigrator.Tasks {
                         "ac_start",
                         "ac_end",
                         "sign",
-                        "ytd",
+                        //"ytd",
                     },
                     ids = new string[] { "code", "row", "line" }
                 }
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_glreport_subdetail",
                     columns = new string[] {
                         "glreportsubdetailid",
@@ -35,7 +35,6 @@ namespace SurplusMigrator.Tasks {
                         "accountid_start",
                         "accountid_end",
                         "sign",
-                        "ytd",
                     },
                     ids = new string[] { "glreportsubdetailid" }
                 }
@@ -50,27 +49,11 @@ namespace SurplusMigrator.Tasks {
             MappedData result = new MappedData();
 
             foreach(RowData<ColumnName, object> data in inputs) {
-                string dummy = Sequencer.getId("DUMMY_GLRSD", DateTime.Now).Substring("DUMMY_GLRSD".Length + "yyMMdd".Length);
+                string dummy = SequencerString.getId("DUMMY_GLRSD", DateTime.Now).Substring("DUMMY_GLRSD".Length + "yyMMdd".Length);
                 int glreportsubdetailid = Utils.obj2int(dummy);
 
                 string codeAndRowTag = data["code"].ToString() + "_" + data["row"].ToString();
                 int glreportdetailid = IdRemapper.get("glreportdetailid", codeAndRowTag);
-
-                nullifyMissingReferences(
-                    "ac_start",
-                    "master_acc",
-                    "acc_id",
-                    connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
-                    inputs
-                );
-
-                nullifyMissingReferences(
-                    "ac_end",
-                    "master_acc",
-                    "acc_id",
-                    connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
-                    inputs
-                );
 
                 result.addData(
                     "master_glreport_subdetail",
@@ -78,10 +61,9 @@ namespace SurplusMigrator.Tasks {
                         { "glreportsubdetailid",  glreportsubdetailid},
                         { "glreportdetailid",  glreportdetailid},
                         { "description",  data["descr"]},
-                        { "accountid_start",  data["ac_start"]},
-                        { "accountid_end",  data["ac_end"]},
+                        { "accountid_start",  Utils.obj2str(data["ac_start"])},
+                        { "accountid_end",  Utils.obj2str(data["ac_end"])},
                         { "sign",  Utils.obj2long(data["sign"])},
-                        { "ytd",  Utils.obj2long(data["ytd"])},
                     }
                 );
             }

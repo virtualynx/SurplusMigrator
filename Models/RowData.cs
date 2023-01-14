@@ -6,7 +6,7 @@ namespace SurplusMigrator.Models
     /// <summary>
     /// Represents sets of column-data mapping.
     /// </summary>
-    class RowData<ColumnName, Data> : Dictionary<string, object> {
+    class RowData<ColumnName, Object> : Dictionary<string, object> {
         public RowData() : base() { }
         public RowData(int capacity) : base(capacity) { }
     }

@@ -22,7 +22,7 @@ namespace SurplusMigrator.Tasks {
         public TransactionJournalDetail(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "transaksi_jurnaldetil",
                     columns = new string[] {
                         "jurnal_id",
@@ -39,8 +39,8 @@ namespace SurplusMigrator.Tasks {
                         //"channel_id",
                         "strukturunit_id",
                         "ref_id",
-                        //"ref_line",
-                        //"ref_budgetline",
+                        "ref_line",
+                        "ref_budgetline",
                         //"region_id",
                         //"branch_id",
                         "budget_id",
@@ -53,7 +53,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "transaction_journal_detail",
                     columns = new string[] {
                         "tjournal_detailid",
@@ -106,46 +106,63 @@ namespace SurplusMigrator.Tasks {
                 "budget_id",
                 "transaksi_budget",
                 "budget_id",
-                connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                 inputs
             );
             nullifyMissingReferences(
                 "budgetdetil_id",
                 "transaksi_budgetdetil",
                 "budgetdetil_id",
-                connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                 inputs
             );
             nullifyMissingReferences(
                 "rekanan_id",
                 "master_rekanan",
                 "rekanan_id",
-                connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                 inputs
             );
             nullifyMissingReferences(
                 "acc_id",
                 "master_acc",
                 "acc_id",
-                connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                 inputs
             );
 
             foreach(RowData<ColumnName, object> data in inputs) {
-                string tjournal_detailid = Sequencer.getId(getJournalIdPrefix(data["jurnal_id"].ToString()) +"D", Utils.obj2datetime(data["created_dt"]));
+                string tjournal_detailid = data["jurnal_id"].ToString().Substring(0, 2)+"D"+ data["jurnal_id"].ToString().Substring(2)+ data["jurnaldetil_line"].ToString();
+                
                 string tbudgetid = null;
-                if(Utils.obj2long(data["budget_id"]) > 0) {
-                    tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
-                }
-                string tbudget_detailid = null;
-                if(Utils.obj2long(data["budgetdetil_id"]) > 0) {
-                    tbudget_detailid = IdRemapper.get("tbudget_detailid", Utils.obj2long(data["budgetdetil_id"])).ToString();
-                }
-                string tjournalid = Utils.obj2str(data["jurnal_id"]).ToUpper();
+                //if(Utils.obj2long(data["budget_id"]) > 0) {
+                //    tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
+                //}
+                tbudgetid = Utils.obj2str(data["budget_id"]);
+                tbudgetid = tbudgetid == "0" ? null : tbudgetid;
 
+                string tbudget_detailid = null;
+                //if(Utils.obj2long(data["budgetdetil_id"]) > 0) {
+                //    tbudget_detailid = IdRemapper.get("tbudget_detailid", Utils.obj2long(data["budgetdetil_id"])).ToString();
+                //}
+                tbudget_detailid = Utils.obj2str(data["budgetdetil_id"]);
+                tbudget_detailid = tbudget_detailid == "0" ? null : tbudget_detailid;
+
+                string tjournalid = Utils.obj2str(data["jurnal_id"]).ToUpper();
                 string accountid = Utils.obj2str(data["acc_id"]);
-                if(accountid == "0") {
-                    accountid = null;
+                accountid = accountid == "0" ? null : accountid;
+                
+                string ref_id = Utils.obj2str(data["ref_id"]);
+                string ref_line = Utils.obj2str(data["ref_line"]);
+                string ref_detail_id = null;
+                if((ref_id != null && ref_id != "0") && ref_line != null) {
+                    ref_detail_id = ref_id.Substring(0, 2) + "D" + ref_id.Substring(2) + ref_line;
+                }
+
+                string ref_budgetline = Utils.obj2str(data["ref_budgetline"]);
+                string ref_subdetail_id = null;
+                if(ref_detail_id != null && ref_budgetline != null) {
+                    ref_subdetail_id = ref_detail_id + "_" + ref_budgetline;
                 }
 
                 result.addData(
@@ -157,8 +174,6 @@ namespace SurplusMigrator.Tasks {
                         { "description",  data["jurnaldetil_descr"]},
                         { "foreignamount",  Utils.obj2decimal(data["jurnaldetil_foreign"])},
                         { "foreignrate",  Utils.obj2decimal(data["jurnaldetil_foreignrate"])},
-                        { "ref_detail_id",  null}, //ref_line ?
-                        { "ref_subdetail_id",  0}, //ref_budgetline ?
                         { "vendorid",  Utils.obj2long(data["rekanan_id"])==0? null: data["rekanan_id"]},
                         { "accountid",  accountid},
                         { "currencyid",  data["currency_id"]},
@@ -166,15 +181,17 @@ namespace SurplusMigrator.Tasks {
                         { "tbudgetid",  tbudgetid},
                         { "tbudget_detailid",  tbudget_detailid},
                         { "ref_id",  data["ref_id"]},
+                        { "ref_detail_id",  ref_detail_id},
+                        { "ref_subdetail_id",  Utils.obj2int(data["ref_line"])},
                         { "bilyet_no",  null},
                         { "bilyet_date",  null},
                         { "bilyet_effectivedate",  null},
                         { "received_by",  null},
                         { "created_date",  data["created_dt"]},
-                        { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["created_by"]) } },
-                        { "is_disabled", Utils.obj2bool(data["jurnal_isdisabled"])},
+                        { "created_by", getAuthInfo(data["created_by"], true) },
+                        { "is_disabled", Utils.obj2bool(data["jurnal_isdisabled"]) },
                         { "disabled_date",  data["jurnal_isdisableddt"]},
-                        { "disabled_by",  new AuthInfo(){ FullName = Utils.obj2str(data["jurnal_isdisabledby"]) } },
+                        { "disabled_by", getAuthInfo(data["jurnal_isdisabledby"]) },
                         { "modified_date",  null},
                         { "modified_by",  null},
                         //{ "budgetdetail_name",  data[""]},
@@ -229,7 +246,7 @@ namespace SurplusMigrator.Tasks {
                 }
             }
 
-            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault().GetDbConnection();
+            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault().GetDbConnection();
             SqlCommand command = new SqlCommand("select jurnal_id, created_dt, created_by, jurnal_isdisabled, jurnal_isdisableddt, jurnal_isdisabledby from [dbo].[transaksi_jurnal] where jurnal_id in ('" + String.Join("','", journalIds) + "')", conn);
             SqlDataReader dataReader = command.ExecuteReader();
 

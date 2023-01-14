@@ -8,7 +8,7 @@ namespace SurplusMigrator.Tasks {
         public MasterProjectType(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "master_projecttype",
                     columns = new string[] {
                         "projecttype_id",
@@ -23,7 +23,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_project_type",
                     columns = new string[] {
                         "projecttypeid",
@@ -51,7 +51,7 @@ namespace SurplusMigrator.Tasks {
                         { "projecttypeid",  data["projecttype_id"]},
                         { "name",  data["projecttype_name"]},
                         { "created_date",  data["projecttype_entry_dt"]},
-                        { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["projecttype_entry_by"]) } },
+                        { "created_by", getAuthInfo(data["projecttype_entry_by"], true) },
                         { "is_disabled", !Utils.obj2bool(data["projecttype_isactive"]) }
                     }
                 );

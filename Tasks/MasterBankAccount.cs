@@ -9,7 +9,7 @@ namespace SurplusMigrator.Tasks {
         public MasterBankAccount(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "master_bankacc",
                     columns = new string[] {
                         "bankacc_id",
@@ -38,7 +38,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_bank_account",
                     columns = new string[] {
                         "bankaccountid",
@@ -95,7 +95,7 @@ namespace SurplusMigrator.Tasks {
                         { "address",  String.Join(", ", addressList)},
                         { "accountid",  data["bankacc_account"]},
                         { "created_date",  data["bankacc_createdt"]},
-                        { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["bankacc_createby"]) } },
+                        { "created_by", getAuthInfo(data["bankacc_createby"], true) },
                         { "is_disabled", !Utils.obj2bool(data["bankacc_active"]) }
                     }
                 );

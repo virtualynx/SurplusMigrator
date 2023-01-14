@@ -1,5 +1,7 @@
+using Microsoft.Data.SqlClient;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -8,7 +10,7 @@ namespace SurplusMigrator.Tasks {
         public MasterCurrency(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "master_currency",
                     columns = new string[] {
                         "currency_id",
@@ -22,7 +24,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_currency",
                     columns = new string[] {
                         "currencyid",
@@ -67,6 +69,51 @@ namespace SurplusMigrator.Tasks {
                     { "shortname",  "UNKWN"},
                     { "name",  "Unknown"},
                     { "country",  "Unknown"},
+                    { "is_disabled",  false},
+                }
+            );
+
+            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault().GetDbConnection();
+            SqlCommand command = new SqlCommand("select max(currency_id) from [dbo].[master_currency]", conn);
+            long largestCurrencyId = Convert.ToInt64(command.ExecuteScalar());
+
+            result.addData(
+                "master_currency",
+                new RowData<ColumnName, object>() {
+                    { "currencyid",  ++largestCurrencyId},
+                    { "shortname",  "CNH"},
+                    { "name",  "Offshore CNY"},
+                    { "country",  "Republik Rakyat Cina"},
+                    { "is_disabled",  false},
+                }
+            );
+            result.addData(
+                "master_currency",
+                new RowData<ColumnName, object>() {
+                    { "currencyid",  ++largestCurrencyId},
+                    { "shortname",  "KWD"},
+                    { "name",  "Kuwaiti Dinar"},
+                    { "country",  "Kuwait"},
+                    { "is_disabled",  false},
+                }
+            );
+            result.addData(
+                "master_currency",
+                new RowData<ColumnName, object>() {
+                    { "currencyid",  ++largestCurrencyId},
+                    { "shortname",  "LAK"},
+                    { "name",  "Laotian Kip"},
+                    { "country",  "Laos"},
+                    { "is_disabled",  false},
+                }
+            );
+            result.addData(
+                "master_currency",
+                new RowData<ColumnName, object>() {
+                    { "currencyid",  ++largestCurrencyId},
+                    { "shortname",  "SAR"},
+                    { "name",  "Saudi Riyal"},
+                    { "country",  "Saudi Arabia"},
                     { "is_disabled",  false},
                 }
             );

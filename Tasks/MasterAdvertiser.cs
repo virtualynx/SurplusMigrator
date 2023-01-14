@@ -9,7 +9,7 @@ namespace SurplusMigrator.Tasks {
         public MasterAdvertiser(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "master_advertiser",
                     columns = new string[] {
                         "code",
@@ -28,7 +28,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_advertiser",
                     columns = new string[] {
                         "advertiserid",
@@ -65,12 +65,12 @@ namespace SurplusMigrator.Tasks {
                         { "cb_name",  data["cb_name"]},
                         { "rpt_name",  data["rpt_name"]},
                         { "trf_code",  data["trf_code"]},
-                        { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["entry_by"]) } },
+                        { "created_by", getAuthInfo(data["entry_by"], true) },
                         { "created_date",  data["entry_dt"]},
                         { "is_disabled", !Utils.obj2bool(data["active"]) },
                         { "disabled_by",  null },
                         { "disabled_date",  null },
-                        { "modified_by",  new AuthInfo(){ FullName = Utils.obj2str(data["modify_by"]) } },
+                        { "modified_by", getAuthInfo(data["modify_by"]) },
                         { "modified_date",  data["modify_dt"]},
                     }
                 );

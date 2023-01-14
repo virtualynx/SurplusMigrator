@@ -1,11 +1,83 @@
 {
   "infos": [
-    { "databases" : "Connection profiles for all database used for source/destination" },
+    { "databases": "Connection profiles for all database used for source/destination" },
     { "excluded_tables": "Data will not be migrated if the task is involving these source/destination tables, can be listed by tablenames of either being source or destination" },
-    { "truncated_tables": "List of the name of destination tables which will be truncated before inserted" }
+    { "truncated_tables": "List of the name of destination tables which will be truncated before inserted" },
+    { "job_playlist": "Either empty(means running all jobs), or contains list of the task's classname'" }
   ],
   "databases": [
     {
+      "name": "e_start",
+      "host": "172.16.20.179",
+      "port": 1433,
+      "username": "sa",
+      "password": "controlroom",
+      "dbname": "E_START",
+      "schema": "dbo",
+      "type": "MSSQL"
+    },
+    {
+      "name": "finapptv7",
+      "host": "172.16.20.179",
+      "port": 1433,
+      "username": "sa",
+      "password": "controlroom",
+      "dbname": "FINAPPTV7",
+      "schema": "dbo",
+      "type": "MSSQL"
+    },
+    {
+      "name": "privileges",
+      "host": "172.16.123.121",
+      "port": 5432,
+      "username": "postgres",
+      "password": "initrans7",
+      "dbname": "privileges",
+      "schema": "dev",
+      "type": "POSTGRESQL"
+    },
+    {
+      "name": "gen21",
+      "host": "172.16.123.121",
+      "port": 5432,
+      "username": "postgres",
+      "password": "initrans7",
+      "dbname": "integration",
+      "schema": "gen21",
+      "type": "POSTGRESQL"
+    },
+    {
+      "name": "hris",
+      "host": "172.16.21.172",
+      "port": 1433,
+      "username": "sa",
+      "password": "gaada",
+      "dbname": "HRIS",
+      "schema": "dbo",
+      "type": "MSSQL"
+    },
+    {
+      "name": "mirror_source",
+      "host": "172.16.123.121",
+      "port": 5432,
+      "username": "postgres",
+      "password": "initrans7",
+      "dbname": "insosys",
+      "schema": "report_test_2023_01_12",
+      "type": "POSTGRESQL"
+    },
+    {
+      "name": "mirror_target",
+      "host": "172.16.123.121",
+      "port": 5432,
+      "username": "postgres",
+      "password": "initrans7",
+      "dbname": "insosys",
+      "schema": "report_test_temp",
+      "type": "POSTGRESQL"
+    },
+    {
+      "name": "e_frm",
       "host": "172.16.20.179",
       "port": 1433,
       "username": "sa",
@@ -15,41 +87,166 @@
       "type": "MSSQL"
     },
     {
+      "name": "surplus",
       "host": "172.16.123.121",
       "port": 5432,
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "migrate_temp",
+      "schema": "_live",
       "type": "POSTGRESQL"
-    },
-    {
-      "host": "172.16.21.172",
-      "port": 1433,
-      "username": "sa",
-      "password": "gaada",
-      "dbname": "HRIS",
-      "schema": "dbo",
-      "type": "MSSQL"
     }
   ],
+  "job_playlist": [
+    { "name": "Relation_User_Department", "cascade": true }
+  ],
+  "pre_queries_pathx": "../../../SurplusMigrator-ExternalSource/Queries-Pre",
+  "post_queries_path": "../../../SurplusMigrator-ExternalSource/Queries-Post",
+  "excel_sources_path": "../../../SurplusMigrator-ExternalSource/Excels",
+  "json_sources_path": "../../../SurplusMigrator-ExternalSource/Jsons",
   "excluded_tables": {
-    "source": [
-      "transaksi_budget",
-      "transaksi_budgetdetil",
-      "transaksi_jurnal",
-      "transaksi_jurnaldetil"
-    ],
+    "source": [],
     "destination": [
-      "transaction_journal_reval"
+      "master_account_relation",
+      "master_account_general_ledger_sign",
+      "master_glreport",
+      "master_glreport_detail",
+      "master_glreport_subdetail",
+      "transaction_budget",
+      "transaction_program_budget_eps_detail",
+      "transaction_journal",
+      "master_artist_account",
+      "transaction_budget_detail",
+      "transaction_journal_detail",
+      "transaction_journal_reval",
+      "master_vendor_bill",
+      "transaction_sales_order"
     ]
   },
   "truncated_tables": [
+    "master_account_relation",
+    "master_account_general_ledger_sign",
+    "master_glreport",
+    "master_glreport_detail",
+    "master_glreport_subdetail",
     "transaction_budget",
-    "transaction_budget_detail",
+    "transaction_program_budget_eps_detail",
     "transaction_journal",
+    "master_artist_account",
+    "transaction_budget_detail",
     "transaction_journal_detail",
     "transaction_journal_reval",
-    "transaction_journal_saldo"
+    "transaction_journal_saldo",
+    "master_vendor_bill",
+    "transaction_sales_order"
+  ],
+  "table_relations": [
+    {
+      "tablename": "transaction_budget",
+      "relations": [
+        "transaction_budget_detail",
+        "transaction_journal"
+      ]
+    },
+    {
+      "tablename": "transaction_budget_detail",
+      "relations": [
+        "transaction_journal_detail"
+      ]
+    },
+    {
+      "tablename": "transaction_journal",
+      "relations": [
+        "transaction_journal_detail"
+      ]
+    }
+  ],
+  "job_order": [
+    "MasterOccupation",
+    "MasterModule",
+    "MasterUserGroup",
+    "AspNetUsers",
+    "Relation_Module_UserGroup",
+    "Relation_User_Department",
+
+    "MasterFaction",
+    "MasterZone",
+    "MasterFactionZoneRate",
+    "RelationFactionPosition",
+
+    "MasterSetting",
+    "MasterSequencer",
+    "MasterPaymentCategory",
+
+    "MasterObjective",
+    "MasterProcurementCategory",
+
+    "MasterStudioGroup",
+    "MasterStudio",
+
+    "MasterSetupCompany",
+    "MasterTaxType",
+
+    "MasterTaxCategory",
+    "MasterTaxPPH21",
+    "MasterTaxRange",
+    "MasterUnit",
+
+    "MasterAccountReport",
+    "MasterAccountGroup",
+    "MasterAccountSubGroup",
+    "MasterAccountSubType",
+    "MasterAccountType",
+    "MasterAccount",
+    "MasterAccountRelation",
+    "MasterAccountGLSign",
+
+    "MasterAccountCategory",
+    "MasterAccountCategoryDetail",
+
+    "MasterGLReport",
+    "MasterGLReportDetail",
+    "MasterGLReportSubDetail",
+
+    "MasterAccountCa",
+    "MasterAdvertiser",
+    "MasterAdvertiserBrand",
+    "MasterCurrency",
+    "MasterPaymentType",
+    "MasterPeriod",
+    "MasterTransactionTypeGroup",
+    "MasterTransactionType",
+    "MasterSource",
+    "MasterVendorCategory",
+    "MasterVendorType",
+    "MasterVendor",
+
+    "MasterProdType",
+    "MasterProjectType",
+    "MasterShowInventoryCategory",
+    "MasterShowInventoryDepartment",
+    "MasterShowInventoryTimezone",
+    "MasterTvProgramType",
+    "MasterProgramBudgetContenttype",
+    "MasterProgramBudgetType",
+    "TransactionProgramBudget",
+    "TransactionProgramBudgetEpsDetail",
+    "TransactionBudget",
+    "TransactionJournal",
+    "TransactionJournalTax",
+
+    "MasterBank",
+    "MasterBankAccount",
+    "MasterArtistAccount",
+    "MasterJournalReferenceType",
+    "MasterBudgetAccount",
+    "TransactionBudgetDetail",
+    "TransactionJournalDetail",
+    "TransactionJournalReval",
+    "TransactionJournalSaldo",
+    "MasterInvoiceFormat",
+    "MasterInvoiceType",
+    "MasterVendorBill",
+    "TransactionSalesOrder"
   ]
 }

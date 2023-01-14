@@ -5,7 +5,7 @@ using Prefixtag = System.String;
 using Datetag = System.String;
 
 namespace SurplusMigrator.Libraries {
-    class Sequencer {
+    class SequencerString {
         private static Dictionary<Prefixtag, Dictionary<Datetag, int>> _sequencerMap = new Dictionary<Prefixtag, Dictionary<Datetag, int>>();
 
         public static string getId(string prefix, DateTime createdDate) {

@@ -13,7 +13,7 @@ namespace SurplusMigrator.Tasks {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_transaction_type_group",
                     columns = new string[] {
                         "transactiontypegroupid",
@@ -115,6 +115,16 @@ namespace SurplusMigrator.Tasks {
                 new RowData<ColumnName, object>() {
                     { "transactiontypegroupid",  9},
                     { "name",  "Settlement Content"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_transaction_type_group",
+                new RowData<ColumnName, object>() {
+                    { "transactiontypegroupid",  10},
+                    { "name",  "Official Travel"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }

@@ -9,7 +9,7 @@ namespace SurplusMigrator.Tasks {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_program_budget_contenttype",
                     columns = new string[] {
                         "programbudgetcontenttypeid",
@@ -41,26 +41,6 @@ namespace SurplusMigrator.Tasks {
                 new RowData<ColumnName, object>() {
                     { "programbudgetcontenttypeid",  2},
                     { "name",  "Digital"},
-                    { "created_date",  DateTime.Now},
-                    { "created_by",  DefaultValues.CREATED_BY},
-                    { "is_disabled", false }
-                }
-            );
-            result.addData(
-                "master_program_budget_contenttype",
-                new RowData<ColumnName, object>() {
-                    { "programbudgetcontenttypeid",  3},
-                    { "name",  "Media Trans"},
-                    { "created_date",  DateTime.Now},
-                    { "created_by",  DefaultValues.CREATED_BY},
-                    { "is_disabled", false }
-                }
-            );
-            result.addData(
-                "master_program_budget_contenttype",
-                new RowData<ColumnName, object>() {
-                    { "programbudgetcontenttypeid",  4},
-                    { "name",  "News"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }

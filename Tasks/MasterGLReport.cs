@@ -8,7 +8,7 @@ namespace SurplusMigrator.Tasks {
         public MasterGLReport(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "master_gl_report_row_h",
                     columns = new string[] {
                         "Code",
@@ -21,7 +21,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_glreport",
                     columns = new string[] {
                         "glreportid",
@@ -53,7 +53,7 @@ namespace SurplusMigrator.Tasks {
                         { "glreportid",  glreportid},
                         { "name",  data["Name"]},
                         { "created_date",  data["Create_dt"]},
-                        { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["Create_by"])} },
+                        { "created_by", getAuthInfo(data["Create_by"], true) },
                         { "is_disabled", false }
                     }
                 );
@@ -62,8 +62,12 @@ namespace SurplusMigrator.Tasks {
             return result;
         }
 
-        protected override void afterFinishedCallback() {
-            IdRemapper.saveMap();
-        }
+        //protected override void afterFinishedCallback() {
+        //    IdRemapper.saveMap();
+        //}
+
+        //public void clearRemappingCache() {
+        //    IdRemapper.clearMapping("glreportid");
+        //}
     }
 }

@@ -1,18 +1,15 @@
-using Microsoft.Data.SqlClient;
-using Npgsql;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
-using SurplusMigrator.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-  class MasterShowInventoryDepartment : _BaseTask {
+    class MasterShowInventoryDepartment : _BaseTask {
         public MasterShowInventoryDepartment(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "master_showinventorydepartment",
                     columns = new string[] {
                         "showinventorydepartment_id",
@@ -26,7 +23,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_show_inventory_department",
                     columns = new string[] {
                         "showinventorydepartmentid",
@@ -52,11 +49,28 @@ namespace SurplusMigrator.Tasks {
                     { "showinventorydepartmentid",  data["showinventorydepartment_id"]},
                     { "name",  data["showinventorydepartment_name"]},
                     { "created_date",  data["showinventorydepartment_createddate"]},
-                    { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["showinventorydepartment_createdby"]) } },
+                    { "created_by", getAuthInfo(data["showinventorydepartment_createdby"], true) },
                     { "is_disabled", Utils.obj2bool(data["showinventorydepartment_isdisabled"]) }
                 };
                 result.addData("master_show_inventory_department", insertRow);
             }
+
+            return result;
+        }
+
+        protected override MappedData getStaticData() {
+            MappedData result = new MappedData();
+
+            result.addData(
+                "master_show_inventory_department",
+                new RowData<ColumnName, object>() {
+                    { "showinventorydepartmentid",  0},
+                    { "name",  "Empty - Migrations"},
+                    { "created_date",  DateTime.Now},
+                    { "created_by", DefaultValues.CREATED_BY },
+                    { "is_disabled", false }
+                }
+            );
 
             return result;
         }

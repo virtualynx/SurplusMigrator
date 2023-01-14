@@ -17,7 +17,7 @@ using System.Text.RegularExpressions;
 using System.IO;
 
 namespace SurplusMigrator.Tasks {
-    class TransactionBudgetDetail : _BaseTask, RemappableId {
+    class TransactionBudgetDetail : _BaseTask {
         /**
          * here holds ids of the missing TransactionBudget data
          * these TransactionBudget data also does not referred anywhere on TransactionJournal
@@ -35,7 +35,7 @@ namespace SurplusMigrator.Tasks {
         public TransactionBudgetDetail(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "transaksi_budgetdetil",
                     columns = new string[] {
                         "budgetdetil_id",
@@ -68,7 +68,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "transaction_budget_detail",
                     columns = new string[] {
                         "tbudget_detailid",
@@ -118,7 +118,7 @@ namespace SurplusMigrator.Tasks {
                 "budget_id",
                 "transaksi_budget",
                 "budget_id",
-                connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                 inputs
             );
             if(missingRefErrors.Length > 0) {
@@ -152,9 +152,10 @@ namespace SurplusMigrator.Tasks {
 
             foreach(RowData<ColumnName, object> data in inputs) {
                 string tbudgetid = null;
-                if(Utils.obj2long(data["budget_id"]) > 0) {
-                    tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
-                }
+                //if(Utils.obj2long(data["budget_id"]) > 0) {
+                //    tbudgetid = IdRemapper.get("tbudgetid", data["budget_id"]).ToString();
+                //}
+                tbudgetid = Utils.obj2str(data["budget_id"]);
 
                 string budgetaccountid = Utils.obj2long(data["projectacc_id"])!=0? data["projectacc_id"].ToString(): null;
                 long budgetdetil_id = Utils.obj2long(data["budgetdetil_id"]);
@@ -163,8 +164,10 @@ namespace SurplusMigrator.Tasks {
                 }
 
                 DateTime created_date = Utils.obj2datetime(data["budgetdetil_date"]);
-                string tbudget_detailid = Sequencer.getId("BGTD", (DateTime)created_date);
-                IdRemapper.add("tbudget_detailid", budgetdetil_id, tbudget_detailid);
+                //string tbudget_detailid = SequencerString.getId("BGTD", (DateTime)created_date);
+                //IdRemapper.add("tbudget_detailid", budgetdetil_id, tbudget_detailid);
+
+                string tbudget_detailid = budgetdetil_id.ToString();
 
                 result.addData(
                     "transaction_budget_detail",
@@ -211,7 +214,7 @@ namespace SurplusMigrator.Tasks {
 
             if(nullBudgetAndDateIds.Count > 0) {
                 //check if the data is actually being referenced in skipsIfUnreferenced
-                SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault().GetDbConnection();
+                SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault().GetDbConnection();
                 SqlCommand command = new SqlCommand("select jurnal_id, jurnaldetil_line, budgetdetil_id from [dbo].[transaksi_jurnaldetil] where budgetdetil_id in (" + String.Join(",", nullBudgetAndDateIds) + ")", conn);
                 SqlDataReader dataReader = command.ExecuteReader();
 
@@ -280,7 +283,7 @@ namespace SurplusMigrator.Tasks {
                 }
             }
 
-            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault().GetDbConnection();
+            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault().GetDbConnection();
             SqlCommand command = new SqlCommand("select budget_id, budget_entrydt from [dbo].[transaksi_budget] where budget_id in (" + String.Join(",", budgetIdRefs) + ")", conn);
             SqlDataReader dataReader = command.ExecuteReader();
 
@@ -307,12 +310,12 @@ namespace SurplusMigrator.Tasks {
             return missingCreationDateIds;
         }
 
-        public void clearRemappingCache() {
-            IdRemapper.clearMapping("tbudget_detailid");
-        }
+        //protected override void afterFinishedCallback() {
+        //    IdRemapper.saveMap();
+        //}
 
-        protected override void afterFinishedCallback() {
-            IdRemapper.saveMap();
-        }
+        //public void clearRemappingCache() {
+        //    IdRemapper.clearMapping("tbudget_detailid");
+        //}
     }
 }

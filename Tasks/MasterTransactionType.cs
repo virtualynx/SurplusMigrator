@@ -1,19 +1,14 @@
-using Microsoft.Data.SqlClient;
-using Npgsql;
-using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
-using SurplusMigrator.Tasks;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-  class MasterTransactionType : _BaseTask {
+    class MasterTransactionType : _BaseTask {
         public MasterTransactionType(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_transaction_type",
                     columns = new string[] {
                         "transactiontypeid",
@@ -210,6 +205,17 @@ namespace SurplusMigrator.Tasks {
             result.addData(
                 "master_transaction_type",
                 new RowData<ColumnName, object>() {
+                    { "transactiontypeid",  "OT"},
+                    { "name",  "Official Travel"},
+                    { "transactiontypegroupid",  10},
+                    { "created_date",  DateTime.Now},
+                    { "created_by",  DefaultValues.CREATED_BY},
+                    { "is_disabled", false }
+                }
+            );
+            result.addData(
+                "master_transaction_type",
+                new RowData<ColumnName, object>() {
                     { "transactiontypeid",  "PA"},
                     { "name",  "PA"},
                     { "transactiontypegroupid",  1},
@@ -396,6 +402,10 @@ namespace SurplusMigrator.Tasks {
             );
 
             return result;
+        }
+
+        protected override void runDependencies() {
+            new MasterTransactionTypeGroup(connections).run();
         }
     }
 }

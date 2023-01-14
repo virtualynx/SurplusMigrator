@@ -9,7 +9,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 
 using TaskName = System.String;
 
@@ -25,9 +24,10 @@ namespace SurplusMigrator.Tasks {
 
         protected _BaseTask(DbConnection_[] connections) { 
             this.connections = connections;
+            _startedAt = DateTime.Now;
         }
 
-        public bool run(bool truncateBeforeInsert = false, int readBatchSize = defaultReadBatchSize, bool autoGenerateId = false) {
+        public bool run(bool includeDependencies = true, bool truncateBeforeInsert = false, bool onlyTruncateMigratedData = true, int readBatchSize = defaultReadBatchSize) {
             if(isAlreadyRun()) return true;
 
             //if being run from method runDependencies
@@ -40,7 +40,7 @@ namespace SurplusMigrator.Tasks {
                 sources.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName)) ||
                 destinations.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName))
             ) {
-                MyConsole.Information(this.GetType().Name + " is skipped because it's excluded in config");
+                MyConsole.Information(this.GetType().Name + " is skipped because it's excluded in config file");
                 return false;
             }
 
@@ -49,10 +49,15 @@ namespace SurplusMigrator.Tasks {
             //truncate options is in the config file
             if(destinations.Any(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))) {
                 truncateBeforeInsert = true;
-                MyConsole.Information("Applying truncating option from the config file");
+                List<string> tableNames = new List<string>();
+                foreach(var dest in destinations) {
+                    if(GlobalConfig.isTruncatedTable(dest.tableName)) {
+                        tableNames.Add(dest.tableName);
+                    }
+                }
+                MyConsole.Information("Using truncating options from the config file for: "+String.Join(", ", tableNames));
             }
 
-            _startedAt = DateTime.Now;
             bool allSuccess = true;
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -64,7 +69,9 @@ namespace SurplusMigrator.Tasks {
                     method.Invoke(this, new object[] { });
                 }
 
-                runDependencies();
+                if(includeDependencies) {
+                    runDependencies();
+                }
 
                 Table[] sourceTables;
                 Table[] destinationTables;
@@ -105,7 +112,7 @@ namespace SurplusMigrator.Tasks {
                 while((fetchedData = getSourceData(sourceTables, readBatchSize)).Count > 0) {
                     MappedData mappedData = mapData(fetchedData);
                     foreach(Table dest in destinationTables) {
-                        TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), truncateBeforeInsert, autoGenerateId);
+                        TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), truncateBeforeInsert, onlyTruncateMigratedData);
                         successCount += taskStatus.successCount;
                         failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
                         failureCount += mappedData.getError(dest.tableName).Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
@@ -119,18 +126,34 @@ namespace SurplusMigrator.Tasks {
 
                 MappedData staticDatas = getStaticData();
                 if(staticDatas.Count() > 0) {
-                    MyConsole.WriteLine(this.GetType().Name + " has " + staticDatas.Count() + " static data to be inserted");
+                    string[] destinations = staticDatas.getDestinations();
+                    foreach(string dest in destinations) {
+                        if(destinationTables.Any(a => a.tableName == dest)) {
+                            MyConsole.WriteLine(this.GetType().Name + " has " + staticDatas.Count(dest) + " static data to be inserted into [" + dest + "]");
+                        } else {
+                            throw new TaskConfigException(this.GetType().Name + " has " + staticDatas.Count(dest) + " static data to be inserted into [" + dest + "], but destination-table is not mapped in config");
+                        }
+                    }
                     foreach(Table dest in destinationTables) {
-                        TaskInsertStatus taskStatus = dest.insertData(staticDatas.getData(dest.tableName), truncateBeforeInsert, autoGenerateId);
-                        successCount += taskStatus.successCount;
-                        failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
-                        duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
-                        allErrors.AddRange(taskStatus.errors);
-                        MyConsole.EraseLine();
-                        MyConsole.WriteLine("Total " + (successCount + failureCount + duplicateCount) + " data processed");
+                        var datas = staticDatas.getData(dest.tableName);
+                        for(int a = 0; a < datas.Count; a += readBatchSize) {
+                            var batchDatas = datas.Skip(a).Take(readBatchSize).ToList();
+                            TaskInsertStatus taskStatus = dest.insertData(batchDatas, truncateBeforeInsert, onlyTruncateMigratedData);
+                            successCount += taskStatus.successCount;
+                            failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
+                            duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
+                            allErrors.AddRange(taskStatus.errors);
+                            MyConsole.EraseLine();
+                            MyConsole.WriteLine("Total " + (successCount + failureCount + duplicateCount) + " data processed");
+                        }
                     }
                 }
 
+                foreach(Table dest in destinationTables) {
+                    dest.updateSequencer();
+                }
+
+                afterFinishedCallback();
                 MyConsole.Information("Task " + this.GetType().Name + " finished. (success: " + successCount + ", fails: " + failureCount + ", duplicate: " + duplicateCount + ")");
                 setAlreadyRun();
             } catch(TaskConfigException e) {
@@ -167,7 +190,7 @@ namespace SurplusMigrator.Tasks {
             _alreadyRunMap[taskName] = true;
         }
 
-        protected private DbInsertFail[] nullifyMissingReferences(
+        protected DbInsertFail[] nullifyMissingReferences(
             string foreignColumnName,
             string referencedTableName,
             string referencedColumnName,
@@ -175,7 +198,7 @@ namespace SurplusMigrator.Tasks {
             List<RowData<ColumnName, object>> inputs
         ) {
             List<DbInsertFail> result = new List<DbInsertFail> ();
-            List<object> idsOfInputs = new List<object>();
+            List<dynamic> idsOfInputs = new List<dynamic>();
 
             foreach(RowData<ColumnName, object> row in inputs) {
                 object data = row[foreignColumnName];
@@ -206,7 +229,7 @@ namespace SurplusMigrator.Tasks {
 
             if(idsOfInputs.Count == 0) return result.ToArray(); //all reference is either 0 or null
 
-            List<object> queriedReferencedIds = new List<object>();
+            List<dynamic> queriedReferencedIds = new List<dynamic>();
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 SqlConnection conn = (SqlConnection)connection.GetDbConnection();
                 string inclusionParams=null;
@@ -237,7 +260,7 @@ namespace SurplusMigrator.Tasks {
                 throw new System.NotImplementedException();
             }
 
-            List<object> missingRefIds = new List<object>();
+            List<dynamic> missingRefIds = new List<dynamic>();
             foreach(RowData<ColumnName, object> row in inputs) {
                 object data = row[foreignColumnName];
                 if(data == null) continue;
@@ -272,24 +295,23 @@ namespace SurplusMigrator.Tasks {
                 
             if(missingRefIds.Count > 0) {
                 string filename = "log_(" + this.GetType().Name + ")_nullified_missing_reference_to_(" + referencedTableName + ")_" + _startedAt.ToString("yyyyMMdd_HHmmss") + ".json";
-                string savePath = System.Environment.CurrentDirectory + "\\" + filename;
 
-                MissingReference missingRefs;
-                if(File.Exists(savePath)) {
-                    using(StreamReader r = new StreamReader(savePath)) {
-                        string jsonText = r.ReadToEnd();
-                        missingRefs = JsonSerializer.Deserialize<MissingReference>(jsonText);
-                    }
-                } else {
-                    missingRefs = new MissingReference() {
+                MissingReference missingReference;
+                try {
+                    missingReference = Utils.loadJson<MissingReference>(filename);
+                } catch(FileNotFoundException) {
+                    missingReference = new MissingReference() {
                         foreignColumnName = foreignColumnName,
                         referencedTableName = referencedTableName,
                         referencedColumnName = referencedColumnName,
                     };
+                } catch(Exception) {
+                    throw;
                 }
 
-                missingRefs.referencedIds.AddRange(missingRefIds);
-                File.WriteAllText(savePath, JsonSerializer.Serialize(missingRefs));
+                missingReference.referencedIds.AddRange(missingRefIds);
+                Utils.saveJson(filename, missingReference);
+
                 foreach(DbInsertFail err in result) {
                     err.loggedInFilename = filename;
                 }
@@ -298,7 +320,7 @@ namespace SurplusMigrator.Tasks {
             return result.ToArray();
         }
 
-        protected private DbInsertFail[] skipsIfMissingReferences(
+        protected DbInsertFail[] skipsIfMissingReferences(
             string foreignColumnName,
             string referencedTableName,
             string referencedColumnName,
@@ -397,23 +419,22 @@ namespace SurplusMigrator.Tasks {
 
             if(missingRefIds.Count > 0) {
                 string filename = "log_(" + this.GetType().Name + ")_skipped_missing_reference_to_(" + referencedTableName + ")_" + _startedAt.ToString("yyyyMMdd_HHmmss") + ".json";
-                string savePath = System.Environment.CurrentDirectory + "\\" + filename;
-
-                MissingReference missingRefs;
-                if(File.Exists(savePath)) {
-                    using(StreamReader r = new StreamReader(savePath)) {
-                        string jsonText = r.ReadToEnd();
-                        missingRefs = JsonSerializer.Deserialize<MissingReference>(jsonText);
-                    }
-                } else {
-                    missingRefs = new MissingReference() {
+                
+                MissingReference missingReference;
+                try {
+                    missingReference = Utils.loadJson<MissingReference>(filename);
+                } catch(FileNotFoundException) {
+                    missingReference = new MissingReference() {
                         foreignColumnName = foreignColumnName,
                         referencedTableName = referencedTableName,
                         referencedColumnName = referencedColumnName,
                     };
+                } catch(Exception) {
+                    throw;
                 }
 
-                missingRefs.referencedIds.AddRange(missingRefIds);
+                missingReference.referencedIds.AddRange(missingRefIds);
+                Utils.saveJson(filename, missingReference);
 
                 List<RowData<ColumnName, object>> ignoredDatas = inputs.Where(row => missingRefIds.Any(missingId => row.Any(map => map.Key == foreignColumnName && Utils.obj2str(map.Value) == Utils.obj2str(missingId)))).ToList();
                 inputs.RemoveAll(row => missingRefIds.Any(missingId => row.Any(map => map.Key == foreignColumnName && Utils.obj2str(map.Value) == Utils.obj2str(missingId))));
@@ -426,13 +447,23 @@ namespace SurplusMigrator.Tasks {
                     });
                 }
 
-                File.WriteAllText(savePath, JsonSerializer.Serialize(missingRefs));
                 foreach(DbInsertFail err in result) {
                     err.loggedInFilename = filename;
                 }
             }
 
             return result.ToArray();
+        }
+
+        protected AuthInfo getAuthInfo(object personName, bool generateDefaultIfNull = false) {
+            string personNameStr = Utils.obj2str(personName);
+            if(personName != null) {
+                return new AuthInfo() { FullName = personNameStr };
+            }else if(generateDefaultIfNull) {
+                return DefaultValues.CREATED_BY;
+            }
+
+            return null;
         }
 
         protected virtual List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {

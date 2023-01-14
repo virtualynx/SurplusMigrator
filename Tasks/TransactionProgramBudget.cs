@@ -12,7 +12,7 @@ namespace SurplusMigrator.Tasks {
         public TransactionProgramBudget(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "E_FRM").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                     tableName = "prabudget_program",
                     columns = new string[] {
                         "prabudget_program_id",
@@ -56,7 +56,7 @@ namespace SurplusMigrator.Tasks {
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().dbname == "insosys").FirstOrDefault(),
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "transaction_program_Budget",
                     columns = new string[] {
                         "tprogrambudgetid",
@@ -97,6 +97,7 @@ namespace SurplusMigrator.Tasks {
                     ids = new string[] { "tprogrambudgetid" }
                 }
             };
+
         }
 
         protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
@@ -140,12 +141,12 @@ namespace SurplusMigrator.Tasks {
                     { "showinventorytimezoneid",  showinventorytimezoneid!=0? showinventorytimezoneid: null},
                     { "programbudgetcontenttypeid",  data["prabudget_program_contenttype_id"]},
                     { "created_date",  data["created_dt"]},
-                    { "created_by",  new AuthInfo(){ FullName = Utils.obj2str(data["created_by"]) } },
+                    { "created_by", getAuthInfo(data["created_by"], true) },
                     { "is_disabled", Utils.obj2bool(data["prabudget_program_isdisable"]) },
                     { "disabled_date",  data["prabudget_program_isdisable_dt"]},
-                    { "disabled_by",  new AuthInfo(){ FullName = Utils.obj2str(data["prabudget_program_isdisable_by"]) } },
+                    { "disabled_by", getAuthInfo(data["prabudget_program_isdisable_by"]) },
                     { "modified_date",  data["modified_dt"]},
-                    { "modified_by",  new AuthInfo(){ FullName = Utils.obj2str(data["modified_by"]) } },
+                    { "modified_by", getAuthInfo(data["modified_by"]) },
                 };
                 result.addData("transaction_program_Budget", insertRow);
             }
