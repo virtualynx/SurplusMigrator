@@ -98,7 +98,7 @@
     }
   ],
   "job_playlist": [
-    { "name": "MasterAccountRelation" }
+    { "name": "Relation_User_Department", "cascade": true }
   ],
   "pre_queries_pathx": "../../../SurplusMigrator-ExternalSource/Queries-Pre",
   "post_queries_path": "../../../SurplusMigrator-ExternalSource/Queries-Post",
@@ -107,7 +107,7 @@
   "excluded_tables": {
     "source": [],
     "destination": [
-      "master_account_relation ",
+      "master_account_relation",
       "master_account_general_ledger_sign",
       "master_glreport",
       "master_glreport_detail",
@@ -165,8 +165,9 @@
     "MasterOccupation",
     "MasterModule",
     "MasterUserGroup",
-    "Relation_Module_UserGroup",
     "AspNetUsers",
+    "Relation_Module_UserGroup",
+    "Relation_User_Department",
 
     "MasterFaction",
     "MasterZone",
