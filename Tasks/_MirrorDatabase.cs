@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-    class _MirrorProductionData : _BaseTask {
+    class _MirrorDatabase : _BaseTask {
         private DbConnection_ sourceConnection;
 
         private const int DEFAULT_BATCH_SIZE = 200;
@@ -36,7 +36,7 @@ namespace SurplusMigrator.Tasks {
             
         };
 
-        public _MirrorProductionData(DbConnection_[] connections) : base(connections) {
+        public _MirrorDatabase(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
             };
             destinations = new TableInfo[] {
