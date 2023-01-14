@@ -40,7 +40,7 @@ name: .NET Core Desktop
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
@@ -85,13 +85,4 @@ jobs:
     - name: Restore the application
       run: msbuild $env:Solution_Name /t:Restore /p:Configuration=$env:Configuration
       env:
-        Configuration: ${{ matrix.configuration }}
-
-    # Create the app package by building and packaging the Windows Application Packaging project
-    - name: Create the app package
-      run: msbuild $env:Wap_Project_Path /p:Configuration=$env:Configuration /p:UapAppxPackageBuildMode=$env:Appx_Package_Build_Mode /p:AppxBundle=$env:Appx_Bundle /p:PackageCertificateKeyFile=GitHubActionsWorkflow.pfx /p:PackageCertificatePassword=${{ secrets.Pfx_Key }}
-      env:
-        Appx_Bundle: Always
-        Appx_Bundle_Platforms: x86|x64
-        Appx_Package_Build_Mode: StoreUpload
         Configuration: ${{ matrix.configuration }}
