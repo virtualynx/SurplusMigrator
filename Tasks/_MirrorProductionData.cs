@@ -124,7 +124,8 @@ namespace SurplusMigrator.Tasks {
                     }
 
                     QueryUtils.toggleTrigger(tagetConnection, tablename, true);
-                    MyConsole.Information("\nSuccessfully migrate "+ insertedCount + "/"+ dataCount + " data on table " + tablename);
+                    MyConsole.EraseLine();
+                    MyConsole.Information("Successfully migrate "+ insertedCount + "/"+ dataCount + " data on table " + tablename);
                 } catch(Exception) {
                     throw;
                 }

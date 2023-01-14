@@ -13,9 +13,9 @@ namespace SurplusMigrator.Libraries {
                 Console.Write(" ");
             Console.SetCursorPosition(0, currentLineCursor);
         }
-        public static void Write(string str) {
+        public static void Write(string str, bool showElapsed = true) {
             string elapsedTag = "";
-            if(stopwatch != null) {
+            if(stopwatch != null && showElapsed) {
                 elapsedTag = "[" + Utils.getElapsedTimeString(stopwatch.ElapsedMilliseconds) + "    ] ";
             }
             Console.Write(elapsedTag + str);
