@@ -93,7 +93,7 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "_live",
+      "schema": "dev2",
       "type": "POSTGRESQL"
     }
   ],

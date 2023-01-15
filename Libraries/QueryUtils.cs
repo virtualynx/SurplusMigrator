@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using Npgsql;
 using Microsoft.Data.SqlClient;
 using System.Linq;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace SurplusMigrator.Libraries {
     class QueryUtils {
@@ -332,7 +331,13 @@ namespace SurplusMigrator.Libraries {
                 convertedData = "'" + ((DateTime)data).ToString("yyyy-MM-dd HH:mm:ss.fff") + "'";
             } else if(type == typeof(TimeSpan)) {
                 convertedData = "'" + data.ToString() + "'";
-            } else if(type == typeof(int) || type == typeof(long) || type == typeof(decimal)) {
+            } else if(
+                type == typeof(short)
+                || type == typeof(int) 
+                || type == typeof(long)
+                || type == typeof(double)
+                || type == typeof(decimal)
+            ) {
                 convertedData = data.ToString();
             } else {
                 throw new Exception("Unknown data type: "+type?.ToString()+", value: "+data?.ToString());
