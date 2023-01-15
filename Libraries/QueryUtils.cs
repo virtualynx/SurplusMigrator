@@ -332,7 +332,8 @@ namespace SurplusMigrator.Libraries {
             } else if(type == typeof(TimeSpan)) {
                 convertedData = "'" + data.ToString() + "'";
             } else if(
-                type == typeof(int) 
+                type == typeof(short)
+                || type == typeof(int) 
                 || type == typeof(long)
                 || type == typeof(double)
                 || type == typeof(decimal)
