@@ -55,6 +55,12 @@ namespace SurplusMigrator {
 
             DbConnection_[] connections = connList.ToArray();
 
+            var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
+            MyConsole.Information("Database Target: " + JsonSerializer.Serialize(surplusConn.GetDbLoginInfo()));
+            MyConsole.WriteLine("", false);
+            MyConsole.WriteLine("Press enter to start ...", false);
+            Console.ReadLine();
+
             try {
                 if(config.pre_queries_path != null) {
                     QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault());
@@ -74,7 +80,13 @@ namespace SurplusMigrator {
                         MyConsole.Warning("Task with name " + job.name + " cannot be found");
                     }
                 }
+                
+                if(config.post_queries_path != null) {
+                    QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault());
+                    qe.execute(config.post_queries_path);
+                }
             } catch(Exception e) {
+                MyConsole.WriteLine("", false);
                 MyConsole.Error(e, "Program stopped abnormally due to some error");
             } finally {
                 IdRemapper.saveMap();

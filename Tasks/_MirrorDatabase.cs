@@ -3,15 +3,18 @@ using SurplusMigrator.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 
 namespace SurplusMigrator.Tasks {
     class _MirrorDatabase : _BaseTask {
         private DbConnection_ sourceConnection;
+        private DbConnection_ tagetConnection;
 
         private const int DEFAULT_BATCH_SIZE = 200;
+        private bool _isModeTest = false;
 
         private Dictionary<string, int> batchsizeMap = new Dictionary<string, int>() {
-            { "transaction_budget", 500},
+            { "transaction_budget", 1000},
             { "transaction_budget_detail", 3500},
             { "transaction_journal", 3500 },
             { "transaction_journal_detail", 10000 },
@@ -32,7 +35,7 @@ namespace SurplusMigrator.Tasks {
             "dataprotectionkeys"
         };
 
-        private string[] onlyMigrateTables = new string[] {
+        private List<string> onlyMigrateTables = new List<string>() {
             
         };
 
@@ -42,13 +45,26 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] {
             };
 
+            if(getOptions("test") != null) {
+                _isModeTest = true;
+            }
+
+            if(getOptions("only") != null) {
+                string[] tableList = getOptions("only").Split(",");
+                foreach(var table in tableList) {
+                    onlyMigrateTables.Add(table.Trim());
+                }
+            }
+
             sourceConnection = connections.Where(a => a.GetDbLoginInfo().name == "mirror_source").First();
+            tagetConnection = connections.Where(a => a.GetDbLoginInfo().name == "mirror_target").First();
+            var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
+            MyConsole.Information("Mirror Source: " + JsonSerializer.Serialize(sourceConnection.GetDbLoginInfo()));
+            MyConsole.Information("Mirror Target: " + JsonSerializer.Serialize(tagetConnection.GetDbLoginInfo()));
         }
 
         protected override void afterFinishedCallback() {
             var tables = getTables();
-
-            var tagetConnection = connections.Where(a => a.GetDbLoginInfo().name == "mirror_target").First();
 
             foreach(var row in tables) {
                 try {
@@ -121,11 +137,13 @@ namespace SurplusMigrator.Tasks {
                                 throw;
                             }
                         }
+
+                        if(_isModeTest) break;
                     }
 
                     QueryUtils.toggleTrigger(tagetConnection, tablename, true);
                     MyConsole.EraseLine();
-                    MyConsole.Information("Successfully migrate "+ insertedCount + "/"+ dataCount + " data on table " + tablename);
+                    MyConsole.Information("Successfully copying " + insertedCount + "/"+ dataCount + " data on table " + tablename);
                 } catch(Exception) {
                     throw;
                 }
@@ -140,17 +158,19 @@ namespace SurplusMigrator.Tasks {
                 FROM 
 	                information_schema.tables 
                 WHERE 
-	                table_schema = '_staging'
+	                table_schema = '<schema>'
 	                and table_type = 'BASE TABLE'
                 order by table_name 
                 ;
             ";
 
+            query = query.Replace("<schema>", sourceConnection.GetDbLoginInfo().schema);
+
             var allTable = QueryUtils.executeQuery(sourceConnection, query);
 
             var filtered = allTable.Where(a => !excludedTables.Any(b => Utils.obj2str(a["table_name"]) == b)).ToArray();
 
-            if(onlyMigrateTables.Length > 0) {
+            if(onlyMigrateTables.Count > 0) {
                 filtered = filtered.Where(a => onlyMigrateTables.Any(b => Utils.obj2str(a["table_name"]) == b)).ToArray();
             }
 

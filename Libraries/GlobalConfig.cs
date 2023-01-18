@@ -47,5 +47,9 @@ namespace SurplusMigrator.Libraries {
                 _alreadyTruncated.Add(tablename);
             }
         }
+
+        public static OrderedJob[] getJobPlaylist() {
+            return _config.job_playlist;
+        }
     }
 }

@@ -142,7 +142,53 @@ namespace SurplusMigrator.Libraries {
             return result;
         }
 
-        private string[] searchAtInsosys(string table, string[] columns, Dictionary<string, dynamic> filters) {
+        //private string[] searchAtInsosys(string table, string[] columns, Dictionary<string, dynamic> filters) {
+        //    string sql = @"
+        //        select
+        //            [column]
+        //        from
+        //            [table]
+        //    ";
+
+        //    List<string> filtersForSql = new List<string>();
+        //    foreach(KeyValuePair<string, dynamic> entry in filters) {
+        //        filtersForSql.Add(entry.Key + " = @" + entry.Key);
+        //    }
+
+        //    if(filtersForSql.Count > 0) {
+        //        sql += " where " + String.Join(" and ", filtersForSql);
+        //    }
+
+        //    sql = sql.Replace("[column]", String.Join(",", columns));
+        //    sql = sql.Replace("[table]", table);
+
+        //    var dbConn = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault();
+
+        //    SqlConnection conn = (SqlConnection)dbConn.GetDbConnection();
+        //    SqlCommand command = new SqlCommand(sql, conn);
+
+        //    foreach(KeyValuePair<string, dynamic> entry in filters) {
+        //        command.Parameters.AddWithValue("@"+ entry.Key, entry.Value);
+        //    }
+
+        //    List<string> results = new List<string>();
+        //    SqlDataReader reader = command.ExecuteReader();
+        //    while(reader.Read()) {
+        //        dynamic data = reader.GetValue(0);
+        //        if(data.GetType() == typeof(System.DBNull)) {
+        //            data = null;
+        //        } else if(data.GetType() == typeof(string)) {
+        //            data = data.ToString().Trim();
+        //        }
+        //        results.Add(data);
+        //    }
+        //    reader.Close();
+        //    command.Dispose();
+
+        //    return results.ToArray();
+        //}
+
+        private string[] searchAtInsosys(string table, string[] columns, Dictionary<string, dynamic> filters, bool exact = true) {
             string sql = @"
                 select
                     [column]
@@ -150,34 +196,39 @@ namespace SurplusMigrator.Libraries {
                     [table]
             ";
 
+            List<string> columnsTemp = new List<string>(columns);
             List<string> filtersForSql = new List<string>();
+            List<string> orderForSql = new List<string>();
             foreach(KeyValuePair<string, dynamic> entry in filters) {
-                filtersForSql.Add(entry.Key + " = @" + entry.Key);
+                if(exact) {
+                    filtersForSql.Add(entry.Key + " = @" + entry.Key);
+                } else {
+                    filtersForSql.Add(entry.Key + " % @" + entry.Key);
+                    columnsTemp.Add(entry.Key + " % @" + entry.Key + " as " + entry.Key + "_similarity");
+                    orderForSql.Add(entry.Key + "_similarity desc");
+                }
             }
+            columns = columnsTemp.ToArray();
 
             if(filtersForSql.Count > 0) {
                 sql += " where " + String.Join(" and ", filtersForSql);
+                if(!exact && orderForSql.Count > 0) {
+                    sql += " order by " + String.Join(",", orderForSql);
+                }
             }
 
             sql = sql.Replace("[column]", String.Join(",", columns));
             sql = sql.Replace("[table]", table);
 
-            var dbConn = connections.Where(a =>
-                    a.GetDbLoginInfo().host == "172.16.20.179"
-                    && a.GetDbLoginInfo().dbname == "E_FRM"
-                    && a.GetDbLoginInfo().type == "MSSQL"
-                )
-                .FirstOrDefault();
-
-            SqlConnection conn = (SqlConnection)dbConn.GetDbConnection();
-            SqlCommand command = new SqlCommand(sql, conn);
+            NpgsqlConnection conn = (NpgsqlConnection)connections.Where(a => a.GetDbLoginInfo().name == "e_frm_integration").FirstOrDefault().GetDbConnection();
+            NpgsqlCommand command = new NpgsqlCommand(sql, conn);
 
             foreach(KeyValuePair<string, dynamic> entry in filters) {
-                command.Parameters.AddWithValue("@"+ entry.Key, entry.Value);
+                command.Parameters.AddWithValue("@" + entry.Key, entry.Value);
             }
 
             List<string> results = new List<string>();
-            SqlDataReader reader = command.ExecuteReader();
+            NpgsqlDataReader reader = command.ExecuteReader();
             while(reader.Read()) {
                 dynamic data = reader.GetValue(0);
                 if(data.GetType() == typeof(System.DBNull)) {
@@ -217,7 +268,7 @@ namespace SurplusMigrator.Libraries {
                     filtersForSql.Add(entry.Key + " = @" + entry.Key);
                 } else {
                     filtersForSql.Add(entry.Key + " % @" + entry.Key);
-                    columnsTemp.Add(entry.Key + " % @" + entry.Key + " as " + entry.Key + "_similarity");
+                    columnsTemp.Add(entry.Key + " <-> @" + entry.Key + " as " + entry.Key + "_similarity");
                     orderForSql.Add(entry.Key + "_similarity desc");
                 }
             }

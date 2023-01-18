@@ -47,6 +47,16 @@
       "type": "POSTGRESQL"
     },
     {
+      "name": "e_frm_integration",
+      "host": "172.16.123.121",
+      "port": 5432,
+      "username": "postgres",
+      "password": "initrans7",
+      "dbname": "integration",
+      "schema": "e_frm",
+      "type": "POSTGRESQL"
+    },
+    {
       "name": "hris",
       "host": "172.16.21.172",
       "port": 1433,
@@ -55,26 +65,6 @@
       "dbname": "HRIS",
       "schema": "dbo",
       "type": "MSSQL"
-    },
-    {
-      "name": "mirror_source",
-      "host": "172.16.123.121",
-      "port": 5432,
-      "username": "postgres",
-      "password": "initrans7",
-      "dbname": "insosys",
-      "schema": "report_test_2023_01_12",
-      "type": "POSTGRESQL"
-    },
-    {
-      "name": "mirror_target",
-      "host": "172.16.123.121",
-      "port": 5432,
-      "username": "postgres",
-      "password": "initrans7",
-      "dbname": "insosys",
-      "schema": "report_test_temp",
-      "type": "POSTGRESQL"
     },
     {
       "name": "e_frm",
@@ -87,21 +77,45 @@
       "type": "MSSQL"
     },
     {
+      "name": "mirror_source",
+      "host": "172.16.123.121",
+      "port": 5432,
+      "username": "postgres",
+      "password": "initrans7",
+      "dbname": "insosys",
+      "schema": "_live_23_01_18_base",
+      "type": "POSTGRESQL"
+    },
+    {
+      "name": "mirror_target",
+      "host": "172.16.123.121",
+      "port": 5432,
+      "username": "postgres",
+      "password": "initrans7",
+      "dbname": "insosys",
+      "schema": "dev_remap_dept",
+      "type": "POSTGRESQL"
+    },
+    {
       "name": "surplus",
       "host": "172.16.123.121",
       "port": 5432,
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "dev2",
+      "schema": "dev_remap_dept",
       "type": "POSTGRESQL"
     }
   ],
   "job_playlist": [
-    { "name": "Relation_User_Department", "cascade": true }
+    {
+      "name": "_MirrorDatabase",
+      "cascade": false,
+      "options": "test; "
+    }
   ],
   "pre_queries_pathx": "../../../SurplusMigrator-ExternalSource/Queries-Pre",
-  "post_queries_path": "../../../SurplusMigrator-ExternalSource/Queries-Post",
+  "post_queries_pathx": "../../../SurplusMigrator-ExternalSource/Queries-Post",
   "excel_sources_path": "../../../SurplusMigrator-ExternalSource/Excels",
   "json_sources_path": "../../../SurplusMigrator-ExternalSource/Jsons",
   "excluded_tables": {
@@ -124,6 +138,12 @@
     ]
   },
   "truncated_tables": [
+    "AspNetUsers ",
+    "relation_user_department ",
+    "master_department ",
+    "relation_department_surplus_hris ",
+
+    "master_traffic_agency",
     "master_account_relation",
     "master_account_general_ledger_sign",
     "master_glreport",
@@ -141,6 +161,15 @@
     "transaction_sales_order"
   ],
   "table_relations": [
+    {
+      "tablename": "master_department",
+      "relations": [
+        "AspNetUsers",
+        "master_occupation",
+        "relation_user_department",
+        "transaction_advance"
+      ]
+    },
     {
       "tablename": "transaction_budget",
       "relations": [
@@ -221,6 +250,8 @@
     "MasterVendorType",
     "MasterVendor",
 
+    "MasterTrafficAgency",
+
     "MasterProdType",
     "MasterProjectType",
     "MasterShowInventoryCategory",
@@ -245,6 +276,7 @@
     "TransactionJournalReval",
     "TransactionJournalSaldo",
     "MasterInvoiceFormat",
+    "MasterBillingSetup",
     "MasterInvoiceType",
     "MasterVendorBill",
     "TransactionSalesOrder"

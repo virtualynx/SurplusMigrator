@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using Npgsql;
 using Microsoft.Data.SqlClient;
 using System.Linq;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Microsoft.Office.Interop.Excel;
 
 namespace SurplusMigrator.Libraries {
     class QueryUtils {
@@ -141,13 +143,16 @@ namespace SurplusMigrator.Libraries {
             throw new NotImplementedException("Only SQL-Server and PostgreSql database is supported");
         }
 
-        public static RowData<ColumnName, object>[] executeQuery(DbConnection_ connection, string sql) {
+        public static RowData<ColumnName, object>[] executeQuery(DbConnection_ connection, string sql, int timeoutSeconds = 30) {
             List<RowData<ColumnName, object>> result = new List<RowData<string, dynamic>>();
             bool retry = false;
             do {
                 try {
                     if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                         SqlCommand command = new SqlCommand(sql, (SqlConnection)connection.GetDbConnection());
+                        if(timeoutSeconds != -1) {
+                            command.CommandTimeout = timeoutSeconds;
+                        }
                         SqlDataReader reader = command.ExecuteReader();
                         while(reader.Read()) {
                             RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
@@ -167,6 +172,9 @@ namespace SurplusMigrator.Libraries {
                         command.Dispose();
                     } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                         NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)connection.GetDbConnection());
+                        if(timeoutSeconds != -1) {
+                            command.CommandTimeout = timeoutSeconds;
+                        }
                         NpgsqlDataReader reader = command.ExecuteReader();
                         while(reader.Read()) {
                             RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
@@ -212,12 +220,25 @@ namespace SurplusMigrator.Libraries {
             return Utils.obj2int(count[0]["datacount"]);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="connection"></param>
+        /// <param name="tablename"></param>
+        /// <param name="onlyApplicationGeneratedData"></param>
+        /// <param name="batchSize"></param>
+        /// <param name="ids"></param>
+        /// <param name="filters">Map of column and the filter value</param>
+        /// <param name="verbose"></param>
+        /// <returns></returns>
+        /// <exception cref="NotImplementedException"></exception>
         public static RowData<ColumnName, object>[] getDataBatch(
             DbConnection_ connection,
             string tablename,
             bool onlyApplicationGeneratedData = true,
             int batchSize = 10000,
             string[] ids = null,
+            Dictionary<string, object> filters = null,
             bool verbose = false
         ) {
             var batchInfo = batchInfos.Where(a => 
@@ -245,6 +266,8 @@ namespace SurplusMigrator.Libraries {
                 ids = getPrimaryKeys(connection, tablename);
             }
 
+            List<string> filterList = new List<string>();
+
             string query;
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 query = @"
@@ -256,6 +279,7 @@ namespace SurplusMigrator.Libraries {
                                     , *
                                 FROM      
                                     [<schema>].[<tablename>]
+                                <filters>
                             ) AS RowConstrainedResult
                     WHERE   
                         RowNum >= <offset_start>
@@ -263,13 +287,23 @@ namespace SurplusMigrator.Libraries {
                     ORDER BY RowNum";
 
                 query = query.Replace("<selected_columns>", String.Join(',', columns));
+
                 string over_orderby = "(select null)";
                 if(ids != null && ids.Length > 0) {
                     over_orderby = String.Join(',', ids);
                 }
                 query = query.Replace("<over_orderby>", over_orderby);
+
                 query = query.Replace("<schema>", connection.GetDbLoginInfo().schema);
                 query = query.Replace("<tablename>", tablename);
+
+                if(filters != null) {
+                    foreach(var f in filters) {
+                        filterList.Add("[" + f.Key + "] = " + getInsertArg(f.Value));
+                    }
+                }
+                query = query.Replace("<filters>", filterList.Count > 0 ? " WHERE " + String.Join(" AND ", filterList) : "");
+
                 query = query.Replace("<offset_start>", (batchInfo.dataRead + 1).ToString());
                 query = query.Replace("<offset_end>", (batchInfo.dataRead + batchSize).ToString());
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
@@ -278,21 +312,34 @@ namespace SurplusMigrator.Libraries {
                         <columns> 
                     from 
                         ""<schema_name>"".""<tablename>""
+                    <filters>
+                    <order_by>
+                    <offset_limit>
                 ";
+
+                query = query.Replace("<columns>", "\"" + String.Join("\",\"", columns) + "\"");
+                query = query.Replace("<schema_name>", connection.GetDbLoginInfo().schema);
+                query = query.Replace("<tablename>", tablename);
+
                 if(onlyApplicationGeneratedData) {
-                    query += " where created_by is null or created_by->> 'Id' is not null";
+                    filterList.Add("(created_by is null or created_by->> 'Id' is not null)");
                 }
+                if(filters != null) {
+                    foreach(var f in filters) {
+                        filterList.Add("\"" + f.Key + "\" = " + getInsertArg(f.Value));
+                    }
+                }
+                query = query.Replace("<filters>", filterList.Count > 0 ? " WHERE " + String.Join(" AND ", filterList) : "");
+
                 string orderBy = " order by ";
                 if(ids.Length > 0) {
                     orderBy += "\"" + String.Join("\",\"", ids) + "\"";
                 } else {
                     orderBy += "\"" + String.Join("\",\"", columns) + "\"";
                 }
-                query += orderBy;
-                query = query.Replace("<columns>", "\"" + String.Join("\",\"", columns) + "\"");
-                query = query.Replace("<schema_name>", connection.GetDbLoginInfo().schema);
-                query = query.Replace("<tablename>", tablename);
-                query += " offset " + batchInfo.dataRead + " limit " + batchSize;
+                query = query.Replace("<order_by>", orderBy);
+
+                query = query.Replace("<offset_limit>", " offset " + batchInfo.dataRead + " limit " + batchSize);
             } else {
                 throw new NotImplementedException("Unknown database implementation");
             }
@@ -313,6 +360,119 @@ namespace SurplusMigrator.Libraries {
         public static void toggleTrigger(DbConnection_ connection, string tablename, bool enable) {
             string enableStr = enable ? "ENABLE" : "DISABLE";
             executeQuery(connection, "ALTER TABLE \""+ connection .GetDbLoginInfo().schema+ "\".\"" + tablename + "\" "+ enableStr + " TRIGGER ALL;");
+        }
+
+        /// <summary>
+        /// Only works for postgresql server
+        /// </summary>
+        /// <param name="connection"></param>
+        /// <param name="table"></param>
+        /// <param name="columns"></param>
+        /// <param name="filters"></param>
+        /// <param name="exact"></param>
+        /// <returns></returns>
+        public static RowData<ColumnName, object>[] searchSimilarity(DbConnection_ connection, string table, string[] columns, Dictionary<string, dynamic> filters, double index) {
+            string sql = @"
+                select
+                    [column]
+                from
+                    [table]
+            ";
+
+            bool exact = index >= 1.0;
+
+            List<string> columnsTemp = new List<string>(columns);
+            List<string> filtersForSql = new List<string>();
+            List<string> orderForSql = new List<string>();
+            foreach(KeyValuePair<string, dynamic> entry in filters) {
+                if(exact) {
+                    filtersForSql.Add(entry.Key + " = @" + entry.Key);
+                } else {
+                    filtersForSql.Add(entry.Key + " % @" + entry.Key);
+                    filtersForSql.Add(entry.Key + " <-> @" + entry.Key + " >= "+ index);
+                    columnsTemp.Add(entry.Key + " <-> @" + entry.Key + " as " + entry.Key + "_similarity");
+                    orderForSql.Add(entry.Key + "_similarity desc");
+                }
+            }
+            columns = columnsTemp.ToArray();
+
+            if(filtersForSql.Count > 0) {
+                sql += " where " + String.Join(" and ", filtersForSql);
+                if(!exact && orderForSql.Count > 0) {
+                    sql += " order by " + String.Join(",", orderForSql);
+                }
+            }
+
+            sql = sql.Replace("[column]", String.Join(",", columns));
+            sql = sql.Replace("[table]", table);
+
+            NpgsqlConnection conn = (NpgsqlConnection)connection.GetDbConnection();
+            NpgsqlCommand command = new NpgsqlCommand(sql, conn);
+
+            foreach(KeyValuePair<string, dynamic> entry in filters) {
+                command.Parameters.AddWithValue("@" + entry.Key, entry.Value);
+            }
+
+            List<RowData<ColumnName, object>> results = new List<RowData<ColumnName, object>>();
+            NpgsqlDataReader reader = command.ExecuteReader();
+            while(reader.Read()) {
+                RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
+                for(int a = 0; a < reader.FieldCount; a++) {
+                    string columnName = reader.GetName(a);
+                    dynamic data = reader.GetValue(a);
+                    if(data.GetType() == typeof(System.DBNull)) {
+                        data = null;
+                    } else if(data.GetType() == typeof(string)) {
+                        data = data.ToString().Trim();
+                    }
+                    rowData.Add(columnName, data);
+                }
+                results.Add(rowData);
+            }
+            reader.Close();
+            command.Dispose();
+
+            return results.ToArray();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="connection"></param>
+        /// <param name="targetTable"></param>
+        /// <param name="selectColumns"></param>
+        /// <param name="targetColumns"></param>
+        /// <param name="word"></param>
+        /// <returns></returns>
+        public static RowData<ColumnName, object>[] searchSimilar(DbConnection_ connection, string targetTable, string[] selectColumns, string targetColumns, string word, int maxResult = 1) {
+            RowData<ColumnName, object>[] queryResult;
+
+            string[] wordSplit = word.Split(" ");
+            int wordCounter = 1;
+            do {
+                string sql = @"
+                    select
+                        <columns>
+                    from
+                        ""<schema>"".""<tables>""
+                    where
+                        <filters>
+                ";
+                List<string> filters = new List<string>();
+                for(int a=0; a<wordCounter; a++) {
+
+                    filters.Add("lower(\""+ targetColumns + "\") like '%" + wordSplit[a].ToLower() + "%'");
+                }
+
+                sql = sql.Replace("<columns>", "\"" + String.Join("\",\"", selectColumns) + "\"");
+                sql = sql.Replace("<schema>", connection.GetDbLoginInfo().schema);
+                sql = sql.Replace("<tables>", targetTable);
+                sql = sql.Replace("<filters>", String.Join(" and ", filters));
+                queryResult = QueryUtils.executeQuery(connection, sql);
+                wordCounter++;
+            } while(queryResult.Length > maxResult && wordCounter <= wordSplit.Length);
+
+            return queryResult;
         }
 
         public static string getInsertArg(object data, Type targetType = null) {

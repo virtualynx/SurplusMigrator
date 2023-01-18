@@ -1,12 +1,22 @@
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
     class Relation_User_Department : _BaseTask {
         public Relation_User_Department(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
+                new TableInfo() {
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
+                    tableName = "AspNetUsers",
+                    columns = new string[] {
+                        "nik",
+                        "departmentid",
+                    },
+                    ids = new string[] { "nik" }
+                }
             };
             destinations = new TableInfo[] {
                 new TableInfo() {
@@ -24,70 +34,35 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        protected override void runDependencies() {
-            new AspNetUsers(connections).run();
+        protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
+            return sourceTables.Where(a => a.tableName == "AspNetUsers").FirstOrDefault().getDatas(batchSize);
         }
 
-        protected override MappedData getStaticData() {
+        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
-            string query = @"
-                select 
-	                master_eis.nik, 
-	                case when coalesce(TRIM(master_eis.department_code), '') <> '' then 
-		                master_eis.department_code
-	                else
-		                case when coalesce(TRIM(master_eis.division_code), '') <> '' then 
-			                master_eis.division_code
-		                else
-			                master_eis.directorate_code
-		                end
-	                end as unit_code
-                from 
-	                dblink(
-		                'dbname=integration port=5432 host=172.16.123.121 user=postgres password=initrans7'::text, 
-		                '
-			                SELECT 
-				                ""NIK"" as nik, 
-				                ""Nama"" as name,
-				                department_code,
-				                division_code,
-				                directorate_code
-			                FROM 
-				                hris.""MasterEisAktif""
-		                '::text
-	                ) master_eis (
-		                nik character varying(10), 
-		                ""name"" character varying(100), 
-		                department_code character varying(50), 
-		                division_code character varying(50), 
-		                directorate_code character varying(50)
-	                )
-                    join ""<schema>"".""AspNetUsers"" as ""user"" on ""user"".nik = master_eis.nik
-                ;
-            ";
+            foreach(RowData<ColumnName, object> data in inputs) {
+                string departmentid = Utils.obj2str(data["departmentid"]);
 
-            var surplus_conn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault();
-            query = query.Replace("<schema>", surplus_conn.GetDbLoginInfo().schema);
+                if(departmentid == null) continue;
 
-            var rs = QueryUtils.executeQuery(surplus_conn, query);
-
-            rs = rs.Where(a => a["unit_code"]!=null).ToArray();
-
-            foreach(var row in rs) {
                 result.addData(
                     "relation_user_department",
                     new RowData<ColumnName, object>() {
-                        { "nik", row["nik"]},
-                        { "departmentid", row["unit_code"]},
-                        { "created_date", DateTime.Now},
-                        { "created_by", DefaultValues.CREATED_BY},
-                        { "is_disabled", false},
+                        { "nik",  data["nik"]},
+                        { "departmentid",  data["departmentid"]},
+                        { "created_date",  DateTime.Now},
+                        { "created_by",  DefaultValues.CREATED_BY},
+                        { "is_disabled", false}
                     }
                 );
             }
 
             return result;
+        }
+
+        protected override void runDependencies() {
+            new AspNetUsers(connections).run();
         }
     }
 }
