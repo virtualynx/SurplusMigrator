@@ -121,6 +121,7 @@ namespace SurplusMigrator.Tasks {
                 { "Bank Sumut", "117" },
                 { "Bank Syariah Indonesia", "451" },
                 { "Allo Bank", "567" },
+                { "SEA Bank", "535" },
             };
 
             foreach(RowData<ColumnName, object> data in inputs) {

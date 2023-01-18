@@ -57,7 +57,7 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "transaction_program_Budget",
+                    tableName = "transaction_program_budget",
                     columns = new string[] {
                         "tprogrambudgetid",
                         "descr",
@@ -148,7 +148,7 @@ namespace SurplusMigrator.Tasks {
                     { "modified_date",  data["modified_dt"]},
                     { "modified_by", getAuthInfo(data["modified_by"]) },
                 };
-                result.addData("transaction_program_Budget", insertRow);
+                result.addData("transaction_program_budget", insertRow);
             }
 
             return result;

@@ -23,6 +23,10 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
+        protected override void runDependencies() {
+            new _Department(connections).run();
+        }
+
         protected override MappedData getStaticData() {
             MappedData result = new MappedData();
 
@@ -31,7 +35,7 @@ namespace SurplusMigrator.Tasks {
                 new RowData<ColumnName, object>() {
                     { "occupationid",  1},
                     { "name",  "Software Developer"},
-                    { "departmentid",  "E1A"},
+                    { "departmentid",  "IT"},
                     { "created_date",  DateTime.Now},
                     { "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }

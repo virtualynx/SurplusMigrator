@@ -1,10 +1,13 @@
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 
 namespace SurplusMigrator.Tasks {
     class AspNetUsers : _BaseTask {
+        Dictionary<string, string> _newDeptIdMap = null;
+
         public AspNetUsers(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
@@ -29,6 +32,16 @@ namespace SurplusMigrator.Tasks {
                         "phonenumber"
                     },
                     ids = new string[] { "nik" }
+                },
+                new TableInfo() {
+                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
+                    tableName = "relation_user_usergroup",
+                    columns = new string[] {
+                        "userid",
+                        "usergroupid",
+                        "is_disabled",
+                    },
+                    ids = new string[] { "userid", "usergroupid" }
                 }
             };
         }
@@ -87,6 +100,12 @@ namespace SurplusMigrator.Tasks {
             var rs = QueryUtils.executeQuery(surplus_conn, query);
 
             foreach(var row in rs) {
+                string newDeptId = null;
+                string unitCode = Utils.obj2str(row["unit_code"]);
+                if(unitCode != null) {
+                    newDeptId = getNewDeptId(unitCode);
+                }
+
                 result.addData(
                     "AspNetUsers",
                     new RowData<ColumnName, object>() {
@@ -94,7 +113,7 @@ namespace SurplusMigrator.Tasks {
                         { "nik", row["nik"]},
                         { "fullname", row["name"]},
                         { "username", row["name"]},
-                        { "departmentid", row["unit_code"]},
+                        { "departmentid", newDeptId},
                         { "isdisabled", false},
                         { "occupationid", 1},
                         { "usergroupid", 1},
@@ -107,9 +126,32 @@ namespace SurplusMigrator.Tasks {
                         { "phonenumber", row["phone"]}
                     }
                 );
+
+                result.addData(
+                    "relation_user_usergroup",
+                    new RowData<ColumnName, object>() {
+                        { "userid", row["nik"]},
+                        { "usergroupid", 1},
+                        { "is_disabled", false},
+                    }
+                );
             }
 
             return result;
+        }
+
+        private string getNewDeptId(string hrisDeptId) {
+            if(_newDeptIdMap == null) {
+                _newDeptIdMap = new Dictionary<string, string>();
+
+                var conn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
+                var datas = QueryUtils.executeQuery(conn, "select departmentid, departmentid_hris from relation_department_surplus_hris");
+                foreach(var row in datas) {
+                    _newDeptIdMap[row["departmentid_hris"].ToString()] = row["departmentid"].ToString();
+                }
+            }
+
+            return _newDeptIdMap[hrisDeptId];
         }
 
         private MappedData getDataFromJSON() {
@@ -154,6 +196,9 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override void runDependencies() {
+            {
+                new _Department(connections).run();
+            }
             new MasterOccupation(connections).run();
             {
                 {

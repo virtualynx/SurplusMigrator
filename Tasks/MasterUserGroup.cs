@@ -14,12 +14,13 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "master_user_group",
+                    //tableName = "master_user_group",
+                    tableName = "usergroup",
                     columns = new string[] {
                         "usergroupid",
                         "name",
-                        "created_date",
-                        "created_by",
+                        //"created_date",
+                        //"created_by",
                         "is_disabled"
                     },
                     ids = new string[] { "usergroupid" }
@@ -31,22 +32,24 @@ namespace SurplusMigrator.Tasks {
             MappedData result = new MappedData();
 
             result.addData(
-                "master_user_group",
+                //"master_user_group",
+                "usergroup",
                 new RowData<ColumnName, object>() {
                     { "usergroupid",  1},
                     { "name",  "Administrator"},
-                    { "created_date",  DateTime.Now},
-                    { "created_by",  DefaultValues.CREATED_BY},
+                    //{ "created_date",  DateTime.Now},
+                    //{ "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );
             result.addData(
-                "master_user_group",
+                //"master_user_group",
+                "usergroup",
                 new RowData<ColumnName, object>() {
                     { "usergroupid",  2},
                     { "name",  "User"},
-                    { "created_date",  DateTime.Now},
-                    { "created_by",  DefaultValues.CREATED_BY},
+                    //{ "created_date",  DateTime.Now},
+                    //{ "created_by",  DefaultValues.CREATED_BY},
                     { "is_disabled", false }
                 }
             );

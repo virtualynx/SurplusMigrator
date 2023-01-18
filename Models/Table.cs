@@ -105,8 +105,8 @@ namespace SurplusMigrator.Models {
                             OFFSET [offset_size]
                         ";
 
-                        sqlString = sqlString.Replace("[selected_columns]", String.Join(',', columns));
-                        sqlString = sqlString.Replace("[tablename]", connection.GetDbLoginInfo().schema + "." + tableName);
+                        sqlString = sqlString.Replace("[selected_columns]", "\"" + String.Join("\",\"", columns) + "\"");
+                        sqlString = sqlString.Replace("[tablename]", "\"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"");
                         string order_by = "";
                         if(ids != null && ids.Length > 0) {
                             order_by = "ORDER BY " + String.Join(',', ids);

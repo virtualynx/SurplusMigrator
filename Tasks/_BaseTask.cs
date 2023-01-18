@@ -9,12 +9,13 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-
+using System.Text.Json;
 using TaskName = System.String;
 
 namespace SurplusMigrator.Tasks {
     abstract class _BaseTask {
         private static Dictionary<TaskName, bool> _alreadyRunMap = new Dictionary<TaskName, bool>();
+        Dictionary<string, string> _options = null;
 
         public TableInfo[] sources = null;
         public TableInfo[] destinations = null;
@@ -188,6 +189,28 @@ namespace SurplusMigrator.Tasks {
         private void setAlreadyRun() {
             string taskName = this.GetType().ToString();
             _alreadyRunMap[taskName] = true;
+        }
+
+        protected string getOptions(string optionName) {
+            if(_options == null) {
+                _options = new Dictionary<string, string>();
+                OrderedJob job = GlobalConfig.getJobPlaylist().Where(a => a.name == this.GetType().Name).First();
+
+                if(job.options != null) {
+                    string[] optList = job.options.Split(";");
+                    foreach(var opt in optList) {
+                        if(opt.Trim().Length == 0) continue;
+                        string[] optValue = opt.Split("=");
+                        if(optValue.Length == 1) {
+                            _options[optValue[0]] = optValue[0];
+                        } else {
+                            _options[optValue[0]] = optValue[1];
+                        }
+                    }
+                }
+            }
+
+            return _options.ContainsKey(optionName)? _options[optionName]: null;
         }
 
         protected DbInsertFail[] nullifyMissingReferences(

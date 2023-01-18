@@ -33,8 +33,11 @@ namespace SurplusMigrator.Libraries {
                 return Utils.obj2decimal(o) == 0 ? false : true;
             } else if(type == typeof(bool)) {
                 return (bool)o;
+            } if(type == typeof(string)) {
+                string boolStr = Utils.obj2str(o).ToLower();
+                return Boolean.Parse(boolStr);
             } else {
-                throw new Exception("Unable to convert " + o.ToString() + "(" + type.ToString() +") into boolean");
+                throw new Exception("Unable to convert \"" + o.ToString() + "\" (" + type.ToString() +") into boolean");
             }
         }
         public static string obj2str(object o) {
@@ -104,7 +107,7 @@ namespace SurplusMigrator.Libraries {
             DataTable dtTablesList = oleExcelConnection.GetSchema("Tables");
 
             if(sheetName == null && dtTablesList.Rows.Count > 0) {
-                sheetName = dtTablesList.Rows[0]["TABLE_NAME"].ToString();
+                sheetName = dtTablesList.Rows[0]["TABLE_NAME"].ToString().Replace("$","");
             }
             dtTablesList.Clear();
             dtTablesList.Dispose();

@@ -165,5 +165,10 @@ namespace SurplusMigrator.Tasks {
 
             return result;
         }
+
+        protected override void runDependencies() {
+            new MasterVendorCategory(connections).run();
+            new MasterVendorType(connections).run();
+        }
     }
 }
