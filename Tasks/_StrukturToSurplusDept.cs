@@ -2,22 +2,13 @@ using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System;
 using System.Collections.Generic;
-using System.Drawing.Text;
 using System.Linq;
-using System.Text.Json;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
-/**
- * Step
- * 1. create empty schema
- * 2. migrate
- * 3. create column is_default(type bool) in relation_user_department
- * 3. run this job with cascade option: true
- */
+
 namespace SurplusMigrator.Tasks {
     class _StrukturToSurplusDept : _BaseTask {
         private Dictionary<string, string[]> remappedStrukturColumns = new Dictionary<string, string[]>() {
             { "transaction_journal", new string[]{ "departmentid" } },
-            //{ "transaction_journal_detail", new string[]{ "departmentid" } },
+            { "transaction_journal_detail", new string[]{ "departmentid" } },
             { "transaction_program_budget", new string[]{ "departmentid" } }
         };
 
@@ -28,10 +19,11 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        protected override void afterFinishedCallback() {
+        protected override void onFinished() {
             DbConnection_ connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
             foreach(var remappingMap in remappedStrukturColumns) {
                 string tablename = remappingMap.Key;
+                string[] primaryKeys = QueryUtils.getPrimaryKeys(connection, tablename);
                 string[] columnToRemap = remappingMap.Value;
                 Dictionary<string, string> strukturToDeptMaps = new Dictionary<string, string>();
 
@@ -55,19 +47,65 @@ namespace SurplusMigrator.Tasks {
                         foreach(var map in strukturToDeptMaps) {
                             var strukturId = map.Key;
                             var newDeptId = map.Value;
-                            MyConsole.Information("Updating " + strukturId + " -> " + newDeptId + " ...");
 
-                            string query = @"
-                                update ""<target_schema>"".""<tablename>"" set ""<column>"" = <newvalue>
-                                where ""<column>"" = <oldvalue>;
+                            string queryCount = @"
+                                select count(1) from ""<target_schema>"".""<tablename>""
+                                where ""<struktur_column>"" = <oldvalue>
+                                ;
                             ";
-                            query = query.Replace("<target_schema>", connection.GetDbLoginInfo().schema);
-                            query = query.Replace("<tablename>", tablename);
-                            query = query.Replace("<column>", column);
-                            query = query.Replace("<newvalue>", QueryUtils.getInsertArg(newDeptId));
-                            query = query.Replace("<oldvalue>", QueryUtils.getInsertArg(strukturId));
+                            queryCount = queryCount.Replace("<target_schema>", connection.GetDbLoginInfo().schema);
+                            queryCount = queryCount.Replace("<tablename>", tablename);
+                            queryCount = queryCount.Replace("<struktur_column>", column);
+                            queryCount = queryCount.Replace("<oldvalue>", QueryUtils.getInsertArg(strukturId));
 
-                            QueryUtils.executeQuery(connection, query, 300);
+                            var rsCount = QueryUtils.executeQuery(connection, queryCount);
+
+                            int dataCount = Utils.obj2int(rsCount.First()["count"]);
+
+                            MyConsole.Information("Updating " + strukturId + " -> " + newDeptId + " ("+ dataCount + " data) ...");
+
+                            int batchSize = 500;
+                            RowData<ColumnName, object>[] batchDatas;
+                            string querySelect = @"
+                                select <primarykeys> from ""<target_schema>"".""<tablename>""
+                                where ""<struktur_column>"" = <oldvalue>
+                                LIMIT <batch_size>
+                                ;
+                            ";
+                            querySelect = querySelect.Replace("<primarykeys>", "\"" + String.Join("\",\"", primaryKeys) + "\"");
+                            querySelect = querySelect.Replace("<target_schema>", connection.GetDbLoginInfo().schema);
+                            querySelect = querySelect.Replace("<tablename>", tablename);
+                            querySelect = querySelect.Replace("<struktur_column>", column);
+                            querySelect = querySelect.Replace("<oldvalue>", QueryUtils.getInsertArg(strukturId));
+                            querySelect = querySelect.Replace("<batch_size>", batchSize.ToString());
+
+                            int processedCount = 0;
+                            while((batchDatas = QueryUtils.executeQuery(connection, querySelect)).Length > 0) {
+                                string queryUpdate = @"
+                                    update ""<target_schema>"".""<tablename>"" set ""<column>"" = <newvalue>
+                                    where (<filter_columns>) IN (<filter_values>);
+                                ";
+                                queryUpdate = queryUpdate.Replace("<target_schema>", connection.GetDbLoginInfo().schema);
+                                queryUpdate = queryUpdate.Replace("<tablename>", tablename);
+                                queryUpdate = queryUpdate.Replace("<column>", column);
+                                queryUpdate = queryUpdate.Replace("<newvalue>", QueryUtils.getInsertArg(newDeptId));
+                                queryUpdate = queryUpdate.Replace("<filter_columns>", "\""+ String.Join("\",\"", primaryKeys) +"\"");
+
+                                List<string> filterValues = new List<string>();
+                                foreach(var row in batchDatas) {
+                                    List<string> filterValArray = new List<string>();
+                                    foreach(var pk in primaryKeys) {
+                                        filterValArray.Add(QueryUtils.getInsertArg(row[pk]));
+                                    }
+                                    filterValues.Add("(" + String.Join(",", filterValArray) + ")");
+                                }
+                                queryUpdate = queryUpdate.Replace("<filter_values>", String.Join(",", filterValues));
+                                QueryUtils.executeQuery(connection, queryUpdate);
+                                processedCount += batchDatas.Length;
+                                MyConsole.EraseLine();
+                                MyConsole.Write(processedCount + "/" + dataCount + " data processed ... ");
+                            }
+                            MyConsole.WriteLine("", false);
                         }
                     }
                 } catch(Exception) {

@@ -1,5 +1,3 @@
-using Microsoft.Data.SqlClient;
-using Npgsql;
 using SurplusMigrator.Exceptions;
 using SurplusMigrator.Interfaces;
 using SurplusMigrator.Libraries;
@@ -9,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace SurplusMigrator.Tasks {
     class TransactionSalesOrder : _BaseTask, RemappableId {
@@ -278,7 +275,7 @@ namespace SurplusMigrator.Tasks {
          * Because Gen21Integration.getAdvertiserId() and Gen21Integration.getAdvertiserBrandId
          * is using IdRemapper.add()
          */
-        protected override void afterFinishedCallback() {
+        protected override void onFinished() {
             IdRemapper.saveMap();
         }
 

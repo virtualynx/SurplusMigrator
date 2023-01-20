@@ -286,7 +286,7 @@ namespace SurplusMigrator.Libraries {
                         AND RowNum <= <offset_end>
                     ORDER BY RowNum";
 
-                query = query.Replace("<selected_columns>", String.Join(',', columns));
+                query = query.Replace("<selected_columns>", "[" + String.Join("],[", columns) + "]");
 
                 string over_orderby = "(select null)";
                 if(ids != null && ids.Length > 0) {

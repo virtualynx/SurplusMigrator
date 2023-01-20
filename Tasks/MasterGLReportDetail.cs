@@ -79,7 +79,7 @@ namespace SurplusMigrator.Tasks {
             return result;
         }
 
-        protected override void afterFinishedCallback() {
+        protected override void onFinished() {
             IdRemapper.saveMap();
         }
 

@@ -118,7 +118,7 @@ namespace SurplusMigrator.Tasks {
             MyConsole.Information("Mirror Target: " + JsonSerializer.Serialize(tagetConnection.GetDbLoginInfo()));
         }
 
-        protected override void afterFinishedCallback() {
+        protected override void onFinished() {
             var tables = getTables();
 
             foreach(var row in tables) {

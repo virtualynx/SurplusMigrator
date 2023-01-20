@@ -17,8 +17,8 @@ namespace SurplusMigrator.Tasks {
         private static Dictionary<TaskName, bool> _alreadyRunMap = new Dictionary<TaskName, bool>();
         Dictionary<string, string> _options = null;
 
-        public TableInfo[] sources = null;
-        public TableInfo[] destinations = null;
+        protected TableInfo[] sources = null;
+        protected TableInfo[] destinations = null;
         protected const int defaultReadBatchSize = 5000;
         protected DbConnection_[] connections = null;
         protected DateTime _startedAt;
@@ -154,7 +154,7 @@ namespace SurplusMigrator.Tasks {
                     dest.updateSequencer();
                 }
 
-                afterFinishedCallback();
+                onFinished();
                 MyConsole.Information("Task " + this.GetType().Name + " finished. (success: " + successCount + ", fails: " + failureCount + ", duplicate: " + duplicateCount + ")");
                 setAlreadyRun();
             } catch(TaskConfigException e) {
@@ -202,9 +202,9 @@ namespace SurplusMigrator.Tasks {
                         if(opt.Trim().Length == 0) continue;
                         string[] optValue = opt.Split("=");
                         if(optValue.Length == 1) {
-                            _options[optValue[0]] = optValue[0];
+                            _options[optValue[0].Trim()] = optValue[0].Trim();
                         } else {
-                            _options[optValue[0]] = optValue[1];
+                            _options[optValue[0].Trim()] = optValue[1].Trim();
                         }
                     }
                 }
@@ -503,6 +503,6 @@ namespace SurplusMigrator.Tasks {
 
         protected virtual void runDependencies() { }
 
-        protected virtual void afterFinishedCallback() { }
+        protected virtual void onFinished() { }
     }
 }

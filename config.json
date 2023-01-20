@@ -103,15 +103,15 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "dev_remap_dept",
+      "schema": "_staging",
       "type": "POSTGRESQL"
     }
   ],
   "job_playlist": [
     {
-      "name": "_MirrorDatabase",
+      "name": "MasterSourceAccount",
       "cascade": false,
-      "options": "test; "
+      "options": "journalids=SA0223010492, SA0223010493, SA0223010535, SA0223010534"
     }
   ],
   "pre_queries_pathx": "../../../SurplusMigrator-ExternalSource/Queries-Pre",
@@ -197,6 +197,7 @@
     "AspNetUsers",
     "Relation_Module_UserGroup",
     "Relation_User_Department",
+    "Relation_Surplus_Inventory_Dept",
 
     "MasterFaction",
     "MasterZone",
@@ -246,6 +247,7 @@
     "MasterTransactionTypeGroup",
     "MasterTransactionType",
     "MasterSource",
+    "MasterSourceAccount",
     "MasterVendorCategory",
     "MasterVendorType",
     "MasterVendor",

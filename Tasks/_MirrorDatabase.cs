@@ -49,8 +49,8 @@ namespace SurplusMigrator.Tasks {
                 _isModeTest = true;
             }
 
-            if(getOptions("only") != null) {
-                string[] tableList = getOptions("only").Split(",");
+            if(getOptions("tables") != null) {
+                string[] tableList = getOptions("tables").Split(",");
                 foreach(var table in tableList) {
                     onlyMigrateTables.Add(table.Trim());
                 }
@@ -63,7 +63,7 @@ namespace SurplusMigrator.Tasks {
             MyConsole.Information("Mirror Target: " + JsonSerializer.Serialize(tagetConnection.GetDbLoginInfo()));
         }
 
-        protected override void afterFinishedCallback() {
+        protected override void onFinished() {
             var tables = getTables();
 
             foreach(var row in tables) {
@@ -89,7 +89,6 @@ namespace SurplusMigrator.Tasks {
                     int batchSize = batchsizeMap.ContainsKey(tablename)? batchsizeMap[tablename] : DEFAULT_BATCH_SIZE;
 
                     RowData<ColumnName, object>[] batchData;
-                    bool firstLoop = true;
                     while((batchData = QueryUtils.getDataBatch(sourceConnection, tablename, false, batchSize)).Length > 0) {
                         try {
                             string query = @"
@@ -124,11 +123,7 @@ namespace SurplusMigrator.Tasks {
                                 QueryUtils.toggleTrigger(tagetConnection, tablename, true);
                             }
                             insertedCount += batchData.Length;
-                            if(firstLoop) {
-                                firstLoop = false;
-                            } else {
-                                MyConsole.EraseLine();
-                            }
+                            MyConsole.EraseLine();
                             MyConsole.Write(insertedCount + "/" + dataCount + " data inserted ... ");
                         } catch(Exception e) {
                             if(e.Message.Contains("duplicate key value violates unique constraint")) {
@@ -144,6 +139,7 @@ namespace SurplusMigrator.Tasks {
                     QueryUtils.toggleTrigger(tagetConnection, tablename, true);
                     MyConsole.EraseLine();
                     MyConsole.Information("Successfully copying " + insertedCount + "/"+ dataCount + " data on table " + tablename);
+                    MyConsole.WriteLine("", false);
                 } catch(Exception) {
                     throw;
                 }

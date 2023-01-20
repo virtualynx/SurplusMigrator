@@ -7,6 +7,8 @@ using System.Text.RegularExpressions;
 
 namespace SurplusMigrator.Tasks {
     class _NewJournalInsosysToSurplus : _BaseTask {
+        private string[] journalIds = null;
+
         public _NewJournalInsosysToSurplus(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
@@ -159,6 +161,15 @@ namespace SurplusMigrator.Tasks {
                     ids = new string[] { "tjournal_detailid" }
                 }
             };
+
+            if(getOptions("journalids") != null) {
+                List<string> listOfJournal = new List<string>();
+                var journalOptSplit = getOptions("journalids").Split(",");
+                foreach(var journalId in journalOptSplit) {
+                    listOfJournal.Add(journalId.Trim());
+                }
+                journalIds = listOfJournal.ToArray();
+            }
         }
 
         protected override MappedData getStaticData() {
@@ -174,35 +185,55 @@ namespace SurplusMigrator.Tasks {
 
             List<RowData<ColumnName, object>> migratedJurnalInsosys = new List<RowData<ColumnName, object>>();
 
-            RowData<ColumnName, object>[] datas;
-            string[] primaryKeys = sources.Where(a => a.tableName == "transaksi_jurnal").First().ids;
-            var all_new_jurnalids = new List<string>();
-            while((datas = QueryUtils.getDataBatch(insosysConn, "transaksi_jurnal", false, 10000, primaryKeys)).Length > 0) {
-                List<string> jurnalids = new List<string>();
-                foreach(var row in datas) {
-                    var jurnal_id = Utils.obj2str(row["jurnal_id"]).ToUpper();
-                    if(!jurnalids.Contains(jurnal_id)) {
-                        jurnalids.Add(jurnal_id);
+            if(journalIds == null) {
+                RowData<ColumnName, object>[] datas;
+                string[] primaryKeys = sources.Where(a => a.tableName == "transaksi_jurnal").First().ids;
+                var all_new_jurnalids = new List<string>();
+                while((datas = QueryUtils.getDataBatch(insosysConn, "transaksi_jurnal", false, 10000, primaryKeys)).Length > 0) {
+                    List<string> jurnalids = new List<string>();
+                    foreach(var row in datas) {
+                        var jurnal_id = Utils.obj2str(row["jurnal_id"]).ToUpper();
+                        if(!jurnalids.Contains(jurnal_id)) {
+                            jurnalids.Add(jurnal_id);
+                        }
+                    }
+
+                    string querySurplus = @"
+                        select
+                            tjournalid
+                        from
+                            ""<schema>"".""transaction_journal""
+                        where
+                            tjournalid in (<jurnal_ids>)
+                    ";
+                    querySurplus = querySurplus.Replace("<schema>", surplusConn.GetDbLoginInfo().schema);
+                    querySurplus = querySurplus.Replace("<jurnal_ids>", "'" + String.Join("','", jurnalids) + "'");
+                    var rs = QueryUtils.executeQuery(surplusConn, querySurplus);
+
+                    var new_jurnalids = jurnalids.Where(jurnal_id => !rs.Any(surplusData => Utils.obj2str(surplusData["tjournalid"]) == jurnal_id)).ToList();
+                    if(new_jurnalids.Count > 0) {
+                        migratedJurnalInsosys.AddRange(datas.Where(a => new_jurnalids.Contains(Utils.obj2str(a["jurnal_id"]))).ToList());
+                        all_new_jurnalids.AddRange(new_jurnalids);
                     }
                 }
+            } else {
+                string queryInsosys = @"
+                        select
+                            <columns>
+                        from
+                            [<schema>].[transaksi_jurnal]
+                        where
+                            jurnal_id in (<jurnal_ids>)
+                    "
+                ;
 
-                string querySurplus = @"
-                    select
-                        tjournalid
-                    from
-                        ""<schema>"".""transaction_journal""
-                    where
-                        tjournalid in (<jurnal_ids>)
-                ";
-                querySurplus = querySurplus.Replace("<schema>", surplusConn.GetDbLoginInfo().schema);
-                querySurplus = querySurplus.Replace("<jurnal_ids>", "'" + String.Join("','", jurnalids) + "'");
-                var rs = QueryUtils.executeQuery(surplusConn, querySurplus);
+                var columns = QueryUtils.getColumnNames(insosysConn, "transaksi_jurnal");
+                queryInsosys = queryInsosys.Replace("<columns>", "[" + String.Join("],[", columns) + "]");
+                queryInsosys = queryInsosys.Replace("<schema>", insosysConn.GetDbLoginInfo().schema);
+                queryInsosys = queryInsosys.Replace("<jurnal_ids>", "'" + String.Join("','", journalIds) + "'");
+                var rs = QueryUtils.executeQuery(insosysConn, queryInsosys);
 
-                var new_jurnalids = jurnalids.Where(jurnal_id => !rs.Any(surplusData => Utils.obj2str(surplusData["tjournalid"]) == jurnal_id)).ToList();
-                if(new_jurnalids.Count > 0) {
-                    migratedJurnalInsosys.AddRange(datas.Where(a => new_jurnalids.Contains(Utils.obj2str(a["jurnal_id"]))).ToList());
-                    all_new_jurnalids.AddRange(new_jurnalids);
-                }
+                migratedJurnalInsosys.AddRange(rs);
             }
 
             return migratedJurnalInsosys.ToArray();
