@@ -83,7 +83,7 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "_live_23_01_18_base",
+      "schema": "_live",
       "type": "POSTGRESQL"
     },
     {
@@ -93,7 +93,7 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "dev_remap_dept",
+      "schema": "dev_adv_brand",
       "type": "POSTGRESQL"
     },
     {
@@ -103,40 +103,43 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "_staging",
+      "schema": "dev",
       "type": "POSTGRESQL"
     }
   ],
   "job_playlist": [
     {
-      "name": "MasterSourceAccount",
+      "name": "__EmptyJob",
       "cascade": false,
-      "options": "journalids=SA0223010492, SA0223010493, SA0223010535, SA0223010534"
+      "active":  true,
+      "options": "salesorderids=SO0223010603;tests"
+    },
+    {
+      "name": "AspNetUsers",
+      "cascade": false,
+      "active": false
     }
   ],
   "pre_queries_pathx": "../../../SurplusMigrator-ExternalSource/Queries-Pre",
   "post_queries_pathx": "../../../SurplusMigrator-ExternalSource/Queries-Post",
   "excel_sources_path": "../../../SurplusMigrator-ExternalSource/Excels",
   "json_sources_path": "../../../SurplusMigrator-ExternalSource/Jsons",
-  "excluded_tables": {
-    "source": [],
-    "destination": [
-      "master_account_relation",
-      "master_account_general_ledger_sign",
-      "master_glreport",
-      "master_glreport_detail",
-      "master_glreport_subdetail",
-      "transaction_budget",
-      "transaction_program_budget_eps_detail",
-      "transaction_journal",
-      "master_artist_account",
-      "transaction_budget_detail",
-      "transaction_journal_detail",
-      "transaction_journal_reval",
-      "master_vendor_bill",
-      "transaction_sales_order"
-    ]
-  },
+  "excluded_tables": [
+    "master_account_relation",
+    "master_account_general_ledger_sign",
+    "master_glreport",
+    "master_glreport_detail",
+    "master_glreport_subdetail",
+    "transaction_budget",
+    "transaction_program_budget_eps_detail",
+    "transaction_journal",
+    "master_artist_account",
+    "transaction_budget_detail",
+    "transaction_journal_detail",
+    "transaction_journal_reval",
+    "master_vendor_bill",
+    "transaction_sales_order"
+  ],
   "truncated_tables": [
     "AspNetUsers ",
     "relation_user_department ",
@@ -207,6 +210,7 @@
     "MasterSetting",
     "MasterSequencer",
     "MasterPaymentCategory",
+    "MasterPrizeType",
 
     "MasterObjective",
     "MasterProcurementCategory",
@@ -267,6 +271,7 @@
     "TransactionBudget",
     "TransactionJournal",
     "TransactionJournalTax",
+    "MasterVendorTax",
 
     "MasterBank",
     "MasterBankAccount",

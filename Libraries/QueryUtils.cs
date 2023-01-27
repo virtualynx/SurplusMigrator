@@ -441,14 +441,23 @@ namespace SurplusMigrator.Libraries {
         /// <param name="connection"></param>
         /// <param name="targetTable"></param>
         /// <param name="selectColumns"></param>
-        /// <param name="targetColumns"></param>
+        /// <param name="targetColumn"></param>
         /// <param name="word"></param>
+        /// <param name="maxResult"></param>
         /// <returns></returns>
-        public static RowData<ColumnName, object>[] searchSimilar(DbConnection_ connection, string targetTable, string[] selectColumns, string targetColumns, string word, int maxResult = 1) {
+        public static RowData<ColumnName, object>[] searchSimilar(
+            DbConnection_ connection,
+            string targetTable,
+            string[] selectColumns,
+            string targetColumn,
+            string word,
+            int maxResult = 1
+        ) {
             RowData<ColumnName, object>[] queryResult;
 
             string[] wordSplit = word.Split(" ");
             int wordCounter = 1;
+            bool targetColumnSelected = selectColumns.Any(a => a == targetColumn);
             do {
                 string sql = @"
                     select
@@ -459,11 +468,13 @@ namespace SurplusMigrator.Libraries {
                         <filters>
                 ";
                 List<string> filters = new List<string>();
-                for(int a=0; a<wordCounter; a++) {
-
-                    filters.Add("lower(\""+ targetColumns + "\") like '%" + wordSplit[a].ToLower() + "%'");
+                for(int a = 0; a < wordCounter; a++) {
+                    filters.Add("lower(\"" + targetColumn + "\") like '%" + wordSplit[a].ToLower() + "%'");
                 }
 
+                if(!targetColumnSelected && !selectColumns.Contains(targetColumn)) { //target column is needed for indexing later
+                    selectColumns = selectColumns.Append(targetColumn).ToArray();
+                }
                 sql = sql.Replace("<columns>", "\"" + String.Join("\",\"", selectColumns) + "\"");
                 sql = sql.Replace("<schema>", connection.GetDbLoginInfo().schema);
                 sql = sql.Replace("<tables>", targetTable);
@@ -471,6 +482,62 @@ namespace SurplusMigrator.Libraries {
                 queryResult = QueryUtils.executeQuery(connection, sql);
                 wordCounter++;
             } while(queryResult.Length > maxResult && wordCounter <= wordSplit.Length);
+
+            foreach(var row in queryResult) {
+                int containsCount = 0;
+                string targetData = Utils.obj2str(row[targetColumn]);
+                foreach(var w in wordSplit) {
+                    if(targetData.ToLower().Contains(w.ToLower())) {
+                        containsCount++;
+                    }
+                }
+                double index = containsCount / wordSplit.Length;
+                row["similarity_index"] = index;
+            }
+
+            //sort by similarity_index desc
+            Array.Sort(queryResult, (x, y) => {
+                double y_index = Double.Parse(y["similarity_index"].ToString());
+                double x_index = Double.Parse(x["similarity_index"].ToString());
+
+                if(y_index > x_index) return -1;
+                if(y_index < x_index) return 1;
+                return 0;
+            });
+
+            foreach(var row in queryResult) {
+                //row.Remove("similarity_index");
+                if(!targetColumnSelected && selectColumns.Contains(targetColumn)) {
+                    row.Remove(targetColumn);
+                }
+            }
+
+            //RowData<ColumnName, object> closestResult = null;
+            //if(queryResult.Length == 1) {
+            //    closestResult = queryResult[0];
+            //} else if(queryResult.Length > 1) {
+            //    double largestIndex = 0;
+            //    Dictionary<double, RowData<ColumnName, object>> indexedResults = new Dictionary<double, RowData<string, object>>();
+            //    foreach(var row in queryResult) {
+            //        int containsCount = 0;
+            //        string targetData = Utils.obj2str(row[targetColumn]);
+            //        foreach(var w in wordSplit) {
+            //            if(targetData.ToLower().Contains(w.ToLower())) {
+            //                containsCount++;
+            //            }
+            //        }
+            //        double index = containsCount / wordSplit.Length;
+            //        if(largestIndex < index) { 
+            //            largestIndex = index;
+            //        }
+            //        indexedResults[index] = row;
+            //    }
+            //    closestResult = indexedResults[largestIndex];
+            //}
+
+            //if(closestResult != null && !targetColumnSelected) {
+            //    closestResult.Remove(targetColumn);
+            //}
 
             return queryResult;
         }

@@ -131,7 +131,17 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
-            return sourceTables.Where(a => a.tableName == "transaksi_salesorder").FirstOrDefault().getDatas(batchSize);
+            string queryWhere = null;
+            if(getOptions("salesorderids") != null) {
+                string[] salesorderids = (
+                    from id in getOptions("salesorderids").Split(",")
+                    select id.Trim()
+                ).ToArray();
+
+                queryWhere = "WHERE salesorder_id in ('" + string.Join("','", salesorderids) + "')";
+            }
+
+            return sourceTables.Where(a => a.tableName == "transaksi_salesorder").FirstOrDefault().getDatas(batchSize, true, queryWhere);
         }
 
         protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
@@ -168,7 +178,7 @@ namespace SurplusMigrator.Tasks {
                 int advertiserid = Utils.obj2int(data["salesorder_advertiser"]);
                 if(advertiserid != 0) {
                     try {
-                        advertisercode = gen21.getAdvertiserId(advertiserid);
+                        advertisercode = gen21.getAdvertiserId2(advertiserid);
                     } catch(MissingDataException) {
                         nullAdvertiserOrBrandErrors.Add(new DbInsertFail() {
                             info = "Missing reference to table (" + missingReferenceAdvertiser.referencedTableName + ")",
@@ -186,7 +196,7 @@ namespace SurplusMigrator.Tasks {
                 int advertiserbrandid = Utils.obj2int(data["salesorder_brand"]);
                 if(advertiserbrandid != 0) {
                     try {
-                        advertiserbrandcode = gen21.getAdvertiserBrandId(advertiserbrandid);
+                        advertiserbrandcode = gen21.getAdvertiserBrandId2(advertiserbrandid);
                     } catch(MissingDataException) {
                         nullAdvertiserOrBrandErrors.Add(new DbInsertFail() {
                             info = "Missing reference to table (" + missingReferenceBrand.referencedTableName + ")",

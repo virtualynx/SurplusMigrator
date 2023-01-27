@@ -1,4 +1,3 @@
-using SurplusMigrator.Interfaces;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System.Collections.Generic;
@@ -93,14 +92,26 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
-            return sourceTables.Where(a => a.tableName == "transaksi_jurnal").FirstOrDefault().getDatas(batchSize);
+        protected override List<RowData<string, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
+            string queryWhere = null;
+            if(getOptions("journalids") != null) {
+                string[] journalids = (
+                    from id in getOptions("journalids").Split(",")
+                    select id.Trim()
+                ).ToArray();
+
+                queryWhere = "WHERE jurnal_id in ('" + string.Join("','", journalids) + "')";
+            }
+
+            return sourceTables.Where(a => a.tableName == "transaksi_jurnal").FirstOrDefault().getDatas(batchSize, true, queryWhere);
         }
 
         protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             nullifyMissingReferences("rekanan_id", "master_rekanan", "rekanan_id", connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(), inputs);
+
+            DataIntegration integration = new DataIntegration(connections);
 
             foreach(RowData<ColumnName, object> data in inputs) {
                 string tbudgetid = null;
@@ -109,6 +120,13 @@ namespace SurplusMigrator.Tasks {
                 //}
                 tbudgetid = Utils.obj2str(data["budget_id"]);
                 tbudgetid = tbudgetid == "0" ? null : tbudgetid;
+
+                string departmentId = Utils.obj2str(data["strukturunit_id"]);
+                if(departmentId == "0") {
+                    departmentId = null;
+                } else {
+                    departmentId = integration.getDepartmentFromStrukturUnit(departmentId);
+                }
 
                 result.addData(
                     "transaction_journal",
@@ -128,7 +146,7 @@ namespace SurplusMigrator.Tasks {
                         { "vendorid",  Utils.obj2int(data["rekanan_id"])==0? null: data["rekanan_id"]},
                         { "periodid",  data["periode_id"]},
                         { "tbudgetid",  tbudgetid},
-                        { "departmentid",  data["strukturunit_id"]},
+                        { "departmentid",  departmentId},
                         { "accountcaid",  Utils.obj2int(data["acc_ca_id"])==0? null: data["acc_ca_id"]},
                         { "advertiserid",  Utils.obj2int(data["advertiser_id"])==0? null: data["advertiser_id"]},
                         { "advertiserbrandid",  Utils.obj2int(data["brand_id"])==0? null: data["brand_id"]},
@@ -158,8 +176,8 @@ namespace SurplusMigrator.Tasks {
 
         protected override void runDependencies() {
             new MasterAccountCa(connections).run();
-            new MasterAdvertiser(connections).run();
-            new MasterAdvertiserBrand(connections).run();
+            //new _MasterAdvertiser(connections).run();
+            //new _MasterAdvertiserBrand(connections).run();
             new MasterCurrency(connections).run();
             new MasterPaymentType(connections).run();
             new MasterPeriod(connections).run();

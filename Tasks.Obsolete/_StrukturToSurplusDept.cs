@@ -21,6 +21,8 @@ namespace SurplusMigrator.Tasks {
 
         protected override void onFinished() {
             DbConnection_ connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
+            DataIntegration integration = new DataIntegration(connections);
+
             foreach(var remappingMap in remappedStrukturColumns) {
                 string tablename = remappingMap.Key;
                 string[] primaryKeys = QueryUtils.getPrimaryKeys(connection, tablename);
@@ -34,7 +36,7 @@ namespace SurplusMigrator.Tasks {
                             var deptId = Utils.obj2str(row[column]);
                             bool isNumeric = int.TryParse(deptId, out _);
                             if(isNumeric) { //struktur_id is always numeric
-                                var newDeptId = getMappedInsosysStrukturUnit(deptId);
+                                var newDeptId = integration.getDepartmentFromStrukturUnit(deptId);
                                 strukturToDeptMaps[deptId] = newDeptId;
                             }
                         }
@@ -113,30 +115,6 @@ namespace SurplusMigrator.Tasks {
                 }
                 MyConsole.Information("Successfully remapping struktur_unit id in table " + tablename);
             }
-        }
-
-        Dictionary<string, string> _strukturUnitMaps = null;
-        private string getMappedInsosysStrukturUnit(string strukturUnitId) {
-            if(_strukturUnitMaps == null) {
-                _strukturUnitMaps = new Dictionary<string, string>();
-                ExcelColumn[] columns = new ExcelColumn[] {
-                    new ExcelColumn(){ name="id", ordinal=0 },
-                    new ExcelColumn(){ name="department_baru", ordinal=2 }
-                };
-
-                var excelData = Utils.getDataFromExcel("Department2.xlsx", columns, "Department Migrasi").ToArray();
-
-                foreach(var row in excelData) {
-                    string strukturid = row["id"].ToString().Trim();
-                    if(strukturid == "0") {
-                        _strukturUnitMaps[strukturid] = null;
-                    } else {
-                        _strukturUnitMaps[strukturid] = row["department_baru"].ToString().Trim();
-                    }
-                }
-            }
-
-            return _strukturUnitMaps[strukturUnitId.Trim()];
         }
     }
 }

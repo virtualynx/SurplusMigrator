@@ -14,8 +14,7 @@ namespace SurplusMigrator.Libraries {
         }
 
         public static bool isExcludedTable(string tablename) {
-            if(_config.excluded_tables.source.Any(a => a == tablename)) return true;
-            if(_config.excluded_tables.destination.Any(a => a == tablename)) return true;
+            if(_config.excluded_tables.Any(a => a == tablename)) return true;
 
             return false;
         }

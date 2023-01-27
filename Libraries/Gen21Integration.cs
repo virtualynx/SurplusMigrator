@@ -1,5 +1,4 @@
-﻿using Microsoft.Data.SqlClient;
-using Npgsql;
+﻿using Npgsql;
 using SurplusMigrator.Exceptions;
 using SurplusMigrator.Models;
 using System;
@@ -14,7 +13,7 @@ namespace SurplusMigrator.Libraries {
             this.connections = connections;
         }
 
-        public string getAdvertiserId(int oldAdvertiserId) {
+        public string getAdvertiserId(string oldAdvertiserId) {
             string idRemapperKey = "advertiserid";
             try {
                 return IdRemapper.get(idRemapperKey, oldAdvertiserId).ToString();
@@ -27,7 +26,157 @@ namespace SurplusMigrator.Libraries {
                 }
             }
 
-            string[] trafficAdvertiserNames = searchAtInsosys(
+            var efrmConn = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").First();
+            string queryGetAdvertiserNames = @"
+                select
+                    trafficadvertiser_name
+                from
+                    master_trafficadvertiser
+                where
+                    code = <old_advertiser_id>
+                    and trafficadvertiser_isactive = 1
+            ";
+            queryGetAdvertiserNames = queryGetAdvertiserNames.Replace("<old_advertiser_id>", oldAdvertiserId);
+            var trafficAdvertiserNamesRs = QueryUtils.executeQuery(efrmConn, queryGetAdvertiserNames);
+            var trafficAdvertiserNames = (from row in trafficAdvertiserNamesRs select row["trafficadvertiser_name"].ToString()).ToArray();
+
+            //if not found in master_trafficadvertiser, get the name from master_advertiser instead
+            if(trafficAdvertiserNames.Length == 0) {
+                queryGetAdvertiserNames = @"
+                    select
+                        [name]
+                    from
+                        master_advertiser
+                    where
+                        code = <old_advertiser_id>
+                ";
+                queryGetAdvertiserNames = queryGetAdvertiserNames.Replace("<old_advertiser_id>", oldAdvertiserId.ToString());
+                trafficAdvertiserNamesRs = QueryUtils.executeQuery(efrmConn, queryGetAdvertiserNames);
+                trafficAdvertiserNames = (from row in trafficAdvertiserNamesRs select row["name"].ToString()).ToArray();
+            }
+
+            if(trafficAdvertiserNames.Length == 0) {
+                throw new MissingDataException("Unidentified AdvertiserId(" + oldAdvertiserId + ") in both [master_trafficadvertiser] and [master_advertiser]");
+            }
+
+            var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
+            //Array.Sort(trafficAdvertiserNames, (x, y) => y.Length.CompareTo(x.Length)); //sort descending by length
+            RowData<ColumnName, object>[] gen21SearchRs = null;
+            foreach(string trafficAdvertiserName in trafficAdvertiserNames) {
+                gen21SearchRs = QueryUtils.searchSimilar(
+                    surplusConn,
+                    "view_master_advertiser_temp",
+                    new string[] { "advertiserid" },
+                    "name",
+                    trafficAdvertiserName.ToUpper()
+                );
+                if(gen21SearchRs.Length > 0) break;
+            }
+
+            if(gen21SearchRs.Length > 0) {
+                string advertiserId = gen21SearchRs[0]["advertiserid"].ToString();
+                IdRemapper.add(idRemapperKey, oldAdvertiserId, advertiserId);
+
+                return advertiserId;
+            }
+
+            return null;
+        }
+
+        public (string advertiserId, string brandId) getAdvertiserBrandId(string oldAdvertiserId, string oldAdvertiserBrandId) {
+            string idRemapperKey = "advertiserbrandid";
+            try {
+                string brandId = IdRemapper.get(idRemapperKey, oldAdvertiserBrandId).ToString();
+                return (getAdvertiserId(oldAdvertiserId), brandId);
+            } catch(Exception e) {
+                if(
+                    e.Message != "RemappedId map does not have mapping for id-columnname: " + idRemapperKey
+                    && e.Message != "RemappedId map for id-columnname: " + idRemapperKey + ", does not have mapping for old-value: " + oldAdvertiserBrandId
+                ) {
+                    throw;
+                }
+            }
+
+            string advertiserId = getAdvertiserId(oldAdvertiserId);
+
+            if(advertiserId == null) {
+                throw new MissingDataException("Unidentified AdvertiserId(" + oldAdvertiserId + ") in Gen21");
+            }
+
+            var efrmConn = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").First();
+            string queryGetBrandNames = @"
+                select
+                    trafficbrand_name
+                from
+                    master_trafficbrand
+                where
+                    advertiser_brand_id = <old_brand_id>
+                    and trafficbrand_isactive = 1
+            ";
+            queryGetBrandNames = queryGetBrandNames.Replace("<old_brand_id>", oldAdvertiserBrandId.ToString());
+            var trafficBrandNamesRs = QueryUtils.executeQuery(efrmConn, queryGetBrandNames);
+            var trafficBrandNames = (from row in trafficBrandNamesRs select row["trafficbrand_name"].ToString()).ToArray();
+
+            //if not found in master_trafficbrand, get the name from master_advertiserbrand instead
+            if(trafficBrandNames.Length == 0) {
+                queryGetBrandNames = @"
+                    select
+                        advertiser_brand_name
+                    from
+                        master_advertiserbrand
+                    where
+                        advertiser_brand_id = <old_brand_id>
+                ";
+                queryGetBrandNames = queryGetBrandNames.Replace("<old_brand_id>", oldAdvertiserBrandId.ToString());
+                trafficBrandNamesRs = QueryUtils.executeQuery(efrmConn, queryGetBrandNames);
+                trafficBrandNames = (from row in trafficBrandNamesRs select row["advertiser_brand_name"].ToString()).ToArray();
+            }
+
+            trafficBrandNames = (from name in trafficBrandNames select name.ToUpper()).ToArray();
+
+            var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
+            //Array.Sort(trafficAdvertiserNames, (x, y) => y.Length.CompareTo(x.Length)); //sort descending by length
+            RowData<ColumnName, object>[] gen21SearchRs = null;
+            foreach(string trafficBrandName in trafficBrandNames) {
+                gen21SearchRs = QueryUtils.searchSimilar(
+                    surplusConn,
+                    "view_master_brand_temp",
+                    new string[] { "advertiserid", "advertiserbrandid", "name" },
+                    "name",
+                    trafficBrandName.ToUpper()
+                );
+                if(gen21SearchRs.Length > 0) break;
+            }
+
+            if(gen21SearchRs.Length > 0) {
+                gen21SearchRs = gen21SearchRs.Where(
+                    row => 
+                        row["advertiserid"].ToString() == advertiserId
+                        && trafficBrandNames.Contains(row["name"].ToString().ToUpper())
+                ).ToArray();
+                string brandId = gen21SearchRs[0]["advertiserbrandid"].ToString();
+                IdRemapper.add(idRemapperKey, oldAdvertiserBrandId, brandId);
+
+                return (advertiserId, brandId);
+            }
+
+            return (null, null);
+        }
+
+        public string getAdvertiserId2(int oldAdvertiserId) {
+            string idRemapperKey = "advertiserid";
+            try {
+                return IdRemapper.get(idRemapperKey, oldAdvertiserId).ToString();
+            } catch(Exception e) {
+                if(
+                    e.Message != "RemappedId map does not have mapping for id-columnname: " + idRemapperKey
+                    && e.Message != "RemappedId map for id-columnname: " + idRemapperKey + ", does not have mapping for old-value: " + oldAdvertiserId
+                ) {
+                    throw;
+                }
+            }
+
+            string[] trafficAdvertiserNames = searchAtInsosys2(
                 "master_trafficadvertiser", 
                 new string[] { "trafficadvertiser_name" }, 
                 new Dictionary<string, dynamic>() {
@@ -78,7 +227,7 @@ namespace SurplusMigrator.Libraries {
             return result;
         }
 
-        public string getAdvertiserBrandId(int oldAdvertiserBrandId) {
+        public string getAdvertiserBrandId2(int oldAdvertiserBrandId) {
             string idRemapperKey = "advertiserbrandid";
             try {
                 return IdRemapper.get(idRemapperKey, oldAdvertiserBrandId).ToString();
@@ -91,7 +240,7 @@ namespace SurplusMigrator.Libraries {
                 }
             }
 
-            string[] trafficAdvertiserBrandNames = searchAtInsosys(
+            string[] trafficAdvertiserBrandNames = searchAtInsosys2(
                 "master_trafficbrand",
                 new string[] { "trafficbrand_name" },
                 new Dictionary<string, dynamic>() {
@@ -188,7 +337,22 @@ namespace SurplusMigrator.Libraries {
         //    return results.ToArray();
         //}
 
-        private string[] searchAtInsosys(string table, string[] columns, Dictionary<string, dynamic> filters, bool exact = true) {
+        private string searchAtInsosys(string table, string[] columns, string word) {
+            DbConnection_ conn = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").First();
+            var similar = QueryUtils.searchSimilar(
+                conn,
+                "master_trafficadvertiser",
+                new string[] {
+                    "trafficadvertiser_name"
+                },
+                "trafficadvertiser_name",
+                word
+            );
+
+            return similar.Length > 0? similar[0]["trafficadvertiser_name"].ToString(): null;
+        }
+
+        private string[] searchAtInsosys2(string table, string[] columns, Dictionary<string, dynamic> filters, bool exact = true) {
             string sql = @"
                 select
                     [column]

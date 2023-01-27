@@ -1,5 +1,6 @@
 ﻿using Serilog;
 using Serilog.Events;
+using SurplusMigrator.Exceptions;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using SurplusMigrator.Tasks;
@@ -47,19 +48,17 @@ namespace SurplusMigrator {
             }
             GlobalConfig.loadConfig(config);
 
-            List<DbConnection_> connList = new List<DbConnection_>();
-
-            foreach(DbLoginInfo loginInfo in config.databases) {
-                connList.Add(new DbConnection_(loginInfo));
-            }
-
-            DbConnection_[] connections = connList.ToArray();
+            DbConnection_[] connections = (from loginInfo in config.databases select new DbConnection_(loginInfo)).ToArray();
 
             var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
             MyConsole.Information("Database Target: " + JsonSerializer.Serialize(surplusConn.GetDbLoginInfo()));
             MyConsole.WriteLine("", false);
             MyConsole.WriteLine("Press enter to start ...", false);
             Console.ReadLine();
+
+            var gen21 = new Gen21Integration(connections);
+            var adv = gen21.getAdvertiserId(2941);
+            var brand = gen21.getAdvertiserBrandId(2941, 11449);
 
             try {
                 if(config.pre_queries_path != null) {
@@ -74,8 +73,16 @@ namespace SurplusMigrator {
                 foreach(var job in jobs) {
                     var taskType = Type.GetType("SurplusMigrator.Tasks." + job.name);
                     if(taskType != null) {
-                        var instantiatedObject = Activator.CreateInstance(taskType, new object[] { connections }) as _BaseTask;
-                        instantiatedObject.run(job.cascade);
+                        try {
+                            var instantiatedObject = Activator.CreateInstance(taskType, new object[] { connections }) as _BaseTask;
+                            instantiatedObject.run(job.cascade);
+                        } catch(Exception e) {
+                            if(e.InnerException != null && e.InnerException is JobAbortedException) {
+                                MyConsole.Warning("Task with name " + job.name + " is aborted");
+                            } else {
+                                throw;
+                            }
+                        }
                     } else {
                         MyConsole.Warning("Task with name " + job.name + " cannot be found");
                     }
@@ -105,13 +112,22 @@ namespace SurplusMigrator {
         private static OrderedJob[] getAllJob(AppConfig config) {
             List<OrderedJob> orderedJobs = new List<OrderedJob>();
 
-            if(config.job_playlist.Length > 0) {
+            var activeJobs = config.job_playlist.Where(a => a.active).ToArray();
+            if(activeJobs.Length == 0 && config.job_playlist.Length > 0) {
+                Console.Write("There is some job listed in job_playlist but none of them are active, this will be considered as running all job instead, continue (Y/N)? ");
+                string choice = Console.ReadLine();
+                if(choice.ToLower() != "y") {
+                    Console.WriteLine("User choice is not \"Y\", return no job instead ...");
+                    return new OrderedJob[] { };
+                }
+            }
+            if(activeJobs.Length > 0) {
                 int order = 0;
-                foreach(var job in config.job_playlist) {
+                foreach(var job in activeJobs) {
                     job.order = order++;
                 }
 
-                return config.job_playlist;
+                return activeJobs;
             } else {
                 var taskList = Assembly.GetExecutingAssembly().GetTypes()
                 .Where(a =>

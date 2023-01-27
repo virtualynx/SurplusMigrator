@@ -9,7 +9,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 using TaskName = System.String;
 
 namespace SurplusMigrator.Tasks {
@@ -20,6 +19,7 @@ namespace SurplusMigrator.Tasks {
         protected TableInfo[] sources = null;
         protected TableInfo[] destinations = null;
         protected const int defaultReadBatchSize = 5000;
+        protected int readBatchSize = defaultReadBatchSize;
         protected DbConnection_[] connections = null;
         protected DateTime _startedAt;
 
@@ -28,8 +28,12 @@ namespace SurplusMigrator.Tasks {
             _startedAt = DateTime.Now;
         }
 
-        public bool run(bool includeDependencies = true, bool truncateBeforeInsert = false, bool onlyTruncateMigratedData = true, int readBatchSize = defaultReadBatchSize) {
+        public bool run(bool includeDependencies = true, bool truncateBeforeInsert = false, bool onlyTruncateMigratedData = true) {
             if(isAlreadyRun()) return true;
+
+            if(includeDependencies) {
+                runDependencies();
+            }
 
             //if being run from method runDependencies
             if(new StackFrame(1).GetMethod().Name == "runDependencies") {
@@ -41,23 +45,21 @@ namespace SurplusMigrator.Tasks {
                 sources.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName)) ||
                 destinations.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName))
             ) {
-                MyConsole.Information(this.GetType().Name + " is skipped because it's excluded in config file");
-                return false;
+                bool isRun = false;
+                if(GlobalConfig.getJobPlaylist().Length > 0) {
+                    MyConsole.Write("The source/destination in "+this.GetType().Name+" is excluded by config file, continue to run (y/n)? ");
+                    string runConfirm = Console.ReadLine();
+                    if(runConfirm.ToLower() == "y") {
+                        isRun = true;
+                    }
+                }
+                if(!isRun) {
+                    MyConsole.Information(this.GetType().Name + " is skipped because it's excluded in config file");
+                    return false;
+                }
             }
 
             MyConsole.Information("Task " + this.GetType().Name + " started ...");
-
-            //truncate options is in the config file
-            if(destinations.Any(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))) {
-                truncateBeforeInsert = true;
-                List<string> tableNames = new List<string>();
-                foreach(var dest in destinations) {
-                    if(GlobalConfig.isTruncatedTable(dest.tableName)) {
-                        tableNames.Add(dest.tableName);
-                    }
-                }
-                MyConsole.Information("Using truncating options from the config file for: "+String.Join(", ", tableNames));
-            }
 
             bool allSuccess = true;
             Stopwatch stopwatch = new Stopwatch();
@@ -65,49 +67,58 @@ namespace SurplusMigrator.Tasks {
             List<string> printedLogFilename = new List<string>();
             List<DbInsertFail> allErrors = new List<DbInsertFail>();
             try {
+                //truncate options is in the config file
+                if(destinations.Any(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))) {
+                    bool confirmTruncate = true;
+                    if(GlobalConfig.getJobPlaylist().Length > 0) {
+                        MyConsole.Write("Task "+GetType().Name+" has truncating option enabled, confirm truncate (y/n)? ");
+                        string truncate = Console.ReadLine();
+                        if(truncate.ToLower() != "y") {
+                            confirmTruncate = false;
+                        }
+                    }
+                    if(confirmTruncate) {
+                        truncateBeforeInsert = true;
+                        string[] truncatedTables = destinations
+                            .Where(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))
+                            .Select(a => a.tableName)
+                            .ToArray();
+                        MyConsole.Information("Using truncating options from the config file for: " + String.Join(", ", truncatedTables));
+                    }
+                }
+
                 if(truncateBeforeInsert && this.GetType().GetInterfaces().Contains(typeof(RemappableId))) {
                     var method = ((object)this).GetType().GetMethod("clearRemappingCache");
                     method.Invoke(this, new object[] { });
                 }
 
-                if(includeDependencies) {
-                    runDependencies();
-                }
+                Table[] sourceTables = (
+                    from tinfo in sources 
+                    select new Table() {
+                        connection = tinfo.connection,
+                        tableName = tinfo.tableName,
+                        columns = tinfo.columns,
+                        ids = tinfo.ids,
+                    }
+                ).ToArray();
 
-                Table[] sourceTables;
-                Table[] destinationTables;
-
-                List<Table> t = new List<Table>();
-
-                foreach(TableInfo ti in sources) {
-                    t.Add(
-                        new Table() {
-                            connection = ti.connection,
-                            tableName = ti.tableName,
-                            columns = ti.columns,
-                            ids = ti.ids,
-                        }
-                    );
-                }
-                sourceTables = t.ToArray();
-
-                t = new List<Table>();
-
-                foreach(TableInfo ti in destinations) {
-                    t.Add(
-                        new Table() {
-                            connection = ti.connection,
-                            tableName = ti.tableName,
-                            columns = ti.columns,
-                            ids = ti.ids,
-                        }
-                    );
-                }
-                destinationTables = t.ToArray();
+                Table[] destinationTables = (
+                    from tinfo in destinations
+                    select new Table() {
+                        connection = tinfo.connection,
+                        tableName = tinfo.tableName,
+                        columns = tinfo.columns,
+                        ids = tinfo.ids,
+                    }
+                ).ToArray();
 
                 long successCount = 0;
                 long failureCount = 0;
                 long duplicateCount = 0;
+
+                if(getOptions("batchsize") != null) {
+                    readBatchSize = Int32.Parse(getOptions("batchsize"));
+                }
 
                 List<RowData<ColumnName, object>> fetchedData;
                 while((fetchedData = getSourceData(sourceTables, readBatchSize)).Count > 0) {
@@ -194,7 +205,11 @@ namespace SurplusMigrator.Tasks {
         protected string getOptions(string optionName) {
             if(_options == null) {
                 _options = new Dictionary<string, string>();
-                OrderedJob job = GlobalConfig.getJobPlaylist().Where(a => a.name == this.GetType().Name).First();
+                OrderedJob job = GlobalConfig.getJobPlaylist().Where(a => a.name == this.GetType().Name).FirstOrDefault();
+
+                if(job == null) { //might be null if the task is run by dependency
+                    return null;
+                }
 
                 if(job.options != null) {
                     string[] optList = job.options.Split(";");
@@ -490,7 +505,13 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected virtual List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
-            return new List<RowData<ColumnName, object>>();
+            if(sources == null || sources.Length == 0) {
+                return new List<RowData<ColumnName, object>>();
+            } else if(sources.Length > 1) {
+                throw new TaskConfigException("More than one source table mapping found, please override the \"getSourceData()\" method");
+            }
+
+            return sourceTables.First().getDatas(batchSize);
         }
 
         protected virtual MappedData mapData(List<RowData<ColumnName, object>> inputs) {

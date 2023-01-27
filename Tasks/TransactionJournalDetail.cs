@@ -1,24 +1,15 @@
 using Microsoft.Data.SqlClient;
-using Npgsql;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
-using SurplusMigrator.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
 using JournalId = System.String;
-using JournalDetailId = System.String;
-using BudgetId = System.Int64;
-using BudgetDetailId = System.Int64;
-using Serilog;
-using System.Text.Json;
-using SurplusMigrator.Models.Others;
-using System.IO;
 
 namespace SurplusMigrator.Tasks {
-  class TransactionJournalDetail : _BaseTask {
+    class TransactionJournalDetail : _BaseTask {
         public TransactionJournalDetail(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
@@ -95,7 +86,17 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
-            return sourceTables.Where(a => a.tableName == "transaksi_jurnaldetil").FirstOrDefault().getDatas(batchSize);
+            string queryWhere = null;
+            if(getOptions("journalids") != null) {
+                string[] journalids = (
+                    from id in getOptions("journalids").Split(",")
+                    select id.Trim()
+                ).ToArray();
+
+                queryWhere = "WHERE jurnal_id in ('" + string.Join("','", journalids) + "')";
+            }
+
+            return sourceTables.Where(a => a.tableName == "transaksi_jurnaldetil").FirstOrDefault().getDatas(batchSize, true, queryWhere);
         }
 
         protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
@@ -131,6 +132,8 @@ namespace SurplusMigrator.Tasks {
                 inputs
             );
 
+            DataIntegration integration = new DataIntegration(connections);
+
             foreach(RowData<ColumnName, object> data in inputs) {
                 string tjournal_detailid = data["jurnal_id"].ToString().Substring(0, 2)+"D"+ data["jurnal_id"].ToString().Substring(2)+ data["jurnaldetil_line"].ToString();
                 
@@ -165,6 +168,13 @@ namespace SurplusMigrator.Tasks {
                     ref_subdetail_id = ref_detail_id + "_" + ref_budgetline;
                 }
 
+                string departmentId = Utils.obj2str(data["strukturunit_id"]);
+                if(departmentId == "0") {
+                    departmentId = null;
+                } else {
+                    departmentId = integration.getDepartmentFromStrukturUnit(departmentId);
+                }
+
                 result.addData(
                     "transaction_journal_detail",
                     new RowData<ColumnName, object>() {
@@ -177,7 +187,7 @@ namespace SurplusMigrator.Tasks {
                         { "vendorid",  Utils.obj2long(data["rekanan_id"])==0? null: data["rekanan_id"]},
                         { "accountid",  accountid},
                         { "currencyid",  data["currency_id"]},
-                        { "departmentid",  data["strukturunit_id"]},
+                        { "departmentid", departmentId},
                         { "tbudgetid",  tbudgetid},
                         { "tbudget_detailid",  tbudget_detailid},
                         { "ref_id",  data["ref_id"]},

@@ -31,7 +31,7 @@ namespace SurplusMigrator.Models {
 
         public Table() { }
 
-        public List<RowData<ColumnName, object>> getDatas(int batchSize, bool trimWhitespaces = true) {
+        public List<RowData<ColumnName, object>> getDatas(int batchSize, bool trimWhitespaces = true, string queryWhere = null, bool verbose = true) {
             List<RowData<ColumnName, object>> result = new List<RowData<ColumnName, object>> ();
 
             //check for first time run/batchSize has changed
@@ -51,25 +51,30 @@ namespace SurplusMigrator.Models {
             bool retry = false;
             do {
                 try {
-                    MyConsole.Write("Batch-" + fetchBatchCounter + "/" + fetchBatchMax + "(" + getProgressPercentage().ToString("0.0") + "%), fetch data from " + tableName + " ... ");
+                    if(verbose) {
+                        MyConsole.Write("Batch-" + fetchBatchCounter + "/" + fetchBatchMax + "(" + getProgressPercentage().ToString("0.0") + "%), fetch data from " + tableName + " ... ");
+                    }
                     if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                        string sqlString = @"SELECT [selected_columns] 
-                            FROM    ( SELECT    ROW_NUMBER() OVER ( ORDER BY [over_orderby] ) AS RowNum, *
-                                        FROM      [tablename]
+                        string sqlString = @"SELECT <selected_columns> 
+                            FROM    ( 
+                                        SELECT ROW_NUMBER() OVER ( ORDER BY <over_orderby> ) AS RowNum, *
+                                        FROM <tablename>
+                                        <where>
                                     ) AS RowConstrainedResult
-                            WHERE   RowNum >= [offset_start]
-                                AND RowNum <= [offset_end]
+                            WHERE   RowNum >= <offset_start>
+                                AND RowNum <= <offset_end>
                             ORDER BY RowNum";
 
-                        sqlString = sqlString.Replace("[selected_columns]", String.Join(',', columns));
+                        sqlString = sqlString.Replace("<selected_columns>", "[" + String.Join("],[", columns) + "]");
                         string over_orderby = "(select null)";
                         if(ids != null && ids.Length > 0) {
                             over_orderby = String.Join(',', ids);
                         }
-                        sqlString = sqlString.Replace("[over_orderby]", over_orderby);
-                        sqlString = sqlString.Replace("[tablename]", connection.GetDbLoginInfo().schema + "." + tableName);
-                        sqlString = sqlString.Replace("[offset_start]", (((fetchBatchCounter - 1) * batchSize) + 1).ToString());
-                        sqlString = sqlString.Replace("[offset_end]", (((fetchBatchCounter - 1) * batchSize) + batchSize).ToString());
+                        sqlString = sqlString.Replace("<over_orderby>", over_orderby);
+                        sqlString = sqlString.Replace("<tablename>", connection.GetDbLoginInfo().schema + "." + tableName);
+                        sqlString = sqlString.Replace("<where>", queryWhere!=null? queryWhere: "");
+                        sqlString = sqlString.Replace("<offset_start>", (((fetchBatchCounter - 1) * batchSize) + 1).ToString());
+                        sqlString = sqlString.Replace("<offset_end>", (((fetchBatchCounter - 1) * batchSize) + batchSize).ToString());
 
                         SqlCommand command = new SqlCommand(sqlString, (SqlConnection)connection.GetDbConnection());
                         SqlDataReader dataReader = command.ExecuteReader();
@@ -97,23 +102,25 @@ namespace SurplusMigrator.Models {
                     } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                         string sqlString = @"
                             SELECT 
-                                [selected_columns] 
+                                <selected_columns> 
                             FROM    
-                                [tablename]
-                            [order_by]
-                            LIMIT [limit_size] 
-                            OFFSET [offset_size]
+                                <tablename>
+                            <where>
+                            <order_by>
+                            LIMIT <limit_size> 
+                            OFFSET <offset_size>
                         ";
 
-                        sqlString = sqlString.Replace("[selected_columns]", "\"" + String.Join("\",\"", columns) + "\"");
-                        sqlString = sqlString.Replace("[tablename]", "\"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"");
+                        sqlString = sqlString.Replace("<selected_columns>", "\"" + String.Join("\",\"", columns) + "\"");
+                        sqlString = sqlString.Replace("<tablename>", "\"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"");
                         string order_by = "";
                         if(ids != null && ids.Length > 0) {
                             order_by = "ORDER BY " + String.Join(',', ids);
                         }
-                        sqlString = sqlString.Replace("[order_by]", order_by);
-                        sqlString = sqlString.Replace("[limit_size]", batchSize.ToString());
-                        sqlString = sqlString.Replace("[offset_size]", (((fetchBatchCounter - 1) * batchSize)).ToString());
+                        sqlString = sqlString.Replace("<where>", queryWhere != null ? queryWhere : "");
+                        sqlString = sqlString.Replace("<order_by>", order_by);
+                        sqlString = sqlString.Replace("<limit_size>", batchSize.ToString());
+                        sqlString = sqlString.Replace("<offset_size>", (((fetchBatchCounter - 1) * batchSize)).ToString());
 
                         NpgsqlCommand command = new NpgsqlCommand(sqlString, (NpgsqlConnection)connection.GetDbConnection());
                         NpgsqlDataReader dataReader = command.ExecuteReader();
@@ -139,7 +146,9 @@ namespace SurplusMigrator.Models {
                         dataReader.Close();
                         command.Dispose();
                     }
-                    Console.WriteLine("Done (" + result.Count + " data)");
+                    if(verbose) {
+                        Console.WriteLine("Done (" + result.Count + " data)");
+                    }
 
                     fetchBatchCounter++;
                     retry = false;
@@ -155,7 +164,7 @@ namespace SurplusMigrator.Models {
             return result;
         }
 
-        public TaskInsertStatus insertData(List<RowData<ColumnName, object>> inputs, bool truncateBeforeInsert, bool onlyTruncateMigratedData) {
+        public TaskInsertStatus insertData(List<RowData<ColumnName, object>> inputs, bool truncateBeforeInsert, bool onlyTruncateMigratedData, bool verbose = true) {
             TaskInsertStatus result = new TaskInsertStatus();
             List<DbInsertFail> failures = new List<DbInsertFail>();
             result.errors = failures;
@@ -248,8 +257,10 @@ namespace SurplusMigrator.Models {
                             }
                         }
                         result.successCount += affectedRowCount;
-                        MyConsole.EraseLine();
-                        MyConsole.Write(insertedCount + "/"+inputs.Count+" data inserted into " + tableName);
+                        if(verbose) {
+                            MyConsole.EraseLine();
+                            MyConsole.Write(insertedCount + "/" + inputs.Count + " data inserted into " + tableName);
+                        }
                     } while(retryInsert);
                     sqlParams.Clear();
                     sqlArguments.Clear();
@@ -349,13 +360,13 @@ namespace SurplusMigrator.Models {
                                 FROM 
                                     pg_sequences
                                 WHERE
-                                    schemaname = '[schema]'
-                                    and sequencename = '[tablename]_[identity_column]_seq'
+                                    schemaname = '<schema>'
+                                    and sequencename = '<tablename>_<identity_column>_seq'
                             ";
 
-                            query = query.Replace("[schema]", connection.GetDbLoginInfo().schema);
-                            query = query.Replace("[tablename]", tableName);
-                            query = query.Replace("[identity_column]", identityColumn);
+                            query = query.Replace("<schema>", connection.GetDbLoginInfo().schema);
+                            query = query.Replace("<tablename>", tableName);
+                            query = query.Replace("<identity_column>", identityColumn);
 
                             List<RowData<ColumnName, object>> rs_sequencer = new List<RowData<string, dynamic>>();
                             NpgsqlCommand command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
@@ -388,26 +399,29 @@ namespace SurplusMigrator.Models {
 
                                 query = @"
                                     SELECT 
-	                                    MAX([column])
+	                                    MAX(""<column>"")
                                     FROM 
-                                        [schema].[tablename]
+                                        ""<schema>"".""<tablename>""
                                 ";
 
-                                query = query.Replace("[column]", sequencerColumnName);
-                                query = query.Replace("[schema]", connection.GetDbLoginInfo().schema);
-                                query = query.Replace("[tablename]", tableName);
+                                query = query.Replace("<column>", sequencerColumnName);
+                                query = query.Replace("<schema>", connection.GetDbLoginInfo().schema);
+                                query = query.Replace("<tablename>", tableName);
 
                                 command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
-                                long lastId = Int64.Parse(command.ExecuteScalar().ToString());
+                                long lastId = -1;
+                                bool hasValue = Int64.TryParse(command.ExecuteScalar().ToString(), out lastId);
                                 command.Dispose();
 
-                                //query = @"SELECT setval('[sequencer_name]', [last_id], true)";
-                                query = @"ALTER SEQUENCE [sequencer_name] RESTART WITH [last_id];";
-                                query = query.Replace("[sequencer_name]", rs_sequencer[0]["sequencename"].ToString());
-                                query = query.Replace("[last_id]", lastId.ToString());
+                                if(hasValue) {
+                                    //query = @"SELECT setval('<sequencer_name>', [last_id], true)";
+                                    query = @"ALTER SEQUENCE ""<sequencer_name>"" RESTART WITH <last_id>;";
+                                    query = query.Replace("<sequencer_name>", rs_sequencer[0]["sequencename"].ToString());
+                                    query = query.Replace("<last_id>", lastId.ToString());
 
-                                command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
-                                affectedRow = command.ExecuteNonQuery();
+                                    command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
+                                    affectedRow = command.ExecuteNonQuery();
+                                }
                             }
                         }
                     }
