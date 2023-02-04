@@ -70,6 +70,8 @@ namespace SurplusMigrator.Libraries {
                 }
             }
 
+            if(strukturUnitId == null || strukturUnitId.Trim().Length == 0) return null;
+
             return _strukturUnitMaps[strukturUnitId.Trim()];
         }
 

@@ -89,7 +89,7 @@ namespace SurplusMigrator.Tasks {
                     int batchSize = batchsizeMap.ContainsKey(tablename)? batchsizeMap[tablename] : DEFAULT_BATCH_SIZE;
 
                     RowData<ColumnName, object>[] batchData;
-                    while((batchData = QueryUtils.getDataBatch(sourceConnection, tablename, false, batchSize)).Length > 0) {
+                    while((batchData = QueryUtils.getDataBatch(sourceConnection, tablename, null, batchSize)).Length > 0) {
                         try {
                             string query = @"
                                 insert into ""[target_schema]"".""[tablename]""([columns])

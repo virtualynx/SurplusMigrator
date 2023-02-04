@@ -1,3 +1,4 @@
+using Npgsql;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System;
@@ -75,6 +76,7 @@ namespace SurplusMigrator.Tasks {
             var tables = getTables();
 
             foreach(var row in tables) {
+                NpgsqlTransaction transaction = ((NpgsqlConnection)targetConnection.GetDbConnection()).BeginTransaction();
                 try {
                     string tablename = row["table_name"].ToString();
                     var columns = QueryUtils.getColumnNames(sourceConnection, tablename);
@@ -83,7 +85,7 @@ namespace SurplusMigrator.Tasks {
                     MyConsole.Write("Deleting all data in table " + tablename + " ... ");
                     try {
                         QueryUtils.toggleTrigger(targetConnection, tablename, false);
-                        var rs = QueryUtils.executeQuery(targetConnection, "DELETE FROM \""+ targetConnection.GetDbLoginInfo().schema + "\".\""+ tablename + "\";");
+                        var rs = QueryUtils.executeQuery(targetConnection, "DELETE FROM \""+ targetConnection.GetDbLoginInfo().schema + "\".\""+ tablename + "\";", null, transaction);
                     } catch(Exception) {
                         throw;
                     } finally {
@@ -110,11 +112,11 @@ namespace SurplusMigrator.Tasks {
                         ids = primaryKeys,
                     };
                     List<RowData<ColumnName, object>> batchData;
-                    while((batchData = sourceTable.getDatas(batchSize, true, null, false)).Count > 0) {
+                    while((batchData = sourceTable.getDatas(batchSize, null, true, false)).Count > 0) {
                         try {
                             try {
                                 QueryUtils.toggleTrigger(targetConnection, tablename, false);
-                                targetTable.insertData(batchData, false, false, false);
+                                targetTable.insertData(batchData, false, false, transaction, false);
                                 insertedCount += batchData.Count;
                                 MyConsole.EraseLine();
                                 MyConsole.Write(insertedCount + "/" + dataCount + " data inserted ... ");
@@ -138,10 +140,12 @@ namespace SurplusMigrator.Tasks {
 
                     //update sequencer
                     targetTable.updateSequencer();
+                    transaction.Commit();
                     MyConsole.EraseLine();
                     MyConsole.Information("Successfully copying " + insertedCount + "/"+ dataCount + " data on table " + tablename);
                     MyConsole.WriteLine("", false);
                 } catch(Exception) {
+                    transaction.Rollback();
                     throw;
                 }
             }

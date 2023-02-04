@@ -41,8 +41,9 @@ namespace SurplusMigrator.Tasks {
             MappedData result = new MappedData();
 
             DateTime createdDate = DateTime.Now;
+            var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
             foreach(RowData<ColumnName, object> data in inputs) {
-                string msaId = SequencerString.getId("MSA", createdDate);
+                string msaId = SequencerString.getId(surplusConn, "MSA", createdDate);
 
                 result.addData(
                     "master_source_account",

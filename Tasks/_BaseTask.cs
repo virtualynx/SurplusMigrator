@@ -1,4 +1,5 @@
 ﻿using Microsoft.Data.SqlClient;
+using Npgsql;
 using SurplusMigrator.Exceptions;
 using SurplusMigrator.Interfaces;
 using SurplusMigrator.Libraries;
@@ -6,9 +7,11 @@ using SurplusMigrator.Models;
 using SurplusMigrator.Models.Others;
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 using TaskName = System.String;
 
 namespace SurplusMigrator.Tasks {
@@ -71,9 +74,9 @@ namespace SurplusMigrator.Tasks {
                 if(destinations.Any(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))) {
                     bool confirmTruncate = true;
                     if(GlobalConfig.getJobPlaylist().Length > 0) {
-                        MyConsole.Write("Task "+GetType().Name+" has truncating option enabled, confirm truncate (y/n)? ");
+                        MyConsole.Write("Task "+GetType().Name+ " has truncating option enabled, type \"truncate\" to perform truncating: ");
                         string truncate = Console.ReadLine();
-                        if(truncate.ToLower() != "y") {
+                        if(truncate.ToLower() != "truncate") {
                             confirmTruncate = false;
                         }
                     }
@@ -124,15 +127,30 @@ namespace SurplusMigrator.Tasks {
                 while((fetchedData = getSourceData(sourceTables, readBatchSize)).Count > 0) {
                     MappedData mappedData = mapData(fetchedData);
                     foreach(Table dest in destinationTables) {
-                        TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), truncateBeforeInsert, onlyTruncateMigratedData);
-                        successCount += taskStatus.successCount;
-                        failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
-                        failureCount += mappedData.getError(dest.tableName).Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
-                        duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
-                        allErrors.AddRange(taskStatus.errors);
-                        allErrors.AddRange(mappedData.getError(dest.tableName));
-                        MyConsole.EraseLine();
-                        MyConsole.WriteLine("Total " + (successCount + failureCount + duplicateCount) + " data processed");
+                        DbTransaction transaction;
+                        if(dest.connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                            transaction = ((SqlConnection)dest.connection.GetDbConnection()).BeginTransaction();
+                        } else if(dest.connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                            transaction = ((NpgsqlConnection)dest.connection.GetDbConnection()).BeginTransaction();
+                        } else {
+                            throw new NotImplementedException("Database type unknown: "+ dest.connection.GetDbLoginInfo().type);
+                        }
+
+                        try {
+                            TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), truncateBeforeInsert, onlyTruncateMigratedData, transaction);
+                            successCount += taskStatus.successCount;
+                            failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
+                            failureCount += mappedData.getError(dest.tableName).Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
+                            duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
+                            allErrors.AddRange(taskStatus.errors);
+                            allErrors.AddRange(mappedData.getError(dest.tableName));
+                            MyConsole.EraseLine();
+                            MyConsole.WriteLine("Total " + (successCount + failureCount + duplicateCount) + " data processed");
+                            transaction.Commit();
+                        } catch(Exception) {
+                            transaction.Rollback();
+                            throw;
+                        }
                     }
                 }
 
@@ -150,13 +168,29 @@ namespace SurplusMigrator.Tasks {
                         var datas = staticDatas.getData(dest.tableName);
                         for(int a = 0; a < datas.Count; a += readBatchSize) {
                             var batchDatas = datas.Skip(a).Take(readBatchSize).ToList();
-                            TaskInsertStatus taskStatus = dest.insertData(batchDatas, truncateBeforeInsert, onlyTruncateMigratedData);
-                            successCount += taskStatus.successCount;
-                            failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
-                            duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
-                            allErrors.AddRange(taskStatus.errors);
-                            MyConsole.EraseLine();
-                            MyConsole.WriteLine("Total " + (successCount + failureCount + duplicateCount) + " data processed");
+
+                            DbTransaction transaction;
+                            if(dest.connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                                transaction = ((SqlConnection)dest.connection.GetDbConnection()).BeginTransaction();
+                            } else if(dest.connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                                transaction = ((NpgsqlConnection)dest.connection.GetDbConnection()).BeginTransaction();
+                            } else {
+                                throw new NotImplementedException("Database type unknown: " + dest.connection.GetDbLoginInfo().type);
+                            }
+
+                            try {
+                                TaskInsertStatus taskStatus = dest.insertData(batchDatas, truncateBeforeInsert, onlyTruncateMigratedData, transaction);
+                                successCount += taskStatus.successCount;
+                                failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
+                                duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
+                                allErrors.AddRange(taskStatus.errors);
+                                MyConsole.EraseLine();
+                                MyConsole.WriteLine("Total " + (successCount + failureCount + duplicateCount) + " data processed");
+                                transaction.Commit();
+                            } catch(Exception) {
+                                transaction.Rollback();
+                                throw;
+                            }
                         }
                     }
                 }

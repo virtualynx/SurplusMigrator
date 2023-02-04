@@ -56,10 +56,6 @@ namespace SurplusMigrator {
             MyConsole.WriteLine("Press enter to start ...", false);
             Console.ReadLine();
 
-            var gen21 = new Gen21Integration(connections);
-            var adv = gen21.getAdvertiserId(2941);
-            var brand = gen21.getAdvertiserBrandId(2941, 11449);
-
             try {
                 if(config.pre_queries_path != null) {
                     QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault());

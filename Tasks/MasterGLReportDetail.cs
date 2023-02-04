@@ -44,14 +44,14 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
-            return sourceTables.Where(a => a.tableName == "master_gl_report_row").FirstOrDefault().getDatas(batchSize, false);
+            return sourceTables.Where(a => a.tableName == "master_gl_report_row").FirstOrDefault().getDatas(batchSize, null, false);
         }
 
         protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             foreach(RowData<ColumnName, object> data in inputs) {
-                string dummy = SequencerString.getId("DUMMY_GLRD", DateTime.Now).Substring("DUMMY_GLRD".Length + "yyMMdd".Length);
+                string dummy = SequencerString.getId(null, "DUMMY_GLRD", DateTime.Now).Substring("DUMMY_GLRD".Length + "yyMMdd".Length);
                 int glreportdetailid = Utils.obj2int(dummy);
                 string codeAndRowTag = data["code"].ToString() + "_" + data["row"].ToString();
                 IdRemapper.add("glreportdetailid", codeAndRowTag, glreportdetailid);

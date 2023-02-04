@@ -103,7 +103,7 @@ namespace SurplusMigrator.Tasks {
                 queryWhere = "WHERE jurnal_id in ('" + string.Join("','", journalids) + "')";
             }
 
-            return sourceTables.Where(a => a.tableName == "transaksi_jurnal").FirstOrDefault().getDatas(batchSize, true, queryWhere);
+            return sourceTables.Where(a => a.tableName == "transaksi_jurnal").FirstOrDefault().getDatas(batchSize, queryWhere);
         }
 
         protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
@@ -175,6 +175,7 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override void runDependencies() {
+            new _Department(connections).run();
             new MasterAccountCa(connections).run();
             //new _MasterAdvertiser(connections).run();
             //new _MasterAdvertiserBrand(connections).run();

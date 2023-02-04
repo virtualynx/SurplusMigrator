@@ -107,10 +107,19 @@ namespace SurplusMigrator.Tasks {
         protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
+            DataIntegration integration = new DataIntegration(connections);
+
             foreach(RowData<ColumnName, object> data in inputs) {
                 int showinventorycategoryid = Utils.obj2int(data["showinventorycategory_id"]);
                 int showinventorydepartmentid = Utils.obj2int(data["showinventorydepartment_id"]);
                 int showinventorytimezoneid = Utils.obj2int(data["showinventorytimezone_id"]);
+
+                string departmentId = Utils.obj2str(data["strukturunit_id"]);
+                if(departmentId == "0") {
+                    departmentId = null;
+                } else {
+                    departmentId = integration.getDepartmentFromStrukturUnit(departmentId);
+                }
 
                 RowData<ColumnName, object> insertRow = new RowData<ColumnName, object>() {
                     { "tprogrambudgetid",  data["prabudget_program_id"]},
@@ -134,7 +143,7 @@ namespace SurplusMigrator.Tasks {
                     { "epnik",  data["prabudget_program_ep_nik"]},
                     { "tvprogramname",  data["prabudget_program_title"]},
                     { "tvprogramid",  data["prabudget_program_focus_id"]},
-                    { "departmentid",  data["strukturunit_id"]},
+                    { "departmentid",  departmentId},
                     { "programbudgettypeid",  data["prabudget_program_type_id"]},
                     { "showinventorycategoryid",  showinventorycategoryid!=0? showinventorycategoryid: null},
                     { "showinventorydepartmentid",  showinventorydepartmentid!=0? showinventorydepartmentid: null},
@@ -157,6 +166,7 @@ namespace SurplusMigrator.Tasks {
         protected override void runDependencies() {
             new MasterProgramBudgetContenttype(connections).run();
             new MasterProgramBudgetType(connections).run();
+            new _Department(connections).run();
         }
     }
 }

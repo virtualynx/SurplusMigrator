@@ -141,7 +141,7 @@ namespace SurplusMigrator.Tasks {
                 queryWhere = "WHERE salesorder_id in ('" + string.Join("','", salesorderids) + "')";
             }
 
-            return sourceTables.Where(a => a.tableName == "transaksi_salesorder").FirstOrDefault().getDatas(batchSize, true, queryWhere);
+            return sourceTables.Where(a => a.tableName == "transaksi_salesorder").FirstOrDefault().getDatas(batchSize, queryWhere);
         }
 
         protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {

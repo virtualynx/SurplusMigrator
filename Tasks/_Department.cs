@@ -58,6 +58,11 @@ namespace SurplusMigrator.Tasks {
             }
         }
 
+        //this override is needed
+        protected override List<RowData<string, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+            return new List<RowData<string, object>>();
+        }
+
         protected override MappedData getStaticData() {
             if(source == "json") {
                 return getDataFromJson();

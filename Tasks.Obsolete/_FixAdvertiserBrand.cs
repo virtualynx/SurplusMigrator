@@ -91,12 +91,14 @@ namespace SurplusMigrator.Tasks {
                             string queryUpdate = @"
                                     update ""<target_schema>"".""<tablename>"" 
                                     set 
+                                        advertiserid = <newadvertiserid>
                                         advertiserbrandid = <newbrandid>
                                     where (<filter_columns>) IN (<filter_values>);
                                 ";
                             queryUpdate = queryUpdate.Replace("<target_schema>", targetConnection.GetDbLoginInfo().schema);
                             queryUpdate = queryUpdate.Replace("<tablename>", tablename);
-                            queryUpdate = queryUpdate.Replace("<newbrandid>", QueryUtils.getInsertArg(newDeptId));
+                            queryUpdate = queryUpdate.Replace("<newadvertiserid>", QueryUtils.getInsertArg(newAdvertiserId));
+                            queryUpdate = queryUpdate.Replace("<newbrandid>", QueryUtils.getInsertArg(newBrandId));
                             queryUpdate = queryUpdate.Replace("<filter_columns>", "\"" + String.Join("\",\"", primaryKeys) + "\"");
 
                             List<string> filterValues = new List<string>();
@@ -116,7 +118,7 @@ namespace SurplusMigrator.Tasks {
                     }
 
                     MyConsole.EraseLine();
-                    MyConsole.Information("Successfully copying " + updatedCount + "/"+ dataCount + " data on table " + tablename);
+                    MyConsole.Information("Successfully fixing advertiserid and advertiserbrandid in table " + tablename);
                     MyConsole.WriteLine("", false);
                 } catch(Exception) {
                     throw;

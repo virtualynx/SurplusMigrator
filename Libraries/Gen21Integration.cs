@@ -1,5 +1,6 @@
 ﻿using Npgsql;
 using SurplusMigrator.Exceptions;
+using SurplusMigrator.Exceptions.Gen21;
 using SurplusMigrator.Models;
 using System;
 using System.Collections.Generic;
@@ -84,24 +85,9 @@ namespace SurplusMigrator.Libraries {
         }
 
         public (string advertiserId, string brandId) getAdvertiserBrandId(string oldAdvertiserId, string oldAdvertiserBrandId) {
-            string idRemapperKey = "advertiserbrandid";
-            try {
-                string brandId = IdRemapper.get(idRemapperKey, oldAdvertiserBrandId).ToString();
-                return (getAdvertiserId(oldAdvertiserId), brandId);
-            } catch(Exception e) {
-                if(
-                    e.Message != "RemappedId map does not have mapping for id-columnname: " + idRemapperKey
-                    && e.Message != "RemappedId map for id-columnname: " + idRemapperKey + ", does not have mapping for old-value: " + oldAdvertiserBrandId
-                ) {
-                    throw;
-                }
-            }
-
-            string advertiserId = getAdvertiserId(oldAdvertiserId);
-
-            if(advertiserId == null) {
-                throw new MissingDataException("Unidentified AdvertiserId(" + oldAdvertiserId + ") in Gen21");
-            }
+            MissingAdvertiserBrandException exception = new MissingAdvertiserBrandException();
+            exception.info.advertiserId = Int32.Parse(oldAdvertiserId);
+            exception.info.advertiserBrandId = Int32.Parse(oldAdvertiserBrandId);
 
             var efrmConn = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").First();
             string queryGetBrandNames = @"
@@ -116,6 +102,7 @@ namespace SurplusMigrator.Libraries {
             queryGetBrandNames = queryGetBrandNames.Replace("<old_brand_id>", oldAdvertiserBrandId.ToString());
             var trafficBrandNamesRs = QueryUtils.executeQuery(efrmConn, queryGetBrandNames);
             var trafficBrandNames = (from row in trafficBrandNamesRs select row["trafficbrand_name"].ToString()).ToArray();
+            exception.info.masterTrafficbrandNames = trafficBrandNames;
 
             //if not found in master_trafficbrand, get the name from master_advertiserbrand instead
             if(trafficBrandNames.Length == 0) {
@@ -130,6 +117,7 @@ namespace SurplusMigrator.Libraries {
                 queryGetBrandNames = queryGetBrandNames.Replace("<old_brand_id>", oldAdvertiserBrandId.ToString());
                 trafficBrandNamesRs = QueryUtils.executeQuery(efrmConn, queryGetBrandNames);
                 trafficBrandNames = (from row in trafficBrandNamesRs select row["advertiser_brand_name"].ToString()).ToArray();
+                exception.info.masterAdvertiserbrandName = trafficBrandNames.Length>0? trafficBrandNames[0]: null;
             }
 
             trafficBrandNames = (from name in trafficBrandNames select name.ToUpper()).ToArray();
@@ -148,19 +136,100 @@ namespace SurplusMigrator.Libraries {
                 if(gen21SearchRs.Length > 0) break;
             }
 
-            if(gen21SearchRs.Length > 0) {
-                gen21SearchRs = gen21SearchRs.Where(
-                    row => 
-                        row["advertiserid"].ToString() == advertiserId
-                        && trafficBrandNames.Contains(row["name"].ToString().ToUpper())
-                ).ToArray();
-                string brandId = gen21SearchRs[0]["advertiserbrandid"].ToString();
-                IdRemapper.add(idRemapperKey, oldAdvertiserBrandId, brandId);
-
-                return (advertiserId, brandId);
+            if(gen21SearchRs.Length == 0) {
+                throw exception;
             }
 
-            return (null, null);
+            exception.info.brandPossibleResults = (
+                    from row in gen21SearchRs
+                    select new Brand {
+                        id = row["advertiserbrandid"].ToString(),
+                        name = row["name"].ToString()
+                    }
+                ).ToArray();
+            string brandId = gen21SearchRs[0]["advertiserbrandid"].ToString();
+
+            //search similar advertiser name based on the brandId found
+            string queryGetAdvertiserNames = @"
+                    select
+                        trafficadvertiser_name
+                    from
+                        master_trafficadvertiser
+                    where
+                        code = @old_advertiser_id
+                        and trafficadvertiser_isactive = 1
+                ";
+            var trafficAdvertiserNamesRs = QueryUtils.executeQuery(
+                    efrmConn,
+                    queryGetAdvertiserNames,
+                    new Dictionary<string, object> { { "@old_advertiser_id", oldAdvertiserId } }
+                );
+            var trafficAdvertiserNames = (from row in trafficAdvertiserNamesRs select row["trafficadvertiser_name"].ToString()).ToArray();
+            exception.info.masterTrafficadvertiserNames = trafficAdvertiserNames;
+
+            //if not found in master_trafficadvertiser, get the name from master_advertiser instead
+            if(trafficAdvertiserNames.Length == 0) {
+                queryGetAdvertiserNames = @"
+                        select
+                            [name]
+                        from
+                            master_advertiser
+                        where
+                            code = @old_advertiser_id
+                    ";
+                trafficAdvertiserNamesRs = QueryUtils.executeQuery(
+                        efrmConn,
+                        queryGetAdvertiserNames,
+                        new Dictionary<string, object> { { "@old_advertiser_id", oldAdvertiserId } }
+                    );
+                trafficAdvertiserNames = (from row in trafficAdvertiserNamesRs select row["name"].ToString()).ToArray();
+                exception.info.masterAdvertiserName = trafficAdvertiserNames.Length > 0 ? trafficAdvertiserNames[0] : null;
+            }
+
+            if(trafficAdvertiserNames.Length == 0) {
+                throw new MissingAdvertiserBrandException("Unidentified AdvertiserId(" + oldAdvertiserId + ") in both [master_trafficadvertiser] and [master_advertiser]", exception);
+            }
+
+            foreach(string trafficAdvertiserName in trafficAdvertiserNames) {
+                gen21SearchRs = QueryUtils.searchSimilar(
+                    surplusConn,
+                    "view_master_brand_temp",
+                    new string[] { "advertiserid", "advertiserbrandid", "advertiser_name" },
+                    "advertiser_name",
+                    trafficAdvertiserName.ToUpper()
+                );
+                if(gen21SearchRs.Length > 0) break;
+            }
+
+            if(gen21SearchRs.Length == 0) {
+                throw new MissingAdvertiserBrandException("Similar brand name is found, but no similar associated advertiser name found", exception);
+            }
+
+            List<Advertiser> possibleResultAdvertiserList = new List<Advertiser>();
+            foreach(var row in gen21SearchRs) {
+                string rowAdvId = row["advertiserid"].ToString();
+                if(!possibleResultAdvertiserList.Any(a => a.id == rowAdvId)) {
+                    possibleResultAdvertiserList.Add(
+                        new Advertiser {
+                            id = row["advertiserid"].ToString(),
+                            name = row["advertiser_name"].ToString()
+                        }
+                    );
+                }
+            }
+            exception.info.advertiserPossibleResults = possibleResultAdvertiserList.ToArray();
+
+            gen21SearchRs = gen21SearchRs.Where(a => a["advertiserbrandid"].ToString() == brandId).ToArray();
+            if(gen21SearchRs.Length == 0) {
+                throw new MissingAdvertiserBrandException("Similar brand name is found, but none of the associated advertisers has the desired name", exception);
+            }
+
+            string advertiserId = gen21SearchRs[0]["advertiserid"].ToString();
+
+            IdRemapper.add("advertiserid", oldAdvertiserId, advertiserId);
+            IdRemapper.add("advertiserbrandid", oldAdvertiserBrandId, brandId);
+
+            return (advertiserId, brandId);
         }
 
         public string getAdvertiserId2(int oldAdvertiserId) {

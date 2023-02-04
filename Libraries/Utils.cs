@@ -9,6 +9,8 @@ using System.Text.Json;
 using Excel = Microsoft.Office.Interop.Excel;
 using System.Runtime.InteropServices;
 using System.Globalization;
+using System.Linq;
+using System.Collections;
 
 namespace SurplusMigrator.Libraries {
     class Utils {
@@ -65,6 +67,18 @@ namespace SurplusMigrator.Libraries {
             }
             return TimeSpan.FromMilliseconds(milliseconds).ToString(format);
         }
+        public static bool isList(object o) {
+            if(o == null) return false;
+            return o is IList &&
+                   o.GetType().IsGenericType &&
+                   o.GetType().GetGenericTypeDefinition().IsAssignableFrom(typeof(List<>));
+        }
+        public static bool isDictionary(object o) {
+            if(o == null) return false;
+            return o is IDictionary &&
+                   o.GetType().IsGenericType &&
+                   o.GetType().GetGenericTypeDefinition().IsAssignableFrom(typeof(Dictionary<,>));
+        }
         public static T loadJson<T>(string filename) {
             string path = System.Environment.CurrentDirectory + "\\" + filename;
             if(File.Exists(path)) {
@@ -118,15 +132,18 @@ namespace SurplusMigrator.Libraries {
                 oleExcelCommand.CommandType = CommandType.Text;
 
                 OleDbDataReader oleExcelReader = oleExcelCommand.ExecuteReader();
-
-                int nOutputRow = 0;
                 while(oleExcelReader.Read()) {
                     RowData<ColumnName, object> rowData = new RowData<ColumnName, object>();
-                    foreach(ExcelColumn column in columns) {
-                        rowData.Add(column.name, oleExcelReader.GetValue(column.ordinal));
+                    int fieldCount = oleExcelReader.VisibleFieldCount;
+                    for(int a = 0; a < oleExcelReader.VisibleFieldCount; a++) {
+                        string columnName = a.ToString();
+                        ExcelColumn namedColumn = columns.Where(col => col.ordinal == a).FirstOrDefault();
+                        if(namedColumn != null) {
+                            columnName = namedColumn.name;
+                        }
+                        rowData.Add(columnName, oleExcelReader.GetValue(a));
                     }
                     result.Add(rowData);
-                    nOutputRow++;
                 }
                 oleExcelReader.Close();
             }

@@ -1,8 +1,6 @@
 using Microsoft.Data.SqlClient;
 using Npgsql;
-using SurplusMigrator.Exceptions;
 using SurplusMigrator.Exceptions.Gen21;
-using SurplusMigrator.Interfaces;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System;
@@ -12,10 +10,10 @@ using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace SurplusMigrator.Tasks {
-    class _NewJournalInsosysToSurplus : _BaseTask, RemappableId {
+    class NewSAInsosysToSurplus : _BaseTask {
         private string[] journalIds = null;
 
-        public _NewJournalInsosysToSurplus(DbConnection_[] connections) : base(connections) {
+        public NewSAInsosysToSurplus(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
@@ -87,75 +85,6 @@ namespace SurplusMigrator.Tasks {
                         //"budgetdetil_name",
                     },
                     ids = new string[] { "jurnal_id", "jurnaldetil_line" }
-                },
-                new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
-                    tableName = "transaksi_salesorder",
-                    columns = new string[] {
-                        "salesorder_id",
-                        "salesorder_agency",
-                        "salesorder_agency_addr",
-                        "salesorder_ext_ref",
-                        "salesorder_ext_ref2",
-                        "salesorder_dt",
-                        "salesorder_advertiser",
-                        "salesorder_brand",
-                        //"salesorder_product",
-                        "salesorder_order_month",
-                        "salesorder_bill_dt",
-                        "salesorder_book_dt",
-                        "salesorder_due",
-                        "salesorder_ae",
-                        "salesorder_recv_dt",
-                        "salesorder_recv_by",
-                        "salesorder_currency",
-                        "salesorder_rate",
-                        "salesorder_amount",
-                        //"salesorder_amountidr",
-                        "salesorder_amount_add",
-                        "salesorder_amount_cancel",
-                        "salesorder_comm",
-                        "salesorder_buyer",
-                        "salesorder_area",
-                        "salesorder_traffic_id",
-                        "salesorder_format_inv",
-                        //"salesorder_format_log",
-                        //"salesorder_invoice_reference",
-                        "salesorder_ply_inv",
-                        //"salesorder_ply_log",
-                        "salesorder_inv_type",
-                        "salesorder_direct",
-                        "salesorder_descr",
-                        "salesorder_entry_dt",
-                        "salesorder_entry_by",
-                        "salesorder_account",
-                        "salesorder_mo_avail",
-                        "salesorder_mo_add",
-                        "salesorder_mo_memo",
-                        "salesorder_mo_canc",
-                        "salesorder_mo_date",
-                        //"salesorder_pulled",v
-                        //"salesorder_modifyby",
-                        //"salesorder_modifydt",
-                        //"channel_id",
-                        "salesorder_isokay",
-                        "salesorder_iscanceled",
-                        "salesorder_jurnaltypeid"
-                    },
-                    ids = new string[] { "salesorder_id" }
-                },
-                new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
-                    tableName = "transaksi_jurnalreference",
-                    columns = new string[] {
-                        "jurnal_id",
-                        "jurnaldetil_line",
-                        "jurnal_id_ref",
-                        "jurnal_id_refline",
-                        "jurnal_id_budgetline",
-                        "referencetype"
-                    },
-                    ids = new string[] { }
                 }
             };
             destinations = new TableInfo[] {
@@ -305,38 +234,7 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override void runDependencies() {
-            new _Department(connections).run();
-            new MasterAccountCa(connections).run();
-            //new _MasterAdvertiser(connections).run();
-            //new _MasterAdvertiserBrand(connections).run();
-            new MasterCurrency(connections).run();
-            new MasterPaymentType(connections).run();
-            new MasterPeriod(connections).run();
-            new MasterTransactionTypeGroup(connections).run();
-            new MasterTransactionType(connections).run();
-            new MasterSource(connections).run();
-            new MasterVendorCategory(connections).run();
-            new MasterVendorType(connections).run();
-            new MasterVendor(connections).run();
-            new TransactionBudget(connections).run(true);
-
-            new MasterBankAccount(connections).run();
-            new MasterJournalReferenceType(connections).run();
-            new TransactionBudgetDetail(connections).run(true);
-
-            new MasterVendor(connections).run();
-            new MasterCurrency(connections).run();
-            new MasterAccount(connections).run();
-            new MasterTransactionType(connections).run();
-            new MasterInvoiceFormat(connections).run();
-            new MasterInvoiceType(connections).run();
             new MasterVendorBill(connections).run();
-        }
-
-        public void clearRemappingCache() {
-            IdRemapper.clearMapping("advertiserid");
-            IdRemapper.clearMapping("advertiserbrandid");
-            IdRemapper.clearMapping("vendorbillid");
         }
 
         protected override void onFinished() {
@@ -346,7 +244,9 @@ namespace SurplusMigrator.Tasks {
 
             QueryUtils.toggleTrigger(surplusConn, "transaction_journal", false);
             QueryUtils.toggleTrigger(surplusConn, "transaction_journal_detail", false);
+            QueryUtils.toggleTrigger(surplusConn, "transaction_sales_order", false);
             try {
+                insertIntoTransactionSalesOrder(newJurnals, transaction);
                 insertIntoJournal(newJurnals, transaction);
                 transaction.Commit();
             } catch(Exception) {
@@ -355,7 +255,7 @@ namespace SurplusMigrator.Tasks {
             } finally {
                 QueryUtils.toggleTrigger(surplusConn, "transaction_journal", true);
                 QueryUtils.toggleTrigger(surplusConn, "transaction_journal_detail", true);
-                IdRemapper.saveMap(); //saving mapped advertiser and brand triggered by Gen21Integration, and also vendorbill
+                QueryUtils.toggleTrigger(surplusConn, "transaction_sales_order", true);
             }
         }
 
@@ -365,55 +265,57 @@ namespace SurplusMigrator.Tasks {
 
             List<RowData<ColumnName, object>> migratedJurnalInsosys = new List<RowData<ColumnName, object>>();
 
-            string[] journalIds = null;
-            if(getOptions("journalids") != null) {
-                List<string> listOfJournal = new List<string>();
-                var journalOptSplit = getOptions("journalids").Split(",");
-                foreach(var journalId in journalOptSplit) {
-                    if(journalId.Trim().Length > 0) {
-                        listOfJournal.Add(journalId.Trim());
+            if(journalIds == null) {
+                string[] primaryKeys = sources.Where(a => a.tableName == "transaksi_jurnal").First().ids;
+                var all_new_jurnalids = new List<string>();
+
+                RowData<ColumnName, object>[] datas;
+                while((datas = QueryUtils.getDataBatch(insosysConn, "transaksi_jurnal", null, 500, primaryKeys)).Length > 0) {
+                    List<string> jurnalids = new List<string>();
+                    foreach(var row in datas) {
+                        var jurnal_id = Utils.obj2str(row["jurnal_id"]).ToUpper();
+                        if(!jurnalids.Contains(jurnal_id)) {
+                            jurnalids.Add(jurnal_id);
+                        }
                     }
-                }
-                journalIds = listOfJournal.Count > 0 ? listOfJournal.ToArray() : null;
-            }
 
-            string filter = null;
-            if(getOptions("filters") != null) {
-                filter = getOptions("filter");
-            }
+                    string querySurplus = @"
+                        select
+                            tjournalid
+                        from
+                            ""<schema>"".""transaction_journal""
+                        where
+                            tjournalid in (<jurnal_ids>)
+                    ";
+                    querySurplus = querySurplus.Replace("<schema>", surplusConn.GetDbLoginInfo().schema);
+                    querySurplus = querySurplus.Replace("<jurnal_ids>", "'" + String.Join("','", jurnalids) + "'");
+                    var rs = QueryUtils.executeQuery(surplusConn, querySurplus);
 
-            Table tableJurnal = new Table(sources.First(a => a.tableName == "transaksi_jurnal"));
-            if(journalIds != null) {
-                string whereIn = "jurnal_id in (<jurnal_ids>)".Replace("<jurnal_ids>", "'" + String.Join("','", journalIds) + "'");
-                List<RowData<ColumnName, object>> batchData;
-                while((batchData = tableJurnal.getDatas(250, whereIn)).Count > 0) {
-                    migratedJurnalInsosys.AddRange(batchData);
-                }
-            } else if(filter != null) {
-                List<RowData<ColumnName, object>> batchData;
-                while((batchData = tableJurnal.getDatas(250, filter)).Count > 0) {
-                    migratedJurnalInsosys.AddRange(batchData);
+                    var new_jurnalids = jurnalids.Where(jurnal_id => !rs.Any(surplusData => Utils.obj2str(surplusData["tjournalid"]) == jurnal_id)).ToList();
+                    if(new_jurnalids.Count > 0) {
+                        migratedJurnalInsosys.AddRange(datas.Where(a => new_jurnalids.Contains(Utils.obj2str(a["jurnal_id"]))).ToList());
+                        all_new_jurnalids.AddRange(new_jurnalids);
+                    }
                 }
             } else {
-                Table tableJournal = new Table(destinations.First(a => a.tableName == "transaction_journal"));
-                List<RowData<ColumnName, object>> batchDataInsosys;
-                while((batchDataInsosys = tableJurnal.getDatas(2500)).Count > 0) {
-                    string[] insosysJournalIds = batchDataInsosys.Select(a => Utils.obj2str(a["jurnal_id"]).ToUpper()).Distinct().ToArray();
-                    List<RowData<ColumnName, object>> batchDataSurplus;
-                    List<RowData<ColumnName, object>> dataSurplus = new List<RowData<string, object>>();
-                    string whereInClause = "tjournalid in (<jurnal_ids>)";
-                    whereInClause = whereInClause.Replace("<jurnal_ids>", "'" + String.Join("','", insosysJournalIds) + "'");
-                    while((batchDataSurplus = tableJournal.getDatas(2500, whereInClause, true, false)).Count > 0) {
-                        dataSurplus.AddRange(batchDataSurplus);
-                    }
-                    var new_jurnalids = insosysJournalIds.Where(jurnal_id => !dataSurplus.Any(surplusData => Utils.obj2str(surplusData["tjournalid"]) == jurnal_id)).ToList();
-                    if(new_jurnalids.Count > 0) {
-                        migratedJurnalInsosys.AddRange(batchDataInsosys.Where(a => new_jurnalids.Contains(Utils.obj2str(a["jurnal_id"]))).ToList());
-                    }
-                }
-            }
+                string queryInsosys = @"
+                        select
+                            <columns>
+                        from
+                            [<schema>].[transaksi_jurnal]
+                        where
+                            jurnal_id in (<jurnal_ids>)
+                    "
+                ;
 
-            string[] dump = migratedJurnalInsosys.Select(row => Utils.obj2str(row["jurnal_id"])).Distinct().ToArray();
+                var columns = QueryUtils.getColumnNames(insosysConn, "transaksi_jurnal");
+                queryInsosys = queryInsosys.Replace("<columns>", "[" + String.Join("],[", columns) + "]");
+                queryInsosys = queryInsosys.Replace("<schema>", insosysConn.GetDbLoginInfo().schema);
+                queryInsosys = queryInsosys.Replace("<jurnal_ids>", "'" + String.Join("','", journalIds) + "'");
+                var rs = QueryUtils.executeQuery(insosysConn, queryInsosys);
+
+                migratedJurnalInsosys.AddRange(rs);
+            }
 
             return migratedJurnalInsosys.ToArray();
         }
@@ -453,6 +355,124 @@ namespace SurplusMigrator.Tasks {
             return newJurnalDetails.ToArray();
         }
 
+        private void insertIntoTransactionSalesOrder(RowData<ColumnName, object>[] newJournals, NpgsqlTransaction transaction) {
+            var insosysConn = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault();
+            var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault();
+
+            Gen21Integration gen21 = new Gen21Integration(connections);
+            List<MissingAdvertiserBrandException> exceptions = new List<MissingAdvertiserBrandException>();
+            Table soTable = new Table(destinations.First(a => a.tableName == "transaction_sales_order"));
+
+            List<string> insertedSOIds = new List<string>();
+            int insertBatchSize = 500;
+            for(int a = 0; a < newJournals.Length; a += insertBatchSize) {
+                var batchJurnals = newJournals.Skip(a).Take(insertBatchSize).ToArray();
+
+                var jurnalIds = (from row in batchJurnals select Utils.obj2str(row["jurnal_id"])).ToArray();
+
+                var jurnal_refs = QueryUtils.executeQuery(
+                    insosysConn,
+                    "select jurnal_id_ref from transaksi_jurnalreference where jurnal_id in @jurnal_ids",
+                    new Dictionary<string, object> {
+                        { "@jurnal_ids", jurnalIds }
+                    }
+                );
+
+                var soIds = (from row in jurnal_refs select Utils.obj2str(row["jurnal_id_ref"])).ToArray();
+
+                var salesOrders = QueryUtils.executeQuery(
+                    insosysConn,
+                    "select * from transaksi_salesorder where salesorder_id in @salesorder_ids",
+                    new Dictionary<string, object> {
+                        { "@salesorder_ids", soIds }
+                    }
+                ).ToList();
+
+                nullifyMissingReferences("salesorder_agency", "master_rekanan", "rekanan_id", insosysConn, salesOrders);
+
+                List<RowData<ColumnName, object>> newDatas = new List<RowData<string, object>>();
+                foreach(var data in salesOrders) {
+                    string vendorbillidTag = Utils.obj2str(data["salesorder_agency"]) + "-" + Utils.obj2str(data["salesorder_agency_addr"]);
+                    int vendorbillid = 0;
+                    try {
+                        vendorbillid = IdRemapper.get("vendorbillid", vendorbillidTag);
+                    } catch(Exception e) {
+                        if(e.Message.StartsWith("RemappedId map does not have mapping for id-columnname")) {
+
+                        }
+                    }
+
+                    string advertiserid = Utils.obj2str(data["salesorder_advertiser"]);
+                    string advertiserbrandid = Utils.obj2str(data["salesorder_brand"]);
+                    string advertisercode = null;
+                    string advertiserbrandcode = null;
+                    if(advertiserbrandid != null) {
+                        try {
+                            (advertisercode, advertiserbrandcode) = gen21.getAdvertiserBrandId(advertiserid, advertiserbrandid);
+                        } catch(MissingAdvertiserBrandException e) {
+                            advertisercode = advertiserid;
+                            advertiserbrandcode = advertiserbrandid;
+                            exceptions.Add(e);
+                        } catch(Exception) {
+                            throw;
+                        }
+                    }
+
+                    newDatas.Add(new RowData<string, object>() {
+                            { "tsalesorderid",  data["salesorder_id"]},
+                            { "vendorid",  data["salesorder_agency"]},
+                            { "vendorbillid",  vendorbillid},
+                            { "mediaordernumber",  data["salesorder_ext_ref"]},
+                            { "jobid",  data["salesorder_ext_ref2"]},
+                            { "date",  data["salesorder_dt"]},
+                            { "advertiserid",  advertisercode},
+                            { "advertiserbrandid",  advertiserbrandcode},
+                            { "periodedate",  data["salesorder_order_month"]},
+                            { "billdate",  data["salesorder_bill_dt"]},
+                            { "bookdate",  data["salesorder_book_dt"]},
+                            { "due",  data["salesorder_due"]},
+                            { "accountexecutive_nik",  data["salesorder_ae"]},
+                            { "receivedby_nik",  data["salesorder_recv_by"]},
+                            { "receiveddate",  data["salesorder_recv_dt"]},
+                            { "currencyid",  data["salesorder_currency"]},
+                            { "foreignamount",  data["salesorder_amount"]},
+                            { "foreignrate",  data["salesorder_rate"]},
+                            { "additionalamount", Utils.obj2decimal(data["salesorder_amount_add"])},
+                            { "cancelationamount", Utils.obj2decimal(data["salesorder_amount_cancel"])},
+                            { "commision",  data["salesorder_comm"]},
+                            { "buyer", Utils.obj2decimal(data["salesorder_buyer"])},
+                            { "salesareaid", Utils.obj2int(data["salesorder_area"])},
+                            { "contractnumber",  data["salesorder_traffic_id"]},
+                            { "invoiceformatid",  data["salesorder_format_inv"]},
+                            { "invoiceply",  data["salesorder_ply_inv"]},
+                            { "invoicetypeid",  data["salesorder_inv_type"]},
+                            { "isdirect", Utils.obj2bool(Utils.obj2int(data["salesorder_direct"]))},
+                            { "description",  data["salesorder_descr"]},
+                            { "accountid",  data["salesorder_account"]},
+                            { "mo",  data["salesorder_mo_avail"]},
+                            { "moadd",  data["salesorder_mo_add"]},
+                            { "momemo",  data["salesorder_mo_memo"]},
+                            { "mocancelation",  data["salesorder_mo_canc"]},
+                            { "modate",  data["salesorder_mo_date"]},
+                            { "isapproved",  Utils.obj2bool(data["salesorder_isokay"])},
+                            { "transactiontypeid",  data["salesorder_jurnaltypeid"]},
+
+                            { "created_by", getAuthInfo(data["salesorder_entry_by"], true) },
+                            { "created_date",  data["salesorder_entry_dt"]},
+                            { "is_disabled", Utils.obj2bool(data["salesorder_iscanceled"]) },
+                        });
+
+                    insertedSOIds.Add(Utils.obj2str(data["salesorder_id"]).ToUpper());
+                }
+                soTable.insertData(newDatas, false, true, transaction);
+            }
+            MyConsole.Information("Inserted SO: "+ String.Join(",", insertedSOIds));
+            if(exceptions.Count > 0) {
+                string logFilenameMissingAdvertiser = "log_(" + this.GetType().Name + ")_missing_similar_advertiser_brand_gen21_" + _startedAt.ToString("yyyyMMdd_HHmmss") + ".json";
+                Utils.saveJson(logFilenameMissingAdvertiser, exceptions.Select(a => a.info));
+            }
+        }
+
         private void insertIntoJournal(RowData<ColumnName, object>[] newJournals, NpgsqlTransaction transaction) {
             int insertBatchSize = 250;
             int insertedJournal = 0;
@@ -463,38 +483,12 @@ namespace SurplusMigrator.Tasks {
                 Table tableJournal = new Table(destinations.First(a => a.tableName == "transaction_journal"));
                 Table tableJournalDetail = new Table(destinations.First(a => a.tableName == "transaction_journal_detail"));
 
-                tableJournal.insertData(getMappedJournalData(batchJurnals), false, true, transaction);
-                Console.WriteLine();
-
-                var saList = batchJurnals
-                    .Where(a => Utils.obj2str(a["jurnal_id"]).ToUpper().StartsWith("SA"))
-                    .Select(a => Utils.obj2str(a["jurnal_id"]).ToUpper()).ToArray();
-                if(saList.Length > 0) {
-                    Table tableJurnalReference = new Table(sources.First(a => a.tableName == "transaksi_jurnalreference"));
-                    string whereInJurnalRef = "jurnal_id in ('<jurnal_ids>')".Replace("<jurnal_ids>", String.Join("','", saList));
-                    var soIdList = tableJurnalReference.getAllDatas(500, whereInJurnalRef)
-                        .Where(a => Utils.obj2str(a["jurnal_id_ref"]).ToUpper().StartsWith("SO"))
-                        .Select(a => Utils.obj2str(a["jurnal_id_ref"]).ToUpper())
-                        .Distinct()
-                        .ToArray();
-
-                    if(soIdList.Length > 0) {
-                        Table tableSoSource = new Table(sources.First(a => a.tableName == "transaksi_salesorder"));
-                        string whereInSo = "salesorder_id in ('<salesorder_ids>')".Replace("<salesorder_ids>", String.Join("','", soIdList));
-                        var soDatas = tableSoSource.getAllDatas(500, whereInSo);
-                        if(soDatas.Count > 0) {
-                            Table tableSoDest = new Table(destinations.First(a => a.tableName == "transaction_sales_order"));
-                            tableSoDest.insertData(getMappedSoData(soDatas), false, true, transaction);
-                            Console.WriteLine();
-                        }
-                    }
-                }
-
                 var batchJurnalDetails = getNewJurnalDetailFromInsosys(batchJurnals);
                 if(batchJurnalDetails.Length > 0) {
                     tableJournalDetail.insertData(getMappedJournalDetailData(batchJurnalDetails), false, true, transaction);
-                    Console.WriteLine();
                 }
+
+                tableJournal.insertData(getMappedJournalData(batchJurnals), false, true, transaction);
 
                 insertedJournal += batchJurnals.Length;
             }
@@ -504,7 +498,7 @@ namespace SurplusMigrator.Tasks {
             var result = new List<RowData<ColumnName, object>>();
             var inputList = inputs.ToList();
 
-            addJournalDetailTrackingFields(inputList);
+            addTrackingFields(inputList);
             nullifyMissingReferences(
                 "budget_id",
                 "transaksi_budget",
@@ -620,7 +614,7 @@ namespace SurplusMigrator.Tasks {
             var result = new List<RowData<ColumnName, object>>();
             var inputList = inputs.ToList();
 
-            nullifyMissingReferences("rekanan_id", "master_rekanan", "rekanan_id", connections.Where(a => a.GetDbLoginInfo().name == "e_frm").First(), inputList);
+            nullifyMissingReferences("rekanan_id", "master_rekanan", "rekanan_id", connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(), inputList);
 
             DataIntegration integration = new DataIntegration(connections);
             Gen21Integration gen21 = new Gen21Integration(connections);
@@ -694,96 +688,7 @@ namespace SurplusMigrator.Tasks {
             return result;
         }
 
-        private List<RowData<ColumnName, object>> getMappedSoData(List<RowData<ColumnName, object>> inputs) {
-            var result = new List<RowData<ColumnName, object>>();
-
-            nullifyMissingReferences("salesorder_agency", "master_rekanan", "rekanan_id", connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(), inputs);
-
-            Gen21Integration gen21 = new Gen21Integration(connections);
-
-            foreach(RowData<ColumnName, object> data in inputs) {
-                string advertiserid = Utils.obj2str(data["salesorder_advertiser"]);
-                string advertiserbrandid = Utils.obj2str(data["salesorder_brand"]);
-                string advertisercode = null;
-                string advertiserbrandcode = null;
-                if(advertiserbrandid != null && advertiserid != null && advertiserbrandid != "0" && advertiserid != "0") {
-                    try {
-                        (advertisercode, advertiserbrandcode) = gen21.getAdvertiserBrandId(advertiserid, advertiserbrandid);
-                    } catch(MissingAdvertiserBrandException e) {
-                        advertisercode = advertiserid;
-                        advertiserbrandcode = advertiserbrandid;
-                    } catch(Exception) {
-                        throw;
-                    }
-                }
-
-                string vendorbillidTag = Utils.obj2str(data["salesorder_agency"]) + "-" + Utils.obj2str(data["salesorder_agency_addr"]);
-                int vendorbillid = 0;
-                try {
-                    vendorbillid = IdRemapper.get("vendorbillid", vendorbillidTag);
-                } catch(Exception e) {
-                    if(e.Message.StartsWith("RemappedId map does not have mapping for id-columnname")) {
-                        throw;
-                    }
-                }
-
-                result.Add(
-                    new RowData<ColumnName, object>() {
-                        { "tsalesorderid",  data["salesorder_id"]},
-                        { "vendorid",  data["salesorder_agency"]},
-                        { "vendorbillid",  vendorbillid},
-                        { "mediaordernumber",  data["salesorder_ext_ref"]},
-                        { "jobid",  data["salesorder_ext_ref2"]},
-                        { "date",  data["salesorder_dt"]},
-                        { "advertiserid",  advertisercode},
-                        { "advertiserbrandid",  advertiserbrandcode},
-                        { "periodedate",  data["salesorder_order_month"]},
-                        { "billdate",  data["salesorder_bill_dt"]},
-                        { "bookdate",  data["salesorder_book_dt"]},
-                        { "due",  data["salesorder_due"]},
-                        { "accountexecutive_nik",  data["salesorder_ae"]},
-                        { "receivedby_nik",  data["salesorder_recv_by"]},
-                        { "receiveddate",  data["salesorder_recv_dt"]},
-                        { "currencyid",  data["salesorder_currency"]},
-                        { "foreignamount",  data["salesorder_amount"]},
-                        { "foreignrate",  data["salesorder_rate"]},
-                        { "additionalamount", Utils.obj2decimal(data["salesorder_amount_add"])},
-                        { "cancelationamount", Utils.obj2decimal(data["salesorder_amount_cancel"])},
-                        { "commision",  data["salesorder_comm"]},
-                        { "buyer", Utils.obj2decimal(data["salesorder_buyer"])},
-                        { "salesareaid", Utils.obj2int(data["salesorder_area"])},
-                        { "contractnumber",  data["salesorder_traffic_id"]},
-                        { "invoiceformatid",  data["salesorder_format_inv"]},
-                        { "invoiceply",  data["salesorder_ply_inv"]},
-                        { "invoicetypeid",  data["salesorder_inv_type"]},
-                        { "isdirect", Utils.obj2bool(Utils.obj2int(data["salesorder_direct"]))},
-                        { "description",  data["salesorder_descr"]},
-                        { "accountid",  data["salesorder_account"]},
-                        { "mo",  data["salesorder_mo_avail"]},
-                        { "moadd",  data["salesorder_mo_add"]},
-                        { "momemo",  data["salesorder_mo_memo"]},
-                        { "mocancelation",  data["salesorder_mo_canc"]},
-                        { "modate",  data["salesorder_mo_date"]},
-                        { "isapproved",  Utils.obj2bool(data["salesorder_isokay"])},
-                        //{ "approvedby",  data[""]},
-                        //{ "approveddate",  data[""]},
-                        { "transactiontypeid",  data["salesorder_jurnaltypeid"]},
-
-                        { "created_by", getAuthInfo(data["salesorder_entry_by"], true) },
-                        { "created_date",  data["salesorder_entry_dt"]},
-                        { "is_disabled", Utils.obj2bool(data["salesorder_iscanceled"]) },
-                        //{ "disabled_by",  new AuthInfo(){ FullName = Utils.obj2str(data["jurnal_isdisabledby"]) } },
-                        //{ "disabled_date",  data["jurnal_isdisableddt"] },
-                        //{ "modified_by",  new AuthInfo(){ FullName = Utils.obj2str(data["modified_by"]) } },
-                        //{ "modified_date",  data["modified_dt"] },
-                    }
-                );
-            }
-
-            return result;
-        }
-
-        private void addJournalDetailTrackingFields(List<RowData<ColumnName, object>> inputs) {
+        private void addTrackingFields(List<RowData<ColumnName, object>> inputs) {
             List<string> journalIds = new List<string>();
 
             foreach(RowData<ColumnName, object> row in inputs) {
@@ -820,6 +725,212 @@ namespace SurplusMigrator.Tasks {
                 row["jurnal_isdisabledby"] = journal["jurnal_isdisabledby"];
             }
         }
+
+        //private void insertIntoTransactionJournal2(RowData<ColumnName,object>[] newJournals, NpgsqlTransaction transaction) {
+        //    var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault();
+
+        //    int insertBatchSize = 250;
+        //    int insertedJournal = 0;
+        //    for(int a = 0; a < newJournals.Length; a += insertBatchSize) {
+        //        var batchJurnals = newJournals.Skip(a).Take(insertBatchSize).ToArray();
+                
+        //        string[] targetColumnsJournal = destinations.Where(a => a.tableName == "transaction_journal").First().columns;
+        //        List<string> insertedJournalIds = new List<string>();
+        //        List<string> journalValues = new List<string>();
+        //        foreach(var row in batchJurnals) {
+        //            string str = "(<"+ String.Join(">,<", targetColumnsJournal) +">)";
+
+        //            string tbudgetid = Utils.obj2str(row["budget_id"]);
+        //            tbudgetid = tbudgetid == "0" ? "NULL" : "'" +tbudgetid+ "'";
+
+        //            string accountcaid = Utils.obj2int(row["acc_ca_id"]) == 0 ? "NULL" : Utils.obj2str(row["acc_ca_id"]);
+        //            string advertiserid = Utils.obj2int(row["advertiser_id"]) == 0 ? "NULL" : "'" + Utils.obj2str(row["advertiser_id"]) + "'";
+        //            string advertiserbrandid = Utils.obj2int(row["brand_id"]) == 0 ? "NULL" : "'" + Utils.obj2str(row["brand_id"]) + "'";
+        //            AuthInfo created_by = getAuthInfo(row["created_by"], true);
+        //            bool is_disabled = Utils.obj2bool(row["jurnal_isdisabled"]);
+        //            AuthInfo disabled_by = getAuthInfo(row["jurnal_isdisabledby"]);
+        //            AuthInfo modified_by = getAuthInfo(row["modified_by"]);
+        //            bool is_posted = Utils.obj2bool(row["jurnal_isposted"]);
+
+        //            str = str.Replace("<tjournalid>", getString(row["jurnal_id"]).ToUpper());
+        //            str = str.Replace("<bookdate>", getDatetime(row["jurnal_bookdate"]));
+        //            str = str.Replace("<duedate>", getDatetime(row["jurnal_duedate"]));
+        //            str = str.Replace("<billdate>", getDatetime(row["jurnal_billdate"]));
+        //            str = str.Replace("<description>", getString(row["jurnal_descr"]));
+        //            str = str.Replace("<invoiceid>", getString(row["jurnal_invoice_id"]));
+        //            str = str.Replace("<invoicedescription>", getString(row["jurnal_invoice_descr"]));
+        //            str = str.Replace("<sourceid>", getString(row["jurnal_source"]));
+        //            str = str.Replace("<currencyid>", getNumber(row["currency_id"]));
+        //            str = str.Replace("<foreignrate>", getNumber(row["currency_rate"]));
+        //            str = str.Replace("<accountexecutive_nik>", getString(row["ae_id"]));
+        //            str = str.Replace("<transactiontypeid>", getTransactionType(getString(row["jurnal_id"])));
+        //            str = str.Replace("<vendorid>", getNumber(row["rekanan_id"]));
+        //            str = str.Replace("<periodid>", getString(row["periode_id"]));
+        //            str = str.Replace("<tbudgetid>", tbudgetid);
+        //            str = str.Replace("<departmentid>", getString(row["strukturunit_id"]));
+        //            str = str.Replace("<accountcaid>", accountcaid);
+        //            str = str.Replace("<advertiserid>", advertiserid);
+        //            str = str.Replace("<advertiserbrandid>", advertiserbrandid);
+        //            str = str.Replace("<paymenttypeid>", "1");
+        //            str = str.Replace("<created_by>", getString(created_by.ToString()));
+        //            str = str.Replace("<created_date>", getDatetime(row["created_dt"]));
+        //            str = str.Replace("<is_disabled>", is_disabled?"true":"false");
+        //            str = str.Replace("<disabled_by>", getString(disabled_by?.ToString()));
+        //            str = str.Replace("<disabled_date>", getDatetime(row["jurnal_isdisableddt"]));
+        //            str = str.Replace("<modified_by>", getString(modified_by?.ToString()));
+        //            str = str.Replace("<modified_date>", getDatetime(row["modified_dt"]));
+        //            str = str.Replace("<is_posted>", is_posted ? "true" : "false");
+        //            str = str.Replace("<posted_by>", getString(row["jurnal_ispostedby"]));
+        //            str = str.Replace("<posted_date>", getDatetime(row["jurnal_isposteddate"]));
+
+        //            journalValues.Add(str);
+        //            insertedJournalIds.Add(getString(row["jurnal_id"]).ToUpper());
+        //        }
+
+        //        string queryJournal = @"
+        //            insert into ""<schema>"".""transaction_journal""(<columns>) values <values>;
+        //        ";
+        //        queryJournal = queryJournal.Replace("<schema>", surplusConn.GetDbLoginInfo().schema);
+        //        queryJournal = queryJournal.Replace("<columns>", "\"" + String.Join("\",\"", targetColumnsJournal) + "\"");
+        //        queryJournal = queryJournal.Replace("<values>", String.Join(",", journalValues));
+
+        //        try {
+        //            QueryUtils.toggleTrigger(surplusConn, "transaction_journal", false);
+        //            QueryUtils.executeQuery(surplusConn, queryJournal, null, transaction);
+        //        } catch(Exception) {
+        //            MyConsole.Error(queryJournal);
+        //            throw;
+        //        } finally {
+        //            QueryUtils.toggleTrigger(surplusConn, "transaction_journal", true);
+        //        }
+
+        //        insertedJournal += batchJurnals.Length;
+        //        MyConsole.WriteLine("transaction_journal " + insertedJournal + "/" + newJournals.Length +" inserted ...");
+        //        MyConsole.WriteLine(String.Join(",", insertedJournalIds));
+
+        //        //journal_detail
+        //        var batchJurnalDetails = getNewJurnalDetailFromInsosys(batchJurnals);
+        //        if(batchJurnalDetails.Length > 0) {
+        //            string[] targetColumnsJournalDetail = destinations.Where(a => a.tableName == "transaction_journal_detail").First().columns;
+        //            List<string> journalDetailValues = new List<string>();
+        //            foreach(var row in batchJurnalDetails) {
+        //                string str = "(<" + String.Join(">,<", targetColumnsJournalDetail) + ">)";
+
+        //                string tjournalid = Utils.obj2str(row["jurnal_id"]).ToUpper();
+        //                var jurnalParent = batchJurnals.Where(a => Utils.obj2str(a["jurnal_id"]).ToUpper() == tjournalid).First();
+
+        //                string tjournal_detailid = row["jurnal_id"].ToString().Substring(0, 2) + "D" + row["jurnal_id"].ToString().Substring(2) + row["jurnaldetil_line"].ToString();
+        //                string rekanan_id = Utils.obj2int(row["rekanan_id"]) == 0 ? "NULL" : "'" + Utils.obj2str(row["rekanan_id"]) + "'";
+        //                string accountid = Utils.obj2int(row["acc_id"]) == 0 ? "NULL" : "'" + Utils.obj2str(row["acc_id"]) + "'";
+
+        //                string tbudgetid = Utils.obj2str(row["budget_id"]);
+        //                tbudgetid = tbudgetid == "0" ? "NULL" : "'" + tbudgetid + "'";
+
+        //                string tbudget_detailid = Utils.obj2str(row["budgetdetil_id"]);
+        //                tbudget_detailid = tbudget_detailid == "0" ? "NULL" : "'" + tbudget_detailid + "'";
+
+        //                string ref_id = Utils.obj2str(row["ref_id"]);
+        //                string ref_line = Utils.obj2str(row["ref_line"]);
+        //                string ref_detail_id = null;
+        //                if((ref_id != null && ref_id != "0") && ref_line != null) {
+        //                    ref_detail_id = ref_id.Substring(0, 2) + "D" + ref_id.Substring(2) + ref_line;
+        //                }
+        //                ref_detail_id = getString(ref_detail_id);
+
+        //                AuthInfo created_by = getAuthInfo(jurnalParent["created_by"], true);
+        //                bool is_disabled = Utils.obj2bool(jurnalParent["jurnal_isdisabled"]);
+        //                AuthInfo disabled_by = getAuthInfo(jurnalParent["jurnal_isdisabledby"]);
+
+        //                str = str.Replace("<tjournal_detailid>", getString(tjournal_detailid).ToUpper());
+        //                str = str.Replace("<tjournalid>", getString(tjournalid).ToUpper());
+        //                str = str.Replace("<dk>", getString(row["jurnaldetil_dk"]));
+        //                str = str.Replace("<description>", getString(row["jurnaldetil_descr"]));
+        //                str = str.Replace("<foreignamount>", getNumber(row["jurnaldetil_foreign"]));
+        //                str = str.Replace("<foreignrate>", getNumber(row["jurnaldetil_foreignrate"]));
+        //                str = str.Replace("<vendorid>", rekanan_id);
+        //                str = str.Replace("<accountid>", accountid);
+        //                str = str.Replace("<currencyid>", getNumber(row["currency_id"]));
+        //                str = str.Replace("<departmentid>", getString(row["strukturunit_id"]));
+        //                str = str.Replace("<tbudgetid>", tbudgetid);
+        //                str = str.Replace("<tbudget_detailid>", tbudget_detailid);
+        //                str = str.Replace("<ref_id>", getString(row["ref_id"]));
+        //                str = str.Replace("<ref_detail_id>", ref_detail_id);
+        //                str = str.Replace("<ref_subdetail_id>", getNumber(row["ref_line"]));
+        //                str = str.Replace("<bilyet_no>", "NULL");
+        //                str = str.Replace("<bilyet_date>", "NULL");
+        //                str = str.Replace("<bilyet_effectivedate>", "NULL");
+        //                str = str.Replace("<received_by>", "NULL");
+        //                str = str.Replace("<created_date>", getDatetime(jurnalParent["created_dt"]));
+        //                str = str.Replace("<created_by>", getString(created_by.ToString()));
+        //                str = str.Replace("<is_disabled>", is_disabled ? "true" : "false");
+        //                str = str.Replace("<disabled_date>", getDatetime(jurnalParent["jurnal_isdisableddt"]));
+        //                str = str.Replace("<disabled_by>", getString(disabled_by?.ToString()));
+        //                str = str.Replace("<modified_date>", "NULL");
+        //                str = str.Replace("<modified_by>", "NULL");
+        //                str = str.Replace("<idramount>", getNumber(row["jurnaldetil_idr"]));
+        //                str = str.Replace("<bankaccountid>", "NULL");
+        //                str = str.Replace("<paymenttypeid>", "0");
+        //                str = str.Replace("<journalreferencetypeid>", getJournalReferenceTypeId(tjournalid));
+        //                str = str.Replace("<subreference_id>", "NULL");
+
+        //                journalDetailValues.Add(str);
+        //            }
+
+        //            string queryJournalDetail = @"
+        //                insert into ""<schema>"".""transaction_journal_detail""(<columns>) values <values>;
+        //            ";
+        //            queryJournalDetail = queryJournalDetail.Replace("<schema>", surplusConn.GetDbLoginInfo().schema);
+        //            queryJournalDetail = queryJournalDetail.Replace("<columns>", "\"" + String.Join("\",\"", targetColumnsJournalDetail) + "\"");
+        //            queryJournalDetail = queryJournalDetail.Replace("<values>", String.Join(",", journalDetailValues));
+
+        //            try {
+        //                QueryUtils.toggleTrigger(surplusConn, "transaction_journal_detail", false);
+        //                QueryUtils.executeQuery(surplusConn, queryJournalDetail, null, transaction);
+        //            } catch(Exception) {
+        //                MyConsole.Error(queryJournalDetail);
+        //                throw;
+        //            } finally {
+        //                QueryUtils.toggleTrigger(surplusConn, "transaction_journal_detail", true);
+        //            }
+        //        }
+        //    }
+        //}
+
+        //private string getString(object str) {
+        //    string dataStr = Utils.obj2str(str);
+        //    if(dataStr == null) return "NULL";
+        //    dataStr = dataStr.Replace("'", "''");
+
+        //    return "'"+ dataStr + "'";
+        //}
+
+        //private string getNumber(object num, bool useZeroInsteadOfNull = false) {
+        //    if(num == null) {
+        //        if(useZeroInsteadOfNull) {
+        //            return "0";
+        //        } else {
+        //            return "NULL";
+        //        }
+        //    }
+        //    dynamic data;
+        //    if(num.GetType() == typeof(int)) {
+        //        data = Utils.obj2int(num);
+        //    } else if(num.GetType() == typeof(long)) {
+        //        data = Utils.obj2long(num);
+        //    } else if(num.GetType() == typeof(Decimal)) {
+        //        data = Utils.obj2decimal(num);
+        //    } else {
+        //        throw new Exception("Unhandled number type");
+        //    }
+
+        //    return data.ToString();
+        //}
+
+        //private string getDatetime(object datetime) {
+        //    if(datetime == null) return "NULL";
+        //    //2023-01-10 17:50:10.670
+        //    return "'"+((DateTime)datetime).ToString("yyyy-MM-dd HH:mm:ss.fff") + "'";
+        //}
 
         private string getTransactionType(string tjournalid) {
             Match match = Regex.Match(tjournalid, @"[a-zA-Z]+");

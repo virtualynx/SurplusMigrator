@@ -93,7 +93,7 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "dev_fix_pp",
+      "schema": "dump_journal",
       "type": "POSTGRESQL"
     },
     {
@@ -103,7 +103,7 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "dev",
+      "schema": "dev_adv_brand",
       "type": "POSTGRESQL"
     }
   ],
@@ -111,37 +111,26 @@
     {
       "name": "__EmptyJob",
       "cascade": false,
-      "active": false,
+      "active": true,
       "options": "salesorderids=SO0223010603;tests"
-    },
-    {
-      "name": "MasterTaxObject",
-      "cascade": false,
-      "active": false
     },
     {
       "name": "_NewJournalInsosysToSurplus",
       "cascade": false,
       "active": true,
-      "options": "journalids="
+      "options": "journalids=AP0003848,AP0007615,SA0223010377,SA0223010378,SA0223010381,SA0223010391"
     },
     {
       "name": "NewSAInsosysToSurplus",
       "cascade": false,
       "active": false,
-      "options": "journalids=SA0223010510,SA0223010511,SA0223010512,SA0223010513,SA0223010514,SA0223010515,SA0223010516,SA0223010517,SA0223010518,SA0223010519,SA0223010520,SA0223010521,SA0223010522,SA0223010388,SA0223010387,SA0223010358,SA0223010359,SA0223010360,SA0223010361,SA0223010362,SA0223010363,SA0223010364,SA0223010365,SA0223010366,SA0223010367,SA0223010368,SA0223010369,SA0223010379,SA0223010372,SA0223010373,SA0223010374,SA0223010375,SA0223010377,SA0223010378,SA0223010379,SA0223010380,SA0223010381,SA0223010382,SA0223010383,SA0223010384,SA0223010385,SA0223010386,SA0223010389,SA0223010390,SA0223010391,SA0223010392,SA0223010393,SA0223010504,SA0223010506"
+      "options": "journalids=SA0223010510,SA0223010511,SA0223010512,SA0223010513,SA0223010514,SA0223010515,SA0223010516,SA0223010517,SA0223010518,SA0223010519,SA0223010520,SA0223010521,SA0223010522,SA0223010388,SA0223010387,SA0223010358,SA0223010359,SA0223010360,SA0223010361,SA0223010362,SA0223010363,SA0223010364,SA0223010365,SA0223010366,SA0223010367,SA0223010368,SA0223010369,SA0223010379,SA0223010372,SA0223010373,SA0223010374,SA0223010375,SA0223010377,SA0223010378,SA0223010379,SA0223010380,SA0223010381,SA0223010382,SA0223010383,SA0223010384,SA0223010385,SA0223010386,SA0223010389,SA0223010390,SA0223010391,SA0223010392,SA0223010393,SA0223010503,SA0223010504,SA0223010505,SA0223010506"
     },
     {
       "name": "_SyncPostingInsosysToSurplus",
       "cascade": false,
       "active": false,
       "options": "bookdate_from=2022-12-01;bookdate_to=2023-01-31"
-    },
-    {
-      "name": "_FixPaymentPlanning",
-      "cascade": false,
-      "active": false,
-      "options": "departmentid=FINDEPT;excel=Advance PCM update rev.1 - 30 Jan 23 1502.xlsx;sheet=ayah ayu 1"
     }
   ],
   "pre_queries_pathx": "../../../SurplusMigrator-ExternalSource/Queries-Pre",

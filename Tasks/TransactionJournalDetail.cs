@@ -96,7 +96,7 @@ namespace SurplusMigrator.Tasks {
                 queryWhere = "WHERE jurnal_id in ('" + string.Join("','", journalids) + "')";
             }
 
-            return sourceTables.Where(a => a.tableName == "transaksi_jurnaldetil").FirstOrDefault().getDatas(batchSize, true, queryWhere);
+            return sourceTables.Where(a => a.tableName == "transaksi_jurnaldetil").FirstOrDefault().getDatas(batchSize, queryWhere);
         }
 
         protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {

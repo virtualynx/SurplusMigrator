@@ -7,6 +7,7 @@ using SurplusMigrator.Libraries;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -31,13 +32,28 @@ namespace SurplusMigrator.Models {
 
         public Table() { }
 
-        public List<RowData<ColumnName, object>> getDatas(int batchSize, bool trimWhitespaces = true, string queryWhere = null, bool verbose = true) {
+        public Table(TableInfo tableInfo) { 
+            connection = tableInfo.connection;
+            tableName = tableInfo.tableName;
+            columns = tableInfo.columns;
+            ids = tableInfo.ids;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="batchSize"></param>
+        /// <param name="whereClause">Where clause without "where"</param>
+        /// <param name="trimWhitespaces"></param>
+        /// <param name="verbose"></param>
+        /// <returns></returns>
+        public List<RowData<ColumnName, object>> getDatas(int batchSize, string whereClause = null, bool trimWhitespaces = true, bool verbose = true) {
             List<RowData<ColumnName, object>> result = new List<RowData<ColumnName, object>> ();
 
             //check for first time run/batchSize has changed
             if(lastBatchSize != batchSize) {
                 lastBatchSize = batchSize;
-                decimal d = Convert.ToDecimal(getDataCount()) / Convert.ToDecimal(batchSize);
+                decimal d = Convert.ToDecimal(getDataCount(whereClause)) / Convert.ToDecimal(batchSize);
                 fetchBatchMax = (int)Math.Ceiling(d);
                 fetchBatchCounter = 1;
             }
@@ -72,7 +88,7 @@ namespace SurplusMigrator.Models {
                         }
                         sqlString = sqlString.Replace("<over_orderby>", over_orderby);
                         sqlString = sqlString.Replace("<tablename>", connection.GetDbLoginInfo().schema + "." + tableName);
-                        sqlString = sqlString.Replace("<where>", queryWhere!=null? queryWhere: "");
+                        sqlString = sqlString.Replace("<where>", whereClause!=null? "WHERE " + whereClause: "");
                         sqlString = sqlString.Replace("<offset_start>", (((fetchBatchCounter - 1) * batchSize) + 1).ToString());
                         sqlString = sqlString.Replace("<offset_end>", (((fetchBatchCounter - 1) * batchSize) + batchSize).ToString());
 
@@ -117,7 +133,7 @@ namespace SurplusMigrator.Models {
                         if(ids != null && ids.Length > 0) {
                             order_by = "ORDER BY " + String.Join(',', ids);
                         }
-                        sqlString = sqlString.Replace("<where>", queryWhere != null ? queryWhere : "");
+                        sqlString = sqlString.Replace("<where>", whereClause != null ? "WHERE " + whereClause : "");
                         sqlString = sqlString.Replace("<order_by>", order_by);
                         sqlString = sqlString.Replace("<limit_size>", batchSize.ToString());
                         sqlString = sqlString.Replace("<offset_size>", (((fetchBatchCounter - 1) * batchSize)).ToString());
@@ -164,13 +180,24 @@ namespace SurplusMigrator.Models {
             return result;
         }
 
-        public TaskInsertStatus insertData(List<RowData<ColumnName, object>> inputs, bool truncateBeforeInsert, bool onlyTruncateMigratedData, bool verbose = true) {
+        public List<RowData<ColumnName, object>> getAllDatas(int batchSize, string whereClause = null, bool trimWhitespaces = true, bool verbose = true) {
+            List<RowData<ColumnName, object>> result = new List<RowData<ColumnName, object>>();
+
+            List<RowData<ColumnName, object>> batchData;
+            while((batchData = getDatas(batchSize, whereClause, trimWhitespaces, verbose)).Count > 0) {
+                result.AddRange(batchData);
+            }
+
+            return result;
+        }
+
+        public TaskInsertStatus insertData(List<RowData<ColumnName, object>> inputs, bool truncateBeforeInsert, bool onlyTruncateMigratedData, DbTransaction transaction = null, bool verbose = true) {
             TaskInsertStatus result = new TaskInsertStatus();
             List<DbInsertFail> failures = new List<DbInsertFail>();
             result.errors = failures;
 
-            if(truncateBeforeInsert && !GlobalConfig.isAlreadyTruncated(tableName) && getDataCount() > 0) {
-                truncate(onlyTruncateMigratedData);
+            if(truncateBeforeInsert && !GlobalConfig.isAlreadyTruncated(tableName) && getDataCount(null) > 0) {
+                truncate(transaction, onlyTruncateMigratedData);
             }
 
             //check & omit if attempted insert data is already in table
@@ -227,7 +254,7 @@ namespace SurplusMigrator.Models {
                             string sql = "INSERT INTO \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"(\"" + String.Join("\",\"", targetColumns) + "\") VALUES " + String.Join(',', sqlParams);
                             
                             try {
-                                affectedRowCount = executeNonQuery(sql, sqlArguments);
+                                affectedRowCount = executeNonQuery(sql, sqlArguments, transaction);
                                 insertedCount += affectedRowCount;
                             } catch(PostgresException e) {
                                 if(
@@ -250,9 +277,9 @@ namespace SurplusMigrator.Models {
                                     //MyConsole.Error(e, "SQL error upon insert into " + tablename + ": " + e.Detail);
                                     throw;
                                 }
-                            } catch(NpgsqlException e) {
+                            } catch(NpgsqlException) {
                                 throw;
-                            } catch(Exception e) {
+                            } catch(Exception) {
                                 throw;
                             }
                         }
@@ -274,14 +301,15 @@ namespace SurplusMigrator.Models {
             return (Convert.ToDouble(fetchBatchCounter) / Convert.ToDouble(fetchBatchMax)) * 100.00;
         }
 
-        public long getDataCount() {
+        public long getDataCount(string whereClause) {
             if(dataCount == -1) {
                 string sql = "";
                 if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                    sql = "SELECT COUNT(1) FROM [" + connection.GetDbLoginInfo().schema + "].[" + tableName + "]";
+                    sql = "SELECT COUNT(1) FROM [" + connection.GetDbLoginInfo().schema + "].[" + tableName + "]<where_clause>";
                 } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                    sql = "SELECT COUNT(1) FROM \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"";
+                    sql = "SELECT COUNT(1) FROM \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"<where_clause>";
                 }
+                sql = sql.Replace("<where_clause>", whereClause != null ? " WHERE " + whereClause : "");
                 dataCount = Convert.ToInt64(executeScalar(sql));
             }
 
@@ -482,7 +510,7 @@ namespace SurplusMigrator.Models {
             throw new NotImplementedException("Only SQL-Server and PostgreSql database is supported");
         }
 
-        private void truncate(bool onlyTruncateMigratedData = true, bool cascade = true) {
+        private void truncate(DbTransaction transaction, bool onlyTruncateMigratedData = true, bool cascade = true) {
             try {
                 if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                     throw new NotImplementedException();
@@ -490,10 +518,10 @@ namespace SurplusMigrator.Models {
                     if(cascade) {
                         TableRelation relation = GlobalConfig.getTableRelation(tableName);
                         if(relation != null) {
-                            truncateRelation(relation, onlyTruncateMigratedData, cascade);
+                            truncateRelation(relation, onlyTruncateMigratedData, cascade, transaction);
                         }
                     }
-                    doTruncate(tableName, onlyTruncateMigratedData, cascade);
+                    doTruncate(tableName, onlyTruncateMigratedData, cascade, transaction);
                 }
             } catch(NotImplementedException) {
                 throw;
@@ -506,7 +534,7 @@ namespace SurplusMigrator.Models {
             }
         }
 
-        private void truncateRelation(TableRelation relation, bool onlyTruncateMigratedData, bool cascade) {
+        private void truncateRelation(TableRelation relation, bool onlyTruncateMigratedData, bool cascade, DbTransaction transaction) {
             try {
                 if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                     throw new NotImplementedException();
@@ -514,12 +542,12 @@ namespace SurplusMigrator.Models {
                     foreach(string relTable in relation.relations) {
                         TableRelation childRelation = GlobalConfig.getTableRelation(relTable);
                         if(childRelation != null) {
-                            truncateRelation(childRelation, onlyTruncateMigratedData, cascade);
+                            truncateRelation(childRelation, onlyTruncateMigratedData, cascade, transaction);
                         }
-                        doTruncate(relTable, onlyTruncateMigratedData, cascade);
+                        doTruncate(relTable, onlyTruncateMigratedData, cascade, transaction);
                     }
                     if(relation.tablename != tableName) {
-                        doTruncate(relation.tablename, onlyTruncateMigratedData, cascade);
+                        doTruncate(relation.tablename, onlyTruncateMigratedData, cascade, transaction);
                     }
                 }
             } catch(PostgresException e) {
@@ -533,7 +561,7 @@ namespace SurplusMigrator.Models {
             }
         }
 
-        private void doTruncate(string tablename, bool onlyTruncateMigratedData, bool cascade) {
+        private void doTruncate(string tablename, bool onlyTruncateMigratedData, bool cascade, DbTransaction transaction) {
             if(GlobalConfig.isAlreadyTruncated(tablename)) return;
             string[] relTableColumns = QueryUtils.getColumnNames(connection, tablename);
             string onlyTruncateMigratedDataCondition = null;
@@ -547,7 +575,7 @@ namespace SurplusMigrator.Models {
                 query = "TRUNCATE TABLE \"" + connection.GetDbLoginInfo().schema + "\".\"" + tablename + "\"" + (cascade ? " CASCADE" : "");
             }
             MyConsole.Information(query);
-            int affectedRow = executeNonQuery(query, null, 15*60);
+            int affectedRow = executeNonQuery(query, null, transaction, 15*60);
             MyConsole.Information(affectedRow + " data deleted from " + tablename);
             GlobalConfig.setAlreadyTruncated(tablename);
         }
@@ -713,13 +741,17 @@ namespace SurplusMigrator.Models {
         }
 
         // //////////////////////////////////////////////////////////////////////////////////////////////
-        public List<RowData<ColumnName, object>> executeQuery(string sql, Dictionary<ParamNotation, object> args = null) {
+        public List<RowData<ColumnName, object>> executeQuery(string sql, Dictionary<ParamNotation, object> args = null, DbTransaction transaction = null, int timeout = 30) {
             List<RowData<ColumnName, object>> result = new List<RowData<string, dynamic>>();
             bool retry = false;
             do {
                 try {
                     if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                         SqlCommand command = new SqlCommand(sql, (SqlConnection)connection.GetDbConnection());
+                        if(transaction != null) {
+                            command.Transaction = (Microsoft.Data.SqlClient.SqlTransaction)transaction;
+                        }
+                        command.CommandTimeout = timeout;
                         if(args != null) {
                             foreach(KeyValuePair<ParamNotation, object> entry in args) {
                                 sqlCommandAddParamWithValue(command, entry.Key, entry.Value);
@@ -744,6 +776,10 @@ namespace SurplusMigrator.Models {
                         command.Dispose();
                     } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                         NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)connection.GetDbConnection());
+                        if(transaction != null) {
+                            command.Transaction = (NpgsqlTransaction)transaction;
+                        }
+                        command.CommandTimeout = timeout;
                         if(args != null) {
                             foreach(KeyValuePair<ParamNotation, object> entry in args) {
                                 postgreCommandAddParamWithValue(command, entry.Key, entry.Value);
@@ -780,16 +816,18 @@ namespace SurplusMigrator.Models {
             return result;
         }
 
-        public int executeNonQuery(string sql, List<Dictionary<ParamNotation, object>> args = null, int timeout = -1) {
+        public int executeNonQuery(string sql, List<Dictionary<ParamNotation, object>> args = null, DbTransaction transaction = null, int timeout = 30) {
             int result = 0;
-            bool retry = false;
+            bool retry;
             do {
+                retry = false;
                 try {
                     if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                         SqlCommand command = new SqlCommand(sql, (SqlConnection)connection.GetDbConnection());
-                        if(timeout > -1) {
-                            command.CommandTimeout = timeout;
+                        if(transaction != null) {
+                            command.Transaction = (Microsoft.Data.SqlClient.SqlTransaction)transaction;
                         }
+                        command.CommandTimeout = timeout;
                         if(args != null) {
                             foreach(Dictionary<ParamNotation, object> arg in args) {
                                 foreach(KeyValuePair<ParamNotation, object> entry in arg) {
@@ -801,9 +839,10 @@ namespace SurplusMigrator.Models {
                         command.Dispose();
                     } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                         NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)connection.GetDbConnection());
-                        if(timeout > -1) {
-                            command.CommandTimeout = timeout;
+                        if(transaction != null) {
+                            command.Transaction = (NpgsqlTransaction)transaction;
                         }
+                        command.CommandTimeout = timeout;
                         if(args != null) {
                             foreach(Dictionary<ParamNotation, object> arg in args) {
                                 foreach(KeyValuePair<ParamNotation, object> entry in arg) {
@@ -814,7 +853,6 @@ namespace SurplusMigrator.Models {
                         result = command.ExecuteNonQuery();
                         command.Dispose();
                     }
-                    retry = false;
                 } catch(Exception e) {
                     if(QueryUtils.isConnectionProblem(e)) {
                         retry = true;
