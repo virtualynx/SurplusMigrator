@@ -180,7 +180,7 @@ namespace SurplusMigrator.Models {
             return result;
         }
 
-        public List<RowData<ColumnName, object>> getAllDatas(int batchSize, string whereClause = null, bool trimWhitespaces = true, bool verbose = true) {
+        public List<RowData<ColumnName, object>> getAllData(string whereClause = null, int batchSize = 5000, bool trimWhitespaces = true, bool verbose = true) {
             List<RowData<ColumnName, object>> result = new List<RowData<ColumnName, object>>();
 
             List<RowData<ColumnName, object>> batchData;
@@ -581,6 +581,8 @@ namespace SurplusMigrator.Models {
         }
 
         private void omitDuplicatedData(List<DbInsertFail> failures, List<RowData<ColumnName, object>> inputs) {
+            if(inputs.Count == 0) return;
+
             List<string> sqlSelectParams = new List<string>();
             Dictionary<ParamNotation, object> sqlSelectArgs = new Dictionary<ParamNotation, object>();
             for(int rowNum = 1; rowNum <= inputs.Count; rowNum++) {
