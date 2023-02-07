@@ -253,13 +253,23 @@ namespace SurplusMigrator.Tasks {
                         if(optValue.Length == 1) {
                             _options[optValue[0].Trim()] = optValue[0].Trim();
                         } else {
-                            _options[optValue[0].Trim()] = optValue[1].Trim();
+                            List<string> valueArr = new List<string>();
+                            for(int a=1; a< optValue.Length; a++) {
+                                valueArr.Add(optValue[a]);
+                            }
+                            string concatenatedValues = String.Join("=", valueArr);
+                            _options[optValue[0].Trim()] = concatenatedValues.Trim();
                         }
                     }
                 }
             }
 
             return _options.ContainsKey(optionName)? _options[optionName]: null;
+        }
+
+        public void setOptions(string optionName, string value) {
+            getOptions("TRIGGER_INITIALIZATION_AND_LOAD_OPTION_FROM_CONFIG");
+            _options[optionName] = value;
         }
 
         protected DbInsertFail[] nullifyMissingReferences(
