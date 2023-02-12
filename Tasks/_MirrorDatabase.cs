@@ -59,7 +59,6 @@ namespace SurplusMigrator.Tasks {
 
             sourceConnection = connections.Where(a => a.GetDbLoginInfo().name == "mirror_source").First();
             targetConnection = connections.Where(a => a.GetDbLoginInfo().name == "mirror_target").First();
-            var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
             Console.WriteLine("\n");
             MyConsole.Information("Mirror Source: " + JsonSerializer.Serialize(sourceConnection.GetDbLoginInfo()));
             Console.WriteLine();

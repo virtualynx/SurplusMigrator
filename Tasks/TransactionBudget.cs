@@ -300,6 +300,7 @@ namespace SurplusMigrator.Tasks {
             new MasterShowInventoryTimezone(connections).run();
             new MasterTvProgramType(connections).run();
             new TransactionProgramBudget(connections).run();
+            new MasterCurrency(connections).run();
         }
     }
 }

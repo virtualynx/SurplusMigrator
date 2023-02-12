@@ -1,14 +1,11 @@
-using Microsoft.Data.SqlClient;
-using Npgsql;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
-using SurplusMigrator.Tasks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-  class MasterVendor : _BaseTask {
+    class MasterVendor : _BaseTask {
         public MasterVendor(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {

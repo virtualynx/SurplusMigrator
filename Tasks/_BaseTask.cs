@@ -50,7 +50,7 @@ namespace SurplusMigrator.Tasks {
             ) {
                 bool isRun = false;
                 if(GlobalConfig.getJobPlaylist().Length > 0) {
-                    MyConsole.Write("The source/destination in "+this.GetType().Name+" is excluded by config file, continue to run (y/n)? ");
+                    MyConsole.Write("Continue to run "+this.GetType().Name+" (y/n)? ");
                     string runConfirm = Console.ReadLine();
                     if(runConfirm.ToLower() == "y") {
                         isRun = true;
@@ -74,7 +74,7 @@ namespace SurplusMigrator.Tasks {
                 if(destinations.Any(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))) {
                     bool confirmTruncate = true;
                     if(GlobalConfig.getJobPlaylist().Length > 0) {
-                        MyConsole.Write("Task "+GetType().Name+ " has truncating option enabled, type \"truncate\" to perform truncating: ");
+                        MyConsole.Write("Use truncate options in "+GetType().Name+ " (type \"truncate\" to perform truncating)? ");
                         string truncate = Console.ReadLine();
                         if(truncate.ToLower() != "truncate") {
                             confirmTruncate = false;
@@ -264,7 +264,7 @@ namespace SurplusMigrator.Tasks {
                 }
             }
 
-            return _options.ContainsKey(optionName)? _options[optionName]: null;
+            return _options.ContainsKey(optionName)? Utils.obj2str(_options[optionName]): null;
         }
 
         public void setOptions(string optionName, string value) {

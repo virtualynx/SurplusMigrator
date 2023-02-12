@@ -93,7 +93,7 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "dump_journal",
+      "schema": "_live_23_02_11",
       "type": "POSTGRESQL"
     },
     {
@@ -103,7 +103,7 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "dev_adv_brand",
+      "schema": "_migrasi_backup",
       "type": "POSTGRESQL"
     }
   ],
@@ -111,26 +111,47 @@
     {
       "name": "__EmptyJob",
       "cascade": false,
-      "active": true,
+      "active": false,
       "options": "salesorderids=SO0223010603;tests"
+    },
+    {
+      "name": "_MirrorDatabase",
+      "cascade": false,
+      "active": false
+    },
+    {
+      "name": "MasterVendor",
+      "cascade": true,
+      "active": false
+    },
+    {
+      "name": "TransactionBudget",
+      "cascade": true,
+      "active": true
+    },
+    {
+      "name": "_RestoreDataFromAudit",
+      "active": false,
+      "options": "time_from=2023-02-08 09:00:00;time_to=2023-02-08 18:00:00;source_schema=_live_bak_migrasi"
+    },
+    {
+      "name": "_FixReportData",
+      "cascade": false,
+      "active": false,
+      "options": "date=2022-12-31 00:00:00"
+    },
+    {
+      "name": "_FixReportDataV2",
+      "cascade": false,
+      "active": false,
+      "options": "date=2022-11-30 00:00:00"
     },
     {
       "name": "_NewJournalInsosysToSurplus",
       "cascade": false,
-      "active": true,
-      "options": "journalids=AP0003848,AP0007615,SA0223010377,SA0223010378,SA0223010381,SA0223010391"
-    },
-    {
-      "name": "NewSAInsosysToSurplus",
-      "cascade": false,
       "active": false,
-      "options": "journalids=SA0223010510,SA0223010511,SA0223010512,SA0223010513,SA0223010514,SA0223010515,SA0223010516,SA0223010517,SA0223010518,SA0223010519,SA0223010520,SA0223010521,SA0223010522,SA0223010388,SA0223010387,SA0223010358,SA0223010359,SA0223010360,SA0223010361,SA0223010362,SA0223010363,SA0223010364,SA0223010365,SA0223010366,SA0223010367,SA0223010368,SA0223010369,SA0223010379,SA0223010372,SA0223010373,SA0223010374,SA0223010375,SA0223010377,SA0223010378,SA0223010379,SA0223010380,SA0223010381,SA0223010382,SA0223010383,SA0223010384,SA0223010385,SA0223010386,SA0223010389,SA0223010390,SA0223010391,SA0223010392,SA0223010393,SA0223010503,SA0223010504,SA0223010505,SA0223010506"
-    },
-    {
-      "name": "_SyncPostingInsosysToSurplus",
-      "cascade": false,
-      "active": false,
-      "options": "bookdate_from=2022-12-01;bookdate_to=2023-01-31"
+      "options": "journalids=JV0223020034, JV0223020035, JV0223020036, JV0223020076, JV0223020079, JV0223020081",
+      "options_": "filters=('2022-12-01 00:00:00' <= jurnal_bookdate and jurnal_bookdate <= '2022-12-31 23:59:59')"
     }
   ],
   "pre_queries_pathx": "../../../SurplusMigrator-ExternalSource/Queries-Pre",
