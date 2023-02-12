@@ -1,21 +1,23 @@
 using Microsoft.Data.SqlClient;
+using Microsoft.Office.Interop.Excel;
 using Npgsql;
-using SurplusMigrator.Exceptions;
 using SurplusMigrator.Exceptions.Gen21;
 using SurplusMigrator.Interfaces;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Data.Entity.Core.Common.CommandTrees.ExpressionBuilder;
 using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace SurplusMigrator.Tasks {
-    class _NewJournalInsosysToSurplus : _BaseTask, RemappableId {
+    class _UpdateJournalInsosysToSurplus : _BaseTask, RemappableId {
         private string[] journalIds = null;
+        private string filter = null;
 
-        public _NewJournalInsosysToSurplus(DbConnection_[] connections) : base(connections) {
+        public _UpdateJournalInsosysToSurplus(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
@@ -289,15 +291,6 @@ namespace SurplusMigrator.Tasks {
                     ids = new string[] { "tsalesorderid" }
                 }
             };
-
-            if(getOptions("journalids") != null) {
-                List<string> listOfJournal = new List<string>();
-                var journalOptSplit = getOptions("journalids").Split(",");
-                foreach(var journalId in journalOptSplit) {
-                    listOfJournal.Add(journalId.Trim());
-                }
-                journalIds = listOfJournal.ToArray();
-            }
         }
 
         protected override List<RowData<string, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
@@ -305,32 +298,6 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override void runDependencies() {
-            new _Department(connections).run();
-            new MasterAccountCa(connections).run();
-            //new _MasterAdvertiser(connections).run();
-            //new _MasterAdvertiserBrand(connections).run();
-            new MasterCurrency(connections).run();
-            new MasterPaymentType(connections).run();
-            new MasterPeriod(connections).run();
-            new MasterTransactionTypeGroup(connections).run();
-            new MasterTransactionType(connections).run();
-            new MasterSource(connections).run();
-            new MasterVendorCategory(connections).run();
-            new MasterVendorType(connections).run();
-            new MasterVendor(connections).run();
-            new TransactionBudget(connections).run(true);
-
-            new MasterBankAccount(connections).run();
-            new MasterJournalReferenceType(connections).run();
-            new TransactionBudgetDetail(connections).run(true);
-
-            new MasterVendor(connections).run();
-            new MasterCurrency(connections).run();
-            new MasterAccount(connections).run();
-            new MasterTransactionType(connections).run();
-            new MasterInvoiceFormat(connections).run();
-            new MasterInvoiceType(connections).run();
-            new MasterVendorBill(connections).run();
         }
 
         public void clearRemappingCache() {
@@ -340,32 +307,36 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override void onFinished() {
-            var newJurnals = getNewJurnalFromInsosys();
+            loadConfig();
+            string logFilename = "log_(" + this.GetType().Name + ")_" + _startedAt.ToString("yyyyMMdd_HHmmss") + ".json";
+
+            var updatedJurnals = getUpdatedJurnalFromInsosys();
             var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
             NpgsqlTransaction transaction = ((NpgsqlConnection)surplusConn.GetDbConnection()).BeginTransaction();
 
             QueryUtils.toggleTrigger(surplusConn, "transaction_journal", false);
             QueryUtils.toggleTrigger(surplusConn, "transaction_journal_detail", false);
             try {
-                insertIntoJournal(newJurnals, transaction);
-                transaction.Commit();
+                if(updatedJurnals.Length > 0) {
+                    updateJournal(updatedJurnals, transaction);
+                    Utils.saveJson(logFilename, updatedJurnals.Select(a => Utils.obj2str(a["jurnal_id"])).ToArray());
+                    transaction.Commit();
+                }
             } catch(Exception) {
                 transaction.Rollback();
                 throw;
             } finally {
+                transaction.Dispose();
                 QueryUtils.toggleTrigger(surplusConn, "transaction_journal", true);
                 QueryUtils.toggleTrigger(surplusConn, "transaction_journal_detail", true);
-                IdRemapper.saveMap(); //saving mapped advertiser and brand triggered by Gen21Integration, and also vendorbill
             }
+
+
+
+            IdRemapper.saveMap(); //saving mapped advertiser and brand triggered by Gen21Integration, and also vendorbill
         }
 
-        private RowData<ColumnName, object>[] getNewJurnalFromInsosys() {
-            var insosysConn = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault();
-            var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault();
-
-            List<RowData<ColumnName, object>> migratedJurnalInsosys = new List<RowData<ColumnName, object>>();
-
-            string[] journalIds = null;
+        private void loadConfig() {
             if(getOptions("journalids") != null) {
                 List<string> listOfJournal = new List<string>();
                 var journalOptSplit = getOptions("journalids").Split(",");
@@ -377,51 +348,72 @@ namespace SurplusMigrator.Tasks {
                 journalIds = listOfJournal.Count > 0 ? listOfJournal.ToArray() : null;
             }
 
-            string filter = null;
             if(getOptions("filters") != null) {
-                filter = getOptions("filter");
+                filter = getOptions("filters");
             }
+        }
+
+        private RowData<ColumnName, object>[] getUpdatedJurnalFromInsosys() {
+            var insosysConn = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault();
+            var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault();
+
+            List<RowData<ColumnName, object>> updatedJurnalInsosys = new List<RowData<ColumnName, object>>();
 
             Table tableJurnal = new Table(sources.First(a => a.tableName == "transaksi_jurnal"));
             if(journalIds != null) {
                 string whereIn = "jurnal_id in (<jurnal_ids>)".Replace("<jurnal_ids>", "'" + String.Join("','", journalIds) + "'");
                 List<RowData<ColumnName, object>> batchData;
-                while((batchData = tableJurnal.getDatas(250, whereIn)).Count > 0) {
-                    migratedJurnalInsosys.AddRange(batchData);
+                while((batchData = tableJurnal.getDatas(1000, whereIn)).Count > 0) {
+                    updatedJurnalInsosys.AddRange(getUpdatedDataOnly(batchData));
                 }
             } else if(filter != null) {
                 List<RowData<ColumnName, object>> batchData;
-                while((batchData = tableJurnal.getDatas(250, filter)).Count > 0) {
-                    migratedJurnalInsosys.AddRange(batchData);
+                while((batchData = tableJurnal.getDatas(1000, filter)).Count > 0) {
+                    updatedJurnalInsosys.AddRange(getUpdatedDataOnly(batchData));
                 }
             } else {
-                Table tableJournal = new Table(destinations.First(a => a.tableName == "transaction_journal"));
                 List<RowData<ColumnName, object>> batchDataInsosys;
-                while((batchDataInsosys = tableJurnal.getDatas(2500)).Count > 0) {
-                    string[] insosysJournalIds = batchDataInsosys.Select(a => Utils.obj2str(a["jurnal_id"]).ToUpper()).Distinct().ToArray();
-                    List<RowData<ColumnName, object>> batchDataSurplus;
-                    List<RowData<ColumnName, object>> dataSurplus = new List<RowData<string, object>>();
-                    string whereInClause = "tjournalid in (<jurnal_ids>)";
-                    whereInClause = whereInClause.Replace("<jurnal_ids>", "'" + String.Join("','", insosysJournalIds) + "'");
-                    while((batchDataSurplus = tableJournal.getDatas(2500, whereInClause, true, false)).Count > 0) {
-                        dataSurplus.AddRange(batchDataSurplus);
-                    }
-                    var new_jurnalids = insosysJournalIds.Where(jurnal_id => !dataSurplus.Any(surplusData => Utils.obj2str(surplusData["tjournalid"]) == jurnal_id)).ToList();
-                    if(new_jurnalids.Count > 0) {
-                        migratedJurnalInsosys.AddRange(batchDataInsosys.Where(a => new_jurnalids.Contains(Utils.obj2str(a["jurnal_id"]))).ToList());
-                    }
+                while((batchDataInsosys = tableJurnal.getDatas(5000)).Count > 0) {
+                    updatedJurnalInsosys.AddRange(getUpdatedDataOnly(batchDataInsosys));
                 }
             }
 
-            string[] dump = migratedJurnalInsosys.Select(row => Utils.obj2str(row["jurnal_id"])).Distinct().ToArray();
-
-            return migratedJurnalInsosys.ToArray();
+            return updatedJurnalInsosys.ToArray();
         }
 
-        private RowData<ColumnName, object>[] getNewJurnalDetailFromInsosys(RowData<ColumnName, object>[] newJurnals) {
+        private RowData<ColumnName, object>[] getUpdatedDataOnly(List<RowData<ColumnName, object>> inputs) {
+            List<RowData<ColumnName, object>> result = new List<RowData<string, object>>();
+
+            Table tableJournal = new Table(destinations.First(a => a.tableName == "transaction_journal"));
+            int readBatchSize = 250;
+            for(int a=0; a<inputs.Count; a+=readBatchSize) {
+                var batchDataInsosys = inputs.Skip(a).Take(readBatchSize).ToArray();
+
+                string[] insosysJournalIds = batchDataInsosys.Select(a => Utils.obj2str(a["jurnal_id"]).ToUpper()).Distinct().ToArray();
+                string whereInClause = "tjournalid in (@jurnal_ids)"
+                    .Replace("@jurnal_ids", "'" + String.Join("','", insosysJournalIds) + "'");
+                var dataSurplus = tableJournal.getAllData(whereInClause, 5000, true, false);
+                var updated_datas = batchDataInsosys.Where(iData =>
+                    dataSurplus.Any(sData =>
+                        Utils.obj2str(iData["jurnal_id"]) == Utils.obj2str(sData["tjournalid"])
+                        && (
+                            (Utils.obj2datetimeNullable(iData["modified_dt"]) != null && Utils.obj2datetimeNullable(sData["modified_date"]) == null)
+                            || Utils.obj2datetime(iData["modified_dt"]) > Utils.obj2datetime(sData["modified_date"])
+                        )
+                    )
+                ).ToList();
+                if(updated_datas.Count > 0) {
+                    result.AddRange(updated_datas);
+                }
+            }
+
+            return result.ToArray();
+        }
+
+        private RowData<ColumnName, object>[] getUpdatedJurnalDetailFromInsosys(RowData<ColumnName, object>[] newJurnals) {
             var insosysConn = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault();
 
-            var newJurnalDetails = new List<RowData<ColumnName, object>>();
+            var updatedJurnalDetails = new List<RowData<ColumnName, object>>();
             int jurnalDetailBatchSize = 100;
             for(int a = 0; a < newJurnals.Length; a += jurnalDetailBatchSize) {
                 var batchJurnal = newJurnals.Skip(a).Take(jurnalDetailBatchSize).ToArray();
@@ -447,64 +439,162 @@ namespace SurplusMigrator.Tasks {
                 query = query.Replace("<jurnalids>", "'" + String.Join("','", jurnalids) + "'");
                 var rs = QueryUtils.executeQuery(insosysConn, query);
 
-                newJurnalDetails.AddRange(rs);
+                updatedJurnalDetails.AddRange(rs);
             }
 
-            return newJurnalDetails.ToArray();
+            return updatedJurnalDetails.ToArray();
         }
 
-        private void insertIntoJournal(RowData<ColumnName, object>[] newJournals, NpgsqlTransaction transaction) {
-            int insertBatchSize = 250;
-            int insertedJournal = 0;
+        private void updateJournal(RowData<ColumnName, object>[] updatedJurnals, NpgsqlTransaction transaction) {
+            foreach(var updateData in updatedJurnals) {
+                int affected = doUpdateJournal(updateData, transaction);
+                int affectedDetails = doUpdateJournalDetail(updateData, transaction);
+            }
+        }
 
-            for(int a = 0; a < newJournals.Length; a += insertBatchSize) {
-                var batchJurnals = newJournals.Skip(a).Take(insertBatchSize).ToArray();
+        private int doUpdateJournal(RowData<ColumnName, object> input, DbTransaction transaction) {
+            var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
 
-                Table tableJournal = new Table(destinations.First(a => a.tableName == "transaction_journal"));
+            var journalIds = destinations.First(a => a.tableName == "transaction_journal").ids;
+            var journalColumns = destinations.First(a => a.tableName == "transaction_journal").columns.Where(a => !journalIds.Contains(a)).ToArray();
+
+            var mappedUpdateData = getMappedJournalData(new RowData<string, object>[] { input }).First();
+
+            //update journals
+            string queryUpdateJournal = @"
+                    update ""<schema>"".transaction_journal
+                    set <update_clause>
+                    where
+                        <where_clause>
+                ";
+            queryUpdateJournal = queryUpdateJournal.Replace("<schema>", surplusConn.GetDbLoginInfo().schema);
+
+            Dictionary<string, object> parameters = new Dictionary<string, object>();
+            List<string> updateClauses = new List<string>();
+            foreach(var column in journalColumns) {
+                updateClauses.Add(column + " = @" + column);
+                var value = mappedUpdateData[column];
+                if(value != null && value.GetType() == typeof(AuthInfo)) {
+                    value = value.ToString();
+                }
+                parameters.Add("@" + column, value);
+            }
+            queryUpdateJournal = queryUpdateJournal.Replace("<update_clause>", String.Join(",", updateClauses));
+            queryUpdateJournal = queryUpdateJournal.Replace("<where_clause>", "tjournalid = @tjournalid");
+            parameters.Add("@tjournalid", mappedUpdateData["tjournalid"]);
+
+            var updatedRow = QueryUtils.executeQuery(surplusConn, queryUpdateJournal, parameters, transaction);
+            MyConsole.Information("successfully update transaction_journal(" + mappedUpdateData["tjournalid"].ToString() + ")");
+
+            return 1;
+        }
+
+        private int doUpdateJournalDetail(RowData<ColumnName, object> jurnal, DbTransaction transaction) {
+            var jurnalDetails = getUpdatedJurnalDetailFromInsosys(new RowData<string, object>[] { jurnal });
+
+            if(jurnalDetails.Length > 0) {
+                var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
+                var journalDetailIds = destinations.First(a => a.tableName == "transaction_journal_detail").ids;
+                var journalDetailColumns = destinations.First(a => a.tableName == "transaction_journal_detail").columns.Where(a => !journalDetailIds.Contains(a)).ToArray();
+                
                 Table tableJournalDetail = new Table(destinations.First(a => a.tableName == "transaction_journal_detail"));
+                Dictionary<string, List<RowData<string, object>>> jurnalDetilGroupedByJurnal = new Dictionary<string, List<RowData<string, object>>>();
 
-                tableJournal.insertData(getMappedJournalData(batchJurnals), false, true, transaction);
-                Console.WriteLine();
+                foreach(var row in jurnalDetails) {
+                    string jurnal_id = row["jurnal_id"].ToString();
+                    if(!jurnalDetilGroupedByJurnal.ContainsKey(jurnal_id)) {
+                        jurnalDetilGroupedByJurnal[jurnal_id] = new List<RowData<string, object>>();
+                    }
+                    jurnalDetilGroupedByJurnal[jurnal_id].Add(row);
+                }
 
-                var saList = batchJurnals
-                    .Where(a => Utils.obj2str(a["jurnal_id"]).ToUpper().StartsWith("SA"))
-                    .Select(a => Utils.obj2str(a["jurnal_id"]).ToUpper()).ToArray();
-                if(saList.Length > 0) {
-                    Table tableJurnalReference = new Table(sources.First(a => a.tableName == "transaksi_jurnalreference"));
-                    string whereInJurnalRef = "jurnal_id in ('<jurnal_ids>')".Replace("<jurnal_ids>", String.Join("','", saList));
-                    var soIdList = tableJurnalReference.getAllDatas(500, whereInJurnalRef)
-                        .Where(a => Utils.obj2str(a["jurnal_id_ref"]).ToUpper().StartsWith("SO"))
-                        .Select(a => Utils.obj2str(a["jurnal_id_ref"]).ToUpper())
-                        .Distinct()
-                        .ToArray();
+                foreach(var map in jurnalDetilGroupedByJurnal) {
+                    string jurnal_id = map.Key;
+                    var jurnaldetils = map.Value;
 
-                    if(soIdList.Length > 0) {
-                        Table tableSoSource = new Table(sources.First(a => a.tableName == "transaksi_salesorder"));
-                        string whereInSo = "salesorder_id in ('<salesorder_ids>')".Replace("<salesorder_ids>", String.Join("','", soIdList));
-                        var soDatas = tableSoSource.getAllDatas(500, whereInSo);
-                        if(soDatas.Count > 0) {
-                            Table tableSoDest = new Table(destinations.First(a => a.tableName == "transaction_sales_order"));
-                            tableSoDest.insertData(getMappedSoData(soDatas), false, true, transaction);
-                            Console.WriteLine();
+                    //generate appropiate tjournal_detailid
+                    foreach(var row in jurnaldetils) {
+                        string tjournal_detailid = row["jurnal_id"].ToString().Substring(0, 2) + "D" + row["jurnal_id"].ToString().Substring(2) + row["jurnaldetil_line"].ToString();
+                        row["tjournal_detailid"] = tjournal_detailid;
+                    }
+
+                    string selectSurplusJournalDetails = @"
+                        select * from transaction_journal_detail
+                        where
+                            tjournalid = @tjournalid
+                    ";
+                    var surplusJournalDetails = QueryUtils.executeQuery(surplusConn, selectSurplusJournalDetails, new Dictionary<string, object> { { "@tjournalid", jurnal_id } }).ToList();
+
+                    var surplusDetailIds = surplusJournalDetails.Select(a => a["tjournal_detailid"].ToString()).ToArray();
+                    var detailsToAdd = jurnaldetils.Where(ijd => !surplusDetailIds.Contains(ijd["tjournal_detailid"].ToString())).ToList();
+
+                    var detailsToUpdate = jurnaldetils.Where(ijd => 
+                        surplusJournalDetails.Any(sjd =>
+                            ijd["tjournal_detailid"].ToString() == sjd["tjournal_detailid"].ToString()
+                            && (
+                                //Utils.obj2int(ijd["rekanan_id"]) != Utils.obj2int(sjd["vendorid"])
+                                Utils.obj2str(ijd["acc_id"]) != Utils.obj2str(sjd["accountid"])
+                                || Utils.obj2decimal(ijd["jurnaldetil_idr"]) != Utils.obj2decimal(sjd["idramount"])
+                                || Utils.obj2bool(jurnal["jurnal_isdisabled"]) != Utils.obj2bool(sjd["is_disabled"])
+                            )
+                        )
+                    ).ToList();
+
+                    var insosysDetailIds = jurnaldetils.Select(a => a["tjournal_detailid"].ToString()).ToArray();
+                    var detailsToDelete = surplusJournalDetails.Where(sjd => !insosysDetailIds.Contains(sjd["tjournal_detailid"].ToString())).ToList();
+
+                    tableJournalDetail.insertData(getMappedJournalDetailData(detailsToAdd.ToArray()), false, true, transaction);
+
+                    var detailsToUpdateMapped = getMappedJournalDetailData(detailsToUpdate.ToArray());
+                    foreach(var row in detailsToUpdateMapped) {
+                        string queryUpdateJournalDetail = @"
+                            update transaction_journal_detail
+                            set <set_clauses>
+                            where
+                                tjournal_detailid = @tjournal_detailid
+                        ";
+
+                        Dictionary<string, object> parameters = new Dictionary<string, object>();
+                        List<string> setClauses = new List<string>();
+                        foreach(var column in journalDetailColumns) {
+                            setClauses.Add(column + " = @" + column);
+                            var value = row[column];
+                            if(value != null && value.GetType() == typeof(AuthInfo)) {
+                                value = value.ToString();
+                            }
+                            parameters.Add("@" + column, value);
                         }
+                        queryUpdateJournalDetail = queryUpdateJournalDetail.Replace("<set_clauses>", String.Join(",", setClauses));
+                        parameters.Add("@tjournal_detailid", row["tjournal_detailid"]);
+
+                        QueryUtils.executeQuery(surplusConn, queryUpdateJournalDetail, parameters, transaction);
+                        MyConsole.Information("successfully update transaction_journal_detail(" + row["tjournal_detailid"].ToString() + ")");
+                    }
+
+                    string queryDisableJournalDetail = @"
+                        update transaction_journal_detail
+                        set is_disabled = true
+                        where
+                            tjournal_detailid = @tjournal_detailid
+                    ";
+                    foreach(var row in detailsToDelete) {
+                        QueryUtils.executeQuery(surplusConn, queryDisableJournalDetail, 
+                            new Dictionary<string, object> { { "@tjournal_detailid", row["tjournal_detailid"] } }, 
+                            transaction);
+                        MyConsole.Information("successfully disable transaction_journal_detail(" + row["tjournal_detailid"].ToString() + ")");
                     }
                 }
-
-                var batchJurnalDetails = getNewJurnalDetailFromInsosys(batchJurnals);
-                if(batchJurnalDetails.Length > 0) {
-                    tableJournalDetail.insertData(getMappedJournalDetailData(batchJurnalDetails), false, true, transaction);
-                    Console.WriteLine();
-                }
-
-                insertedJournal += batchJurnals.Length;
             }
+
+            return 1;
         }
 
         private List<RowData<ColumnName, object>> getMappedJournalDetailData(RowData<ColumnName, object>[] inputs) {
             var result = new List<RowData<ColumnName, object>>();
             var inputList = inputs.ToList();
 
-            addJournalDetailTrackingFields(inputList);
+            DataIntegration integration = new DataIntegration(connections);
+            integration.fillJournalDetailTrackingFields(inputList);
             nullifyMissingReferences(
                 "budget_id",
                 "transaksi_budget",
@@ -533,7 +623,7 @@ namespace SurplusMigrator.Tasks {
                 connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
                 inputList
             );
-            DataIntegration integration = new DataIntegration(connections);
+
             foreach(var data in inputList) {
                 string tjournal_detailid = data["jurnal_id"].ToString().Substring(0, 2) + "D" + data["jurnal_id"].ToString().Substring(2) + data["jurnaldetil_line"].ToString();
 
@@ -607,7 +697,7 @@ namespace SurplusMigrator.Tasks {
                         { "idramount",  data["jurnaldetil_idr"]},
                         { "bankaccountid",  null},
                         { "paymenttypeid",  0},
-                        { "journalreferencetypeid",  getJournalReferenceTypeId(tjournalid)},
+                        { "journalreferencetypeid", integration.getJournalReferenceTypeId(tjournalid)},
                         { "subreference_id",  null},
                     }
                 );
@@ -655,6 +745,8 @@ namespace SurplusMigrator.Tasks {
                     }
                 }
 
+                string transactionType = integration.getJournalIdPrefix(Utils.obj2str(data["jurnal_id"])).ToUpper();
+
                 result.Add(
                     new RowData<ColumnName, object>() {
                         { "tjournalid",  Utils.obj2str(data["jurnal_id"]).ToUpper()},
@@ -668,7 +760,7 @@ namespace SurplusMigrator.Tasks {
                         { "currencyid",  data["currency_id"]==null? 0: data["currency_id"]},
                         { "foreignrate",  data["currency_rate"]},
                         { "accountexecutive_nik",  data["ae_id"]},
-                        { "transactiontypeid",  getTransactionType(Utils.obj2str(data["jurnal_id"]))},
+                        { "transactiontypeid", transactionType},
                         { "vendorid",  Utils.obj2int(data["rekanan_id"])==0? null: data["rekanan_id"]},
                         { "periodid",  data["periode_id"]},
                         { "tbudgetid",  tbudgetid},
@@ -692,162 +784,6 @@ namespace SurplusMigrator.Tasks {
             }
 
             return result;
-        }
-
-        private List<RowData<ColumnName, object>> getMappedSoData(List<RowData<ColumnName, object>> inputs) {
-            var result = new List<RowData<ColumnName, object>>();
-
-            nullifyMissingReferences("salesorder_agency", "master_rekanan", "rekanan_id", connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(), inputs);
-
-            Gen21Integration gen21 = new Gen21Integration(connections);
-
-            foreach(RowData<ColumnName, object> data in inputs) {
-                string advertiserid = Utils.obj2str(data["salesorder_advertiser"]);
-                string advertiserbrandid = Utils.obj2str(data["salesorder_brand"]);
-                string advertisercode = null;
-                string advertiserbrandcode = null;
-                if(advertiserbrandid != null && advertiserid != null && advertiserbrandid != "0" && advertiserid != "0") {
-                    try {
-                        (advertisercode, advertiserbrandcode) = gen21.getAdvertiserBrandId(advertiserid, advertiserbrandid);
-                    } catch(MissingAdvertiserBrandException e) {
-                        advertisercode = advertiserid;
-                        advertiserbrandcode = advertiserbrandid;
-                    } catch(Exception) {
-                        throw;
-                    }
-                }
-
-                string vendorbillidTag = Utils.obj2str(data["salesorder_agency"]) + "-" + Utils.obj2str(data["salesorder_agency_addr"]);
-                int vendorbillid = 0;
-                try {
-                    vendorbillid = IdRemapper.get("vendorbillid", vendorbillidTag);
-                } catch(Exception e) {
-                    if(e.Message.StartsWith("RemappedId map does not have mapping for id-columnname")) {
-                        throw;
-                    }
-                }
-
-                result.Add(
-                    new RowData<ColumnName, object>() {
-                        { "tsalesorderid",  data["salesorder_id"]},
-                        { "vendorid",  data["salesorder_agency"]},
-                        { "vendorbillid",  vendorbillid},
-                        { "mediaordernumber",  data["salesorder_ext_ref"]},
-                        { "jobid",  data["salesorder_ext_ref2"]},
-                        { "date",  data["salesorder_dt"]},
-                        { "advertiserid",  advertisercode},
-                        { "advertiserbrandid",  advertiserbrandcode},
-                        { "periodedate",  data["salesorder_order_month"]},
-                        { "billdate",  data["salesorder_bill_dt"]},
-                        { "bookdate",  data["salesorder_book_dt"]},
-                        { "due",  data["salesorder_due"]},
-                        { "accountexecutive_nik",  data["salesorder_ae"]},
-                        { "receivedby_nik",  data["salesorder_recv_by"]},
-                        { "receiveddate",  data["salesorder_recv_dt"]},
-                        { "currencyid",  data["salesorder_currency"]},
-                        { "foreignamount",  data["salesorder_amount"]},
-                        { "foreignrate",  data["salesorder_rate"]},
-                        { "additionalamount", Utils.obj2decimal(data["salesorder_amount_add"])},
-                        { "cancelationamount", Utils.obj2decimal(data["salesorder_amount_cancel"])},
-                        { "commision",  data["salesorder_comm"]},
-                        { "buyer", Utils.obj2decimal(data["salesorder_buyer"])},
-                        { "salesareaid", Utils.obj2int(data["salesorder_area"])},
-                        { "contractnumber",  data["salesorder_traffic_id"]},
-                        { "invoiceformatid",  data["salesorder_format_inv"]},
-                        { "invoiceply",  data["salesorder_ply_inv"]},
-                        { "invoicetypeid",  data["salesorder_inv_type"]},
-                        { "isdirect", Utils.obj2bool(Utils.obj2int(data["salesorder_direct"]))},
-                        { "description",  data["salesorder_descr"]},
-                        { "accountid",  data["salesorder_account"]},
-                        { "mo",  data["salesorder_mo_avail"]},
-                        { "moadd",  data["salesorder_mo_add"]},
-                        { "momemo",  data["salesorder_mo_memo"]},
-                        { "mocancelation",  data["salesorder_mo_canc"]},
-                        { "modate",  data["salesorder_mo_date"]},
-                        { "isapproved",  Utils.obj2bool(data["salesorder_isokay"])},
-                        //{ "approvedby",  data[""]},
-                        //{ "approveddate",  data[""]},
-                        { "transactiontypeid",  data["salesorder_jurnaltypeid"]},
-
-                        { "created_by", getAuthInfo(data["salesorder_entry_by"], true) },
-                        { "created_date",  data["salesorder_entry_dt"]},
-                        { "is_disabled", Utils.obj2bool(data["salesorder_iscanceled"]) },
-                        //{ "disabled_by",  new AuthInfo(){ FullName = Utils.obj2str(data["jurnal_isdisabledby"]) } },
-                        //{ "disabled_date",  data["jurnal_isdisableddt"] },
-                        //{ "modified_by",  new AuthInfo(){ FullName = Utils.obj2str(data["modified_by"]) } },
-                        //{ "modified_date",  data["modified_dt"] },
-                    }
-                );
-            }
-
-            return result;
-        }
-
-        private void addJournalDetailTrackingFields(List<RowData<ColumnName, object>> inputs) {
-            List<string> journalIds = new List<string>();
-
-            foreach(RowData<ColumnName, object> row in inputs) {
-                string jurnal_id = Utils.obj2str(row["jurnal_id"]);
-                if(!journalIds.Contains(jurnal_id)) {
-                    journalIds.Add(jurnal_id);
-                }
-            }
-
-            SqlConnection conn = (SqlConnection)connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault().GetDbConnection();
-            SqlCommand command = new SqlCommand("select jurnal_id, created_dt, created_by, jurnal_isdisabled, jurnal_isdisableddt, jurnal_isdisabledby from [dbo].[transaksi_jurnal] where jurnal_id in ('" + String.Join("','", journalIds) + "')", conn);
-            SqlDataReader dataReader = command.ExecuteReader();
-
-            Dictionary<string, RowData<ColumnName, object>> queriedJournals = new Dictionary<string, RowData<ColumnName, object>>();
-            while(dataReader.Read()) {
-                string journalId = Utils.obj2str(dataReader.GetValue(dataReader.GetOrdinal("jurnal_id"))).ToUpper();
-                queriedJournals[journalId] = new RowData<ColumnName, object>() {
-                    { "created_dt", dataReader.GetValue(dataReader.GetOrdinal("created_dt")) },
-                    { "created_by", dataReader.GetValue(dataReader.GetOrdinal("created_by")) },
-                    { "jurnal_isdisabled", dataReader.GetValue(dataReader.GetOrdinal("jurnal_isdisabled")) },
-                    { "jurnal_isdisableddt", dataReader.GetValue(dataReader.GetOrdinal("jurnal_isdisableddt")) },
-                    { "jurnal_isdisabledby", dataReader.GetValue(dataReader.GetOrdinal("jurnal_isdisabledby")) },
-                };
-            }
-            dataReader.Close();
-            command.Dispose();
-
-            foreach(RowData<ColumnName, object> row in inputs) {
-                RowData<ColumnName, object> journal = queriedJournals[Utils.obj2str(row["jurnal_id"]).ToUpper()];
-                row["created_dt"] = journal["created_dt"];
-                row["created_by"] = journal["created_by"];
-                row["jurnal_isdisabled"] = journal["jurnal_isdisabled"];
-                row["jurnal_isdisableddt"] = journal["jurnal_isdisableddt"];
-                row["jurnal_isdisabledby"] = journal["jurnal_isdisabledby"];
-            }
-        }
-
-        private string getTransactionType(string tjournalid) {
-            Match match = Regex.Match(tjournalid, @"[a-zA-Z]+");
-
-            return match.Groups[0].Value.ToUpper();
-        }
-
-        private string getJournalReferenceTypeId(string tjournalid) {
-            Dictionary<string, string> referenceTypeMap = new Dictionary<string, string>() {
-                { "AP", "jurnal_ap" },
-                { "CN", null },
-                { "DN", null },
-                { "JV", "jurnal_jv" },
-                { "OC", null },
-                { "OR", null },
-                { "PV", "payment" },
-                { "RV", null },
-                { "SA", null },
-                { "ST", "payment" },
-            };
-
-            return referenceTypeMap[getJournalIdPrefix(tjournalid)];
-        }
-
-        private string getJournalIdPrefix(string tjournalid) {
-            Match match = Regex.Match(tjournalid, @"[a-zA-Z]+");
-
-            return match.Groups[0].Value;
         }
     }
 }
