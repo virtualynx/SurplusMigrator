@@ -4,8 +4,7 @@ using System.Collections.Generic;
 using Npgsql;
 using Microsoft.Data.SqlClient;
 using System.Linq;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using Microsoft.Office.Interop.Excel;
+using System.Data.Common;
 
 namespace SurplusMigrator.Libraries {
     class QueryUtils {
@@ -143,16 +142,38 @@ namespace SurplusMigrator.Libraries {
             throw new NotImplementedException("Only SQL-Server and PostgreSql database is supported");
         }
 
-        public static RowData<ColumnName, object>[] executeQuery(DbConnection_ connection, string sql, int timeoutSeconds = 30) {
+        public static RowData<ColumnName, object>[] executeQuery(DbConnection_ connection, string sql, Dictionary<string, object> parameters = null, DbTransaction transaction = null, int timeoutSeconds = 30) {
             List<RowData<ColumnName, object>> result = new List<RowData<string, dynamic>>();
-            bool retry = false;
-            do {
-                try {
-                    if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                        SqlCommand command = new SqlCommand(sql, (SqlConnection)connection.GetDbConnection());
-                        if(timeoutSeconds != -1) {
-                            command.CommandTimeout = timeoutSeconds;
+
+            if(parameters != null) {
+                foreach(var map in parameters) {
+                    if(map.Value != null && (map.Value.GetType().IsArray || Utils.isList(map.Value))) {
+                        object[] valueArr;
+                        if(map.Value.GetType().IsArray) {
+                            valueArr = (object[])map.Value;
+                        } else {
+                            throw new NotImplementedException();
                         }
+                        var valueList = (from v in valueArr select getInsertArg(v)).ToArray();
+                        sql = sql.Replace(map.Key, "(" + String.Join(",", valueList) + ")");
+                    } else {
+                        sql = sql.Replace(map.Key, getInsertArg(map.Value));
+                    }
+                }
+            }
+
+            bool retry;
+            do {
+                retry = false;
+                if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                    SqlCommand command = new SqlCommand(sql, (SqlConnection)connection.GetDbConnection());
+                    if(transaction != null) {
+                        command.Transaction = (SqlTransaction)transaction;
+                    }
+                    if(timeoutSeconds != -1) {
+                        command.CommandTimeout = timeoutSeconds;
+                    }
+                    try {
                         SqlDataReader reader = command.ExecuteReader();
                         while(reader.Read()) {
                             RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
@@ -169,12 +190,24 @@ namespace SurplusMigrator.Libraries {
                             result.Add(rowData);
                         }
                         reader.Close();
-                        command.Dispose();
-                    } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                        NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)connection.GetDbConnection());
-                        if(timeoutSeconds != -1) {
-                            command.CommandTimeout = timeoutSeconds;
+                    } catch(Exception e) {
+                        if(isConnectionProblem(e)) {
+                            retry = true;
+                        } else {
+                            throw;
                         }
+                    } finally {
+                        command.Dispose();
+                    }
+                } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                    NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)connection.GetDbConnection());
+                    if(transaction != null) {
+                        command.Transaction = (NpgsqlTransaction)transaction;
+                    }
+                    if(timeoutSeconds != -1) {
+                        command.CommandTimeout = timeoutSeconds;
+                    }
+                    try {
                         NpgsqlDataReader reader = command.ExecuteReader();
                         while(reader.Read()) {
                             RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
@@ -191,14 +224,14 @@ namespace SurplusMigrator.Libraries {
                             result.Add(rowData);
                         }
                         reader.Close();
+                    } catch(Exception e) {
+                        if(isConnectionProblem(e)) {
+                            retry = true;
+                        } else {
+                            throw;
+                        }
+                    } finally {
                         command.Dispose();
-                    }
-                    retry = false;
-                } catch(Exception e) {
-                    if(isConnectionProblem(e)) {
-                        retry = true;
-                    } else {
-                        throw;
                     }
                 }
             } while(retry);
@@ -235,10 +268,9 @@ namespace SurplusMigrator.Libraries {
         public static RowData<ColumnName, object>[] getDataBatch(
             DbConnection_ connection,
             string tablename,
-            bool onlyApplicationGeneratedData = true,
+            string[] filters = null,
             int batchSize = 10000,
             string[] ids = null,
-            Dictionary<string, object> filters = null,
             bool verbose = false
         ) {
             var batchInfo = batchInfos.Where(a => 
@@ -266,7 +298,10 @@ namespace SurplusMigrator.Libraries {
                 ids = getPrimaryKeys(connection, tablename);
             }
 
-            List<string> filterList = new List<string>();
+            string filter = "";
+            if(filters != null) {
+                filter = " WHERE " + String.Join(" AND ", filters);
+            }
 
             string query;
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
@@ -286,7 +321,7 @@ namespace SurplusMigrator.Libraries {
                         AND RowNum <= <offset_end>
                     ORDER BY RowNum";
 
-                query = query.Replace("<selected_columns>", String.Join(',', columns));
+                query = query.Replace("<selected_columns>", "[" + String.Join("],[", columns) + "]");
 
                 string over_orderby = "(select null)";
                 if(ids != null && ids.Length > 0) {
@@ -296,13 +331,6 @@ namespace SurplusMigrator.Libraries {
 
                 query = query.Replace("<schema>", connection.GetDbLoginInfo().schema);
                 query = query.Replace("<tablename>", tablename);
-
-                if(filters != null) {
-                    foreach(var f in filters) {
-                        filterList.Add("[" + f.Key + "] = " + getInsertArg(f.Value));
-                    }
-                }
-                query = query.Replace("<filters>", filterList.Count > 0 ? " WHERE " + String.Join(" AND ", filterList) : "");
 
                 query = query.Replace("<offset_start>", (batchInfo.dataRead + 1).ToString());
                 query = query.Replace("<offset_end>", (batchInfo.dataRead + batchSize).ToString());
@@ -321,16 +349,6 @@ namespace SurplusMigrator.Libraries {
                 query = query.Replace("<schema_name>", connection.GetDbLoginInfo().schema);
                 query = query.Replace("<tablename>", tablename);
 
-                if(onlyApplicationGeneratedData) {
-                    filterList.Add("(created_by is null or created_by->> 'Id' is not null)");
-                }
-                if(filters != null) {
-                    foreach(var f in filters) {
-                        filterList.Add("\"" + f.Key + "\" = " + getInsertArg(f.Value));
-                    }
-                }
-                query = query.Replace("<filters>", filterList.Count > 0 ? " WHERE " + String.Join(" AND ", filterList) : "");
-
                 string orderBy = " order by ";
                 if(ids.Length > 0) {
                     orderBy += "\"" + String.Join("\",\"", ids) + "\"";
@@ -344,13 +362,16 @@ namespace SurplusMigrator.Libraries {
                 throw new NotImplementedException("Unknown database implementation");
             }
 
+            query = query.Replace("<filters>", filter);
+
+            var rs = executeQuery(connection, query);
+
             int readUntil = batchInfo.dataRead + batchSize;
             readUntil = readUntil > batchInfo.dataCount ? batchInfo.dataCount : readUntil;
             if(verbose) {
                 //MyConsole.WriteLine("Read batch data " + tablename + " " + batchInfo.dataRead + " - " + readUntil + " / " + batchInfo.dataCount);
                 MyConsole.WriteLine("Read batch data " + tablename + " " + readUntil + " / " + batchInfo.dataCount);
             }
-            var rs = executeQuery(connection, query);
 
             batchInfo.dataRead = readUntil;
 
@@ -441,14 +462,23 @@ namespace SurplusMigrator.Libraries {
         /// <param name="connection"></param>
         /// <param name="targetTable"></param>
         /// <param name="selectColumns"></param>
-        /// <param name="targetColumns"></param>
+        /// <param name="targetColumn"></param>
         /// <param name="word"></param>
+        /// <param name="maxResult"></param>
         /// <returns></returns>
-        public static RowData<ColumnName, object>[] searchSimilar(DbConnection_ connection, string targetTable, string[] selectColumns, string targetColumns, string word, int maxResult = 1) {
+        public static RowData<ColumnName, object>[] searchSimilar(
+            DbConnection_ connection,
+            string targetTable,
+            string[] selectColumns,
+            string targetColumn,
+            string word,
+            int maxResult = 1
+        ) {
             RowData<ColumnName, object>[] queryResult;
 
             string[] wordSplit = word.Split(" ");
             int wordCounter = 1;
+            bool targetColumnSelected = selectColumns.Any(a => a == targetColumn);
             do {
                 string sql = @"
                     select
@@ -459,11 +489,16 @@ namespace SurplusMigrator.Libraries {
                         <filters>
                 ";
                 List<string> filters = new List<string>();
-                for(int a=0; a<wordCounter; a++) {
-
-                    filters.Add("lower(\""+ targetColumns + "\") like '%" + wordSplit[a].ToLower() + "%'");
+                for(int a = 0; a < wordCounter; a++) {
+                    string splittedWord = wordSplit[a].ToLower();
+                    splittedWord = splittedWord.Replace("'", "''");
+                    splittedWord = splittedWord.Replace("\\", "\\\\");
+                    filters.Add("lower(\"" + targetColumn + "\") like '%" + splittedWord + "%'");
                 }
 
+                if(!targetColumnSelected && !selectColumns.Contains(targetColumn)) { //target column is needed for indexing later
+                    selectColumns = selectColumns.Append(targetColumn).ToArray();
+                }
                 sql = sql.Replace("<columns>", "\"" + String.Join("\",\"", selectColumns) + "\"");
                 sql = sql.Replace("<schema>", connection.GetDbLoginInfo().schema);
                 sql = sql.Replace("<tables>", targetTable);
@@ -471,6 +506,35 @@ namespace SurplusMigrator.Libraries {
                 queryResult = QueryUtils.executeQuery(connection, sql);
                 wordCounter++;
             } while(queryResult.Length > maxResult && wordCounter <= wordSplit.Length);
+
+            foreach(var row in queryResult) {
+                int containsCount = 0;
+                string targetData = Utils.obj2str(row[targetColumn]);
+                foreach(var w in wordSplit) {
+                    if(targetData.ToLower().Contains(w.ToLower())) {
+                        containsCount++;
+                    }
+                }
+                double index = containsCount / wordSplit.Length;
+                row["similarity_index"] = index;
+            }
+
+            //sort by similarity_index desc
+            Array.Sort(queryResult, (x, y) => {
+                double y_index = Double.Parse(y["similarity_index"].ToString());
+                double x_index = Double.Parse(x["similarity_index"].ToString());
+
+                if(y_index > x_index) return -1;
+                if(y_index < x_index) return 1;
+                return 0;
+            });
+
+            foreach(var row in queryResult) {
+                //row.Remove("similarity_index");
+                if(!targetColumnSelected && selectColumns.Contains(targetColumn)) {
+                    row.Remove(targetColumn);
+                }
+            }
 
             return queryResult;
         }
@@ -484,6 +548,7 @@ namespace SurplusMigrator.Libraries {
             } else if(type == typeof(string)) {
                 string dataStr = data.ToString();
                 dataStr = dataStr.Replace("'", "''");
+                dataStr = dataStr.Replace("\\", "\\\\");
                 convertedData = "'" + dataStr + "'";
             } else if(type == typeof(bool)) {
                 convertedData = data.ToString().ToLower();
@@ -509,39 +574,46 @@ namespace SurplusMigrator.Libraries {
         public static bool isConnectionProblem(Exception e) {
             bool result = false;
 
+            string detailedInfo = null;
             if(
                 e.Message.Contains("The timeout period elapsed prior to completion of the operation or the server is not responding")
                 && e.InnerException.Message == "The wait operation timed out."
             ) {
                 result = true;
+                detailedInfo = e.InnerException.Message;
             }
             if(
                 e.Message.Contains("A network-related or instance-specific error occurred while establishing a connection to SQL Server")
                 && e.Message.Contains("established connection failed because connected host has failed to respond")
             ) {
                 result = true;
+                detailedInfo = "Connected host has failed to respond";
             }
             if(
                 e.Message.Contains("A transport-level error has occurred when sending the request to the server")
                 && e.Message.Contains("An existing connection was forcibly closed by the remote host")
             ) {
                 result = true;
+                detailedInfo = "An existing connection was forcibly closed by the remote host";
             }
             if(
                 e.Message.Contains("Exception while reading from stream")
                 && e.InnerException.Message == "Timeout during reading attempt"
             ) {
                 result = true;
+                detailedInfo = e.InnerException.Message;
             }
             if(
                 e.Message == "Exception while writing to stream"
                 && e.InnerException.Message == "Timeout during writing attempt"
             ) {
                 result = true;
+                detailedInfo = e.InnerException.Message;
             }
 
             if(result == true) {
-                MyConsole.Warning("Connection problem, retrying ...");
+                Console.WriteLine();
+                MyConsole.Warning("Connection problem("+detailedInfo+"), retrying ...");
                 System.Threading.Thread.Sleep(2000);
             }
 

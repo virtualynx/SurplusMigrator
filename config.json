@@ -83,7 +83,7 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "_live_23_01_18_base",
+      "schema": "_live",
       "type": "POSTGRESQL"
     },
     {
@@ -93,7 +93,7 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "dev_remap_dept",
+      "schema": "_live_23_02_11",
       "type": "POSTGRESQL"
     },
     {
@@ -103,40 +103,77 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "dev_remap_dept",
+      "schema": "_migrasi_backup",
       "type": "POSTGRESQL"
     }
   ],
   "job_playlist": [
     {
+      "name": "__EmptyJob",
+      "cascade": false,
+      "active": false,
+      "options": "salesorderids=SO0223010603;tests"
+    },
+    {
       "name": "_MirrorDatabase",
       "cascade": false,
-      "options": "test; "
+      "active": false
+    },
+    {
+      "name": "MasterVendor",
+      "cascade": true,
+      "active": false
+    },
+    {
+      "name": "TransactionBudget",
+      "cascade": true,
+      "active": true
+    },
+    {
+      "name": "_RestoreDataFromAudit",
+      "active": false,
+      "options": "time_from=2023-02-08 09:00:00;time_to=2023-02-08 18:00:00;source_schema=_live_bak_migrasi"
+    },
+    {
+      "name": "_FixReportData",
+      "cascade": false,
+      "active": false,
+      "options": "date=2022-12-31 00:00:00"
+    },
+    {
+      "name": "_FixReportDataV2",
+      "cascade": false,
+      "active": false,
+      "options": "date=2022-11-30 00:00:00"
+    },
+    {
+      "name": "_NewJournalInsosysToSurplus",
+      "cascade": false,
+      "active": false,
+      "options": "journalids=JV0223020034, JV0223020035, JV0223020036, JV0223020076, JV0223020079, JV0223020081",
+      "options_": "filters=('2022-12-01 00:00:00' <= jurnal_bookdate and jurnal_bookdate <= '2022-12-31 23:59:59')"
     }
   ],
   "pre_queries_pathx": "../../../SurplusMigrator-ExternalSource/Queries-Pre",
   "post_queries_pathx": "../../../SurplusMigrator-ExternalSource/Queries-Post",
   "excel_sources_path": "../../../SurplusMigrator-ExternalSource/Excels",
   "json_sources_path": "../../../SurplusMigrator-ExternalSource/Jsons",
-  "excluded_tables": {
-    "source": [],
-    "destination": [
-      "master_account_relation",
-      "master_account_general_ledger_sign",
-      "master_glreport",
-      "master_glreport_detail",
-      "master_glreport_subdetail",
-      "transaction_budget",
-      "transaction_program_budget_eps_detail",
-      "transaction_journal",
-      "master_artist_account",
-      "transaction_budget_detail",
-      "transaction_journal_detail",
-      "transaction_journal_reval",
-      "master_vendor_bill",
-      "transaction_sales_order"
-    ]
-  },
+  "excluded_tables": [
+    "master_account_relation",
+    "master_account_general_ledger_sign",
+    "master_glreport",
+    "master_glreport_detail",
+    "master_glreport_subdetail",
+    "transaction_budget",
+    "transaction_program_budget_eps_detail",
+    "transaction_journal",
+    "master_artist_account",
+    "transaction_budget_detail",
+    "transaction_journal_detail",
+    "transaction_journal_reval",
+    "master_vendor_bill",
+    "transaction_sales_order"
+  ],
   "truncated_tables": [
     "AspNetUsers ",
     "relation_user_department ",
@@ -197,6 +234,7 @@
     "AspNetUsers",
     "Relation_Module_UserGroup",
     "Relation_User_Department",
+    "Relation_Surplus_Inventory_Dept",
 
     "MasterFaction",
     "MasterZone",
@@ -206,6 +244,7 @@
     "MasterSetting",
     "MasterSequencer",
     "MasterPaymentCategory",
+    "MasterPrizeType",
 
     "MasterObjective",
     "MasterProcurementCategory",
@@ -217,6 +256,7 @@
     "MasterTaxType",
 
     "MasterTaxCategory",
+    "MasterTaxObject",
     "MasterTaxPPH21",
     "MasterTaxRange",
     "MasterUnit",
@@ -246,6 +286,7 @@
     "MasterTransactionTypeGroup",
     "MasterTransactionType",
     "MasterSource",
+    "MasterSourceAccount",
     "MasterVendorCategory",
     "MasterVendorType",
     "MasterVendor",
@@ -265,6 +306,7 @@
     "TransactionBudget",
     "TransactionJournal",
     "TransactionJournalTax",
+    "MasterVendorTax",
 
     "MasterBank",
     "MasterBankAccount",

@@ -1,4 +1,5 @@
 ﻿using Microsoft.Data.SqlClient;
+using Npgsql;
 using SurplusMigrator.Exceptions;
 using SurplusMigrator.Interfaces;
 using SurplusMigrator.Libraries;
@@ -6,10 +7,11 @@ using SurplusMigrator.Models;
 using SurplusMigrator.Models.Others;
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 using TaskName = System.String;
 
 namespace SurplusMigrator.Tasks {
@@ -17,9 +19,10 @@ namespace SurplusMigrator.Tasks {
         private static Dictionary<TaskName, bool> _alreadyRunMap = new Dictionary<TaskName, bool>();
         Dictionary<string, string> _options = null;
 
-        public TableInfo[] sources = null;
-        public TableInfo[] destinations = null;
+        protected TableInfo[] sources = null;
+        protected TableInfo[] destinations = null;
         protected const int defaultReadBatchSize = 5000;
+        protected int readBatchSize = defaultReadBatchSize;
         protected DbConnection_[] connections = null;
         protected DateTime _startedAt;
 
@@ -28,8 +31,12 @@ namespace SurplusMigrator.Tasks {
             _startedAt = DateTime.Now;
         }
 
-        public bool run(bool includeDependencies = true, bool truncateBeforeInsert = false, bool onlyTruncateMigratedData = true, int readBatchSize = defaultReadBatchSize) {
+        public bool run(bool includeDependencies = true, bool truncateBeforeInsert = false, bool onlyTruncateMigratedData = true) {
             if(isAlreadyRun()) return true;
+
+            if(includeDependencies) {
+                runDependencies();
+            }
 
             //if being run from method runDependencies
             if(new StackFrame(1).GetMethod().Name == "runDependencies") {
@@ -41,23 +48,21 @@ namespace SurplusMigrator.Tasks {
                 sources.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName)) ||
                 destinations.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName))
             ) {
-                MyConsole.Information(this.GetType().Name + " is skipped because it's excluded in config file");
-                return false;
+                bool isRun = false;
+                if(GlobalConfig.getJobPlaylist().Length > 0) {
+                    MyConsole.Write("Continue to run "+this.GetType().Name+" (y/n)? ");
+                    string runConfirm = Console.ReadLine();
+                    if(runConfirm.ToLower() == "y") {
+                        isRun = true;
+                    }
+                }
+                if(!isRun) {
+                    MyConsole.Information(this.GetType().Name + " is skipped because it's excluded in config file");
+                    return false;
+                }
             }
 
             MyConsole.Information("Task " + this.GetType().Name + " started ...");
-
-            //truncate options is in the config file
-            if(destinations.Any(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))) {
-                truncateBeforeInsert = true;
-                List<string> tableNames = new List<string>();
-                foreach(var dest in destinations) {
-                    if(GlobalConfig.isTruncatedTable(dest.tableName)) {
-                        tableNames.Add(dest.tableName);
-                    }
-                }
-                MyConsole.Information("Using truncating options from the config file for: "+String.Join(", ", tableNames));
-            }
 
             bool allSuccess = true;
             Stopwatch stopwatch = new Stopwatch();
@@ -65,63 +70,87 @@ namespace SurplusMigrator.Tasks {
             List<string> printedLogFilename = new List<string>();
             List<DbInsertFail> allErrors = new List<DbInsertFail>();
             try {
+                //truncate options is in the config file
+                if(destinations.Any(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))) {
+                    bool confirmTruncate = true;
+                    if(GlobalConfig.getJobPlaylist().Length > 0) {
+                        MyConsole.Write("Use truncate options in "+GetType().Name+ " (type \"truncate\" to perform truncating)? ");
+                        string truncate = Console.ReadLine();
+                        if(truncate.ToLower() != "truncate") {
+                            confirmTruncate = false;
+                        }
+                    }
+                    if(confirmTruncate) {
+                        truncateBeforeInsert = true;
+                        string[] truncatedTables = destinations
+                            .Where(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))
+                            .Select(a => a.tableName)
+                            .ToArray();
+                        MyConsole.Information("Using truncating options from the config file for: " + String.Join(", ", truncatedTables));
+                    }
+                }
+
                 if(truncateBeforeInsert && this.GetType().GetInterfaces().Contains(typeof(RemappableId))) {
                     var method = ((object)this).GetType().GetMethod("clearRemappingCache");
                     method.Invoke(this, new object[] { });
                 }
 
-                if(includeDependencies) {
-                    runDependencies();
-                }
+                Table[] sourceTables = (
+                    from tinfo in sources 
+                    select new Table() {
+                        connection = tinfo.connection,
+                        tableName = tinfo.tableName,
+                        columns = tinfo.columns,
+                        ids = tinfo.ids,
+                    }
+                ).ToArray();
 
-                Table[] sourceTables;
-                Table[] destinationTables;
-
-                List<Table> t = new List<Table>();
-
-                foreach(TableInfo ti in sources) {
-                    t.Add(
-                        new Table() {
-                            connection = ti.connection,
-                            tableName = ti.tableName,
-                            columns = ti.columns,
-                            ids = ti.ids,
-                        }
-                    );
-                }
-                sourceTables = t.ToArray();
-
-                t = new List<Table>();
-
-                foreach(TableInfo ti in destinations) {
-                    t.Add(
-                        new Table() {
-                            connection = ti.connection,
-                            tableName = ti.tableName,
-                            columns = ti.columns,
-                            ids = ti.ids,
-                        }
-                    );
-                }
-                destinationTables = t.ToArray();
+                Table[] destinationTables = (
+                    from tinfo in destinations
+                    select new Table() {
+                        connection = tinfo.connection,
+                        tableName = tinfo.tableName,
+                        columns = tinfo.columns,
+                        ids = tinfo.ids,
+                    }
+                ).ToArray();
 
                 long successCount = 0;
                 long failureCount = 0;
                 long duplicateCount = 0;
 
+                if(getOptions("batchsize") != null) {
+                    readBatchSize = Int32.Parse(getOptions("batchsize"));
+                }
+
                 List<RowData<ColumnName, object>> fetchedData;
                 while((fetchedData = getSourceData(sourceTables, readBatchSize)).Count > 0) {
                     MappedData mappedData = mapData(fetchedData);
                     foreach(Table dest in destinationTables) {
-                        TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), truncateBeforeInsert, onlyTruncateMigratedData);
-                        successCount += taskStatus.successCount;
-                        failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
-                        failureCount += mappedData.getError(dest.tableName).Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
-                        duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
-                        allErrors.AddRange(taskStatus.errors);
-                        allErrors.AddRange(mappedData.getError(dest.tableName));
-                        MyConsole.EraseLine();
-                        MyConsole.WriteLine("Total " + (successCount + failureCount + duplicateCount) + " data processed");
+                        DbTransaction transaction;
+                        if(dest.connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                            transaction = ((SqlConnection)dest.connection.GetDbConnection()).BeginTransaction();
+                        } else if(dest.connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                            transaction = ((NpgsqlConnection)dest.connection.GetDbConnection()).BeginTransaction();
+                        } else {
+                            throw new NotImplementedException("Database type unknown: "+ dest.connection.GetDbLoginInfo().type);
+                        }
+
+                        try {
+                            TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), truncateBeforeInsert, onlyTruncateMigratedData, transaction);
+                            successCount += taskStatus.successCount;
+                            failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
+                            failureCount += mappedData.getError(dest.tableName).Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
+                            duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
+                            allErrors.AddRange(taskStatus.errors);
+                            allErrors.AddRange(mappedData.getError(dest.tableName));
+                            MyConsole.EraseLine();
+                            MyConsole.WriteLine("Total " + (successCount + failureCount + duplicateCount) + " data processed");
+                            transaction.Commit();
+                        } catch(Exception) {
+                            transaction.Rollback();
+                            throw;
+                        }
                     }
                 }
 
@@ -139,13 +168,29 @@ namespace SurplusMigrator.Tasks {
                         var datas = staticDatas.getData(dest.tableName);
                         for(int a = 0; a < datas.Count; a += readBatchSize) {
                             var batchDatas = datas.Skip(a).Take(readBatchSize).ToList();
-                            TaskInsertStatus taskStatus = dest.insertData(batchDatas, truncateBeforeInsert, onlyTruncateMigratedData);
-                            successCount += taskStatus.successCount;
-                            failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
-                            duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
-                            allErrors.AddRange(taskStatus.errors);
-                            MyConsole.EraseLine();
-                            MyConsole.WriteLine("Total " + (successCount + failureCount + duplicateCount) + " data processed");
+
+                            DbTransaction transaction;
+                            if(dest.connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                                transaction = ((SqlConnection)dest.connection.GetDbConnection()).BeginTransaction();
+                            } else if(dest.connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                                transaction = ((NpgsqlConnection)dest.connection.GetDbConnection()).BeginTransaction();
+                            } else {
+                                throw new NotImplementedException("Database type unknown: " + dest.connection.GetDbLoginInfo().type);
+                            }
+
+                            try {
+                                TaskInsertStatus taskStatus = dest.insertData(batchDatas, truncateBeforeInsert, onlyTruncateMigratedData, transaction);
+                                successCount += taskStatus.successCount;
+                                failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
+                                duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
+                                allErrors.AddRange(taskStatus.errors);
+                                MyConsole.EraseLine();
+                                MyConsole.WriteLine("Total " + (successCount + failureCount + duplicateCount) + " data processed");
+                                transaction.Commit();
+                            } catch(Exception) {
+                                transaction.Rollback();
+                                throw;
+                            }
                         }
                     }
                 }
@@ -154,7 +199,7 @@ namespace SurplusMigrator.Tasks {
                     dest.updateSequencer();
                 }
 
-                afterFinishedCallback();
+                onFinished();
                 MyConsole.Information("Task " + this.GetType().Name + " finished. (success: " + successCount + ", fails: " + failureCount + ", duplicate: " + duplicateCount + ")");
                 setAlreadyRun();
             } catch(TaskConfigException e) {
@@ -194,7 +239,11 @@ namespace SurplusMigrator.Tasks {
         protected string getOptions(string optionName) {
             if(_options == null) {
                 _options = new Dictionary<string, string>();
-                OrderedJob job = GlobalConfig.getJobPlaylist().Where(a => a.name == this.GetType().Name).First();
+                OrderedJob job = GlobalConfig.getJobPlaylist().Where(a => a.name == this.GetType().Name).FirstOrDefault();
+
+                if(job == null) { //might be null if the task is run by dependency
+                    return null;
+                }
 
                 if(job.options != null) {
                     string[] optList = job.options.Split(";");
@@ -202,15 +251,25 @@ namespace SurplusMigrator.Tasks {
                         if(opt.Trim().Length == 0) continue;
                         string[] optValue = opt.Split("=");
                         if(optValue.Length == 1) {
-                            _options[optValue[0]] = optValue[0];
+                            _options[optValue[0].Trim()] = optValue[0].Trim();
                         } else {
-                            _options[optValue[0]] = optValue[1];
+                            List<string> valueArr = new List<string>();
+                            for(int a=1; a< optValue.Length; a++) {
+                                valueArr.Add(optValue[a]);
+                            }
+                            string concatenatedValues = String.Join("=", valueArr);
+                            _options[optValue[0].Trim()] = concatenatedValues.Trim();
                         }
                     }
                 }
             }
 
-            return _options.ContainsKey(optionName)? _options[optionName]: null;
+            return _options.ContainsKey(optionName)? Utils.obj2str(_options[optionName]): null;
+        }
+
+        public void setOptions(string optionName, string value) {
+            getOptions("TRIGGER_INITIALIZATION_AND_LOAD_OPTION_FROM_CONFIG");
+            _options[optionName] = value;
         }
 
         protected DbInsertFail[] nullifyMissingReferences(
@@ -490,7 +549,13 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected virtual List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
-            return new List<RowData<ColumnName, object>>();
+            if(sources == null || sources.Length == 0) {
+                return new List<RowData<ColumnName, object>>();
+            } else if(sources.Length > 1) {
+                throw new TaskConfigException("More than one source table mapping found, please override the \"getSourceData()\" method");
+            }
+
+            return sourceTables.First().getDatas(batchSize);
         }
 
         protected virtual MappedData mapData(List<RowData<ColumnName, object>> inputs) {
@@ -503,6 +568,6 @@ namespace SurplusMigrator.Tasks {
 
         protected virtual void runDependencies() { }
 
-        protected virtual void afterFinishedCallback() { }
+        protected virtual void onFinished() { }
     }
 }

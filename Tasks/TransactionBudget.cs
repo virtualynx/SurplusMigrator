@@ -1,4 +1,5 @@
 using Microsoft.Data.SqlClient;
+using Microsoft.VisualBasic;
 using Npgsql;
 using Serilog;
 using SurplusMigrator.Interfaces;
@@ -167,6 +168,8 @@ namespace SurplusMigrator.Tasks {
 
             Dictionary<long, string> prabudget_program_ref = getPrabudgetProgramRefs(budget_ids.ToArray());
 
+            DataIntegration integration = new DataIntegration(connections);
+
             foreach(RowData<ColumnName, object> data in inputs) {
                 //string tbudgetid = SequencerString.getId("BGT", Utils.obj2datetime(data["budget_entrydt"]));
                 //IdRemapper.add("tbudgetid", data["budget_id"], tbudgetid);
@@ -177,6 +180,13 @@ namespace SurplusMigrator.Tasks {
                 string tprogrambudgetid = null;
                 if(prabudget_program_ref.ContainsKey(budget_id)) {
                     tprogrambudgetid = prabudget_program_ref[budget_id];
+                }
+
+                string departmentId = Utils.obj2str(data["strukturunit_id"]);
+                if(departmentId == "0") {
+                    departmentId = null;
+                } else {
+                    departmentId = integration.getDepartmentFromStrukturUnit(departmentId);
                 }
 
                 result.addData(
@@ -217,7 +227,7 @@ namespace SurplusMigrator.Tasks {
                         { "month",  data["budget_month"]},
                         { "year",  data["budget_year"]},
                         //{ "amountplanned",  data["budget_planamount"]},
-                        { "departmentid",  data["strukturunit_id"]},
+                        { "departmentid", departmentId},
                         { "vendorproducer_id",  Utils.obj2int(data["rekanan_idproducer"])==0? null: data["rekanan_idproducer"]},
                         { "prodtypeid",  data["prodtype_id"]},
                         { "tvprogramid",  data["show_id"]},
@@ -273,7 +283,7 @@ namespace SurplusMigrator.Tasks {
             return result;
         }
 
-        //protected override void afterFinishedCallback() {
+        //protected override void onFinished() {
         //    IdRemapper.saveMap();
         //}
 
@@ -282,6 +292,7 @@ namespace SurplusMigrator.Tasks {
         //}
 
         protected override void runDependencies() {
+            new _Department(connections).run();
             new MasterProdType(connections).run();
             new MasterProjectType(connections).run();
             new MasterShowInventoryCategory(connections).run();
@@ -289,6 +300,7 @@ namespace SurplusMigrator.Tasks {
             new MasterShowInventoryTimezone(connections).run();
             new MasterTvProgramType(connections).run();
             new TransactionProgramBudget(connections).run();
+            new MasterCurrency(connections).run();
         }
     }
 }

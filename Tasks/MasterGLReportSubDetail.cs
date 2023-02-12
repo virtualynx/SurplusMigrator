@@ -49,7 +49,7 @@ namespace SurplusMigrator.Tasks {
             MappedData result = new MappedData();
 
             foreach(RowData<ColumnName, object> data in inputs) {
-                string dummy = SequencerString.getId("DUMMY_GLRSD", DateTime.Now).Substring("DUMMY_GLRSD".Length + "yyMMdd".Length);
+                string dummy = SequencerString.getId(null, "DUMMY_GLRSD", DateTime.Now).Substring("DUMMY_GLRSD".Length + "yyMMdd".Length);
                 int glreportsubdetailid = Utils.obj2int(dummy);
 
                 string codeAndRowTag = data["code"].ToString() + "_" + data["row"].ToString();

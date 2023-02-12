@@ -118,7 +118,7 @@ namespace SurplusMigrator.Tasks {
             MyConsole.Information("Mirror Target: " + JsonSerializer.Serialize(tagetConnection.GetDbLoginInfo()));
         }
 
-        protected override void afterFinishedCallback() {
+        protected override void onFinished() {
             var tables = getTables();
 
             foreach(var row in tables) {
@@ -145,7 +145,7 @@ namespace SurplusMigrator.Tasks {
 
                     RowData<ColumnName, object>[] batchData;
                     bool firstLoop = true;
-                    while((batchData = QueryUtils.getDataBatch(sourceConnection, tablename, false, batchSize)).Length > 0) {
+                    while((batchData = QueryUtils.getDataBatch(sourceConnection, tablename, null, batchSize)).Length > 0) {
                         try {
                             string query = @"
                                 insert into ""[target_schema]"".""[tablename]""([columns])

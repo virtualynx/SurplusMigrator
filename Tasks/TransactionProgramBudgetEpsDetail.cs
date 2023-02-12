@@ -98,11 +98,11 @@ namespace SurplusMigrator.Tasks {
             MappedData result = new MappedData();
 
             Dictionary<string, Dictionary<string, object>> createdDateMaps = getCreatedInfoMap(inputs);
-
+            var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
             foreach(RowData<ColumnName, object> data in inputs) {
                 string prabudget_program_id = Utils.obj2str(data["prabudget_program_id"]);
                 DateTime created_dt = (DateTime)createdDateMaps[prabudget_program_id]["created_dt"];
-                string tprogrambudget_epsdetailid = SequencerString.getId("PBEPS", created_dt);
+                string tprogrambudget_epsdetailid = SequencerString.getId(surplusConn, "PBEPS", created_dt);
                 int line = Utils.obj2int(data["eps_line"]);
                 string mappingTag = prabudget_program_id + "-" + line.ToString();
                 IdRemapper.add("tprogrambudget_epsdetailid", mappingTag, tprogrambudget_epsdetailid);
@@ -180,7 +180,7 @@ namespace SurplusMigrator.Tasks {
             return result;
         }
 
-        protected override void afterFinishedCallback() {
+        protected override void onFinished() {
             IdRemapper.saveMap();
         }
 

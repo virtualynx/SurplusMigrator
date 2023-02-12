@@ -6,8 +6,6 @@ using System.Text.Json;
 
 namespace SurplusMigrator.Tasks {
     class AspNetUsers : _BaseTask {
-        Dictionary<string, string> _newDeptIdMap = null;
-
         public AspNetUsers(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {};
             destinations = new TableInfo[] {
@@ -53,6 +51,7 @@ namespace SurplusMigrator.Tasks {
         private MappedData getDataFromMasterEisAktif() {
             MappedData result = new MappedData();
 
+            DataIntegration integration = new DataIntegration(connections);
             string query = @"
                 select 
 	                uuid_generate_v4() as id,
@@ -103,7 +102,7 @@ namespace SurplusMigrator.Tasks {
                 string newDeptId = null;
                 string unitCode = Utils.obj2str(row["unit_code"]);
                 if(unitCode != null) {
-                    newDeptId = getNewDeptId(unitCode);
+                    newDeptId = integration.getDepartmentFromHrisDeptId(unitCode);
                 }
 
                 result.addData(
@@ -138,20 +137,6 @@ namespace SurplusMigrator.Tasks {
             }
 
             return result;
-        }
-
-        private string getNewDeptId(string hrisDeptId) {
-            if(_newDeptIdMap == null) {
-                _newDeptIdMap = new Dictionary<string, string>();
-
-                var conn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
-                var datas = QueryUtils.executeQuery(conn, "select departmentid, departmentid_hris from relation_department_surplus_hris");
-                foreach(var row in datas) {
-                    _newDeptIdMap[row["departmentid_hris"].ToString()] = row["departmentid"].ToString();
-                }
-            }
-
-            return _newDeptIdMap[hrisDeptId];
         }
 
         private MappedData getDataFromJSON() {

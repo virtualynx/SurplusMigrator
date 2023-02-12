@@ -9,6 +9,7 @@ namespace SurplusMigrator.Tasks {
     class _Department : _BaseTask {
         Dictionary<string, string> _newDeptIdMap = null;
         Dictionary<string, List<string>> _departmentMaps = new Dictionary<string, List<string>>();
+        private string source = "json";
 
         public _Department(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
@@ -51,10 +52,25 @@ namespace SurplusMigrator.Tasks {
                     ids = new string[] { "departmentid", "departmentid_hris" }
                 }
             };
+
+            if(getOptions("source") != null) {
+                source = getOptions("source");
+            }
+        }
+
+        //this override is needed
+        protected override List<RowData<string, object>> getSourceData(Table[] sourceTables, int batchSize = 5000) {
+            return new List<RowData<string, object>>();
         }
 
         protected override MappedData getStaticData() {
-            return getDataFromExcel();
+            if(source == "json") {
+                return getDataFromJson();
+            } else if(source == "excel") {
+                return getDataFromExcel();
+            } else {
+                throw new Exception("Invalid source option value: "+source+" (valid value are json, excel)");
+            }
         }
 
         #region get from json

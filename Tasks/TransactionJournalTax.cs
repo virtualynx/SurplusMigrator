@@ -68,9 +68,10 @@ namespace SurplusMigrator.Tasks {
         protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
+            var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
             foreach(RowData<ColumnName, object> data in inputs) {
                 DateTime date = Utils.obj2datetime(data["jurnaltax_date"]);
-                string tjournaltaxid = SequencerString.getId("TAX", date);
+                string tjournaltaxid = SequencerString.getId(surplusConn, "TAX", date);
                 string tjournalid = Utils.obj2str(data["jurnaltax_id"]);
                 if(tjournalid == null) {
                     tjournalid = dummySequence.ToString().PadLeft(12, '0');

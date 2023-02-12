@@ -36,11 +36,13 @@ namespace SurplusMigrator.Models {
             MyConsole.Write("Executing " + path + " ... ");
             try {
                 if(_connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
+                    sql = sql.Replace("<schema>", "["+_connection.GetDbLoginInfo().schema+"]");
                     SqlCommand command = new SqlCommand(sql, (SqlConnection)_connection.GetDbConnection());
                     command.CommandTimeout = 0;
                     result = command.ExecuteNonQuery();
                     command.Dispose();
                 } else if(_connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
+                    sql = sql.Replace("<schema>", "\"" + _connection.GetDbLoginInfo().schema + "\"");
                     NpgsqlCommand command = new NpgsqlCommand(sql, (NpgsqlConnection)_connection.GetDbConnection());
                     command.CommandTimeout = 0;
                     result = command.ExecuteNonQuery();
@@ -50,6 +52,7 @@ namespace SurplusMigrator.Models {
                 MyConsole.WriteLine("Success("+elapsed+").", false);
             } catch(PostgresException e) {
                 elapsed = DateTime.Now - startAt;
+                MyConsole.WriteLine("", false);
                 if(e.Message.Contains("duplicate key value violates unique constraint") && e.Message.Contains("already exists")) {
                     MyConsole.Warning("Skipping file "+ path + ", is already executed.");
                 } else {
@@ -58,6 +61,7 @@ namespace SurplusMigrator.Models {
                 }
             } catch(Exception e) {
                 elapsed = DateTime.Now - startAt;
+                MyConsole.WriteLine("", false);
                 MyConsole.Error(e, "Error("+elapsed+"): " + e.Message, false);
                 throw;
             }

@@ -5,8 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-    class MasterAdvertiser : _BaseTask {
-        public MasterAdvertiser(DbConnection_[] connections) : base(connections) {
+    class _MasterAdvertiser : _BaseTask {
+        public _MasterAdvertiser(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),

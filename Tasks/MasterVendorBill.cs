@@ -78,7 +78,7 @@ namespace SurplusMigrator.Tasks {
                     address = null;
                 }
 
-                int vendorbillid = Utils.obj2int(SequencerString.getId("DUMMY_MVB", DateTime.Now).Substring(("DUMMY_MVB" + "yyMMdd").Length));
+                int vendorbillid = Utils.obj2int(SequencerString.getId(null, "DUMMY_MVB", DateTime.Now).Substring(("DUMMY_MVB" + "yyMMdd").Length));
                 string vendorbillidTag = Utils.obj2str(data["rekanan_id"]) + "-" + Utils.obj2str(data["rekananbill_line"]);
                 IdRemapper.add("vendorbillid", vendorbillidTag, vendorbillid);
 
@@ -108,7 +108,7 @@ namespace SurplusMigrator.Tasks {
             return result;
         }
 
-        protected override void afterFinishedCallback() {
+        protected override void onFinished() {
             IdRemapper.saveMap();
         }
 

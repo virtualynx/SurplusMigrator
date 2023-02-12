@@ -106,6 +106,7 @@ namespace SurplusMigrator.Tasks {
 
         protected override void runDependencies() {
             new MasterBank(connections).run();
+            new MasterAccount(connections).run();
         }
     }
 }
