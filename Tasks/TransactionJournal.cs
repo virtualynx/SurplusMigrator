@@ -188,7 +188,7 @@ namespace SurplusMigrator.Tasks {
                         { "approveddate",  data["jurnal_isposteddate"] },
                         { "isapproved", Utils.obj2bool(data["jurnal_isposted"]) },
                         { "approvedby",  data["jurnal_ispostedby"] },
-                        { "journaltypeid",  data["jurnaltype_id"] },
+                        { "journaltypeid", Utils.obj2str(data["jurnaltype_id"])?.ToUpper() },
                     }
                 );
             }

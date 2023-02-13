@@ -376,7 +376,7 @@ namespace SurplusMigrator.Models {
                     int affectedRow = 0;
 
                     if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                        throw new NotImplementedException();
+                        //throw new NotImplementedException();
                     } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                         string identityColumn = getIdentityColumnName();
 

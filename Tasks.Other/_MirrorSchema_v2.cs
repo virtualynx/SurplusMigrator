@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text.Json;
 
 namespace SurplusMigrator.Tasks {
-    class _MirrorDatabase : _BaseTask {
+    class _MirrorSchema_v2 : _BaseTask {
         private DbConnection_ sourceConnection;
         private DbConnection_ targetConnection;
 
@@ -40,7 +40,7 @@ namespace SurplusMigrator.Tasks {
             
         };
 
-        public _MirrorDatabase(DbConnection_[] connections) : base(connections) {
+        public _MirrorSchema_v2(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
             };
             destinations = new TableInfo[] {
@@ -72,85 +72,56 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override void onFinished() {
-            var tables = getTables();
+            var tables = getTableNames();
 
-            foreach(var row in tables) {
+            foreach(var tablename in tables) {
                 NpgsqlTransaction transaction = ((NpgsqlConnection)targetConnection.GetDbConnection()).BeginTransaction();
                 try {
-                    string tablename = row["table_name"].ToString();
-                    var columns = QueryUtils.getColumnNames(sourceConnection, tablename);
-                    var primaryKeys = QueryUtils.getPrimaryKeys(sourceConnection, tablename);
+                    QueryUtils.toggleTrigger(targetConnection, tablename, false);
 
                     MyConsole.Write("Deleting all data in table " + tablename + " ... ");
-                    try {
-                        QueryUtils.toggleTrigger(targetConnection, tablename, false);
-                        var rs = QueryUtils.executeQuery(targetConnection, "DELETE FROM \""+ targetConnection.GetDbLoginInfo().schema + "\".\""+ tablename + "\";", null, transaction);
-                    } catch(Exception) {
-                        throw;
-                    } finally {
-                        QueryUtils.toggleTrigger(targetConnection, tablename, true);
-                    }
+                    var rs = QueryUtils.executeQuery(targetConnection, "DELETE FROM \"" + targetConnection.GetDbLoginInfo().schema + "\".\"" + tablename + "\";", null, transaction);
                     MyConsole.WriteLine(" Done", false);
 
                     MyConsole.Information("Inserting into table " + tablename + " ... ");
 
-                    var dataCount = QueryUtils.getDataCount(sourceConnection, tablename);
-                    int insertedCount = 0;
-                    int batchSize = batchsizeMap.ContainsKey(tablename)? batchsizeMap[tablename] : DEFAULT_BATCH_SIZE;
+                    string queryInsert = @"
+                        insert into ""<target_schema>"".""<tablename>"" 
+                        select * from ""<source_schema>"".""<tablename>""
+                    "
+                    .Replace("<target_schema>", targetConnection.GetDbLoginInfo().schema)
+                    .Replace("<source_schema>", sourceConnection.GetDbLoginInfo().schema)
+                    .Replace("<tablename>", tablename)
+                    ;
 
-                    Table sourceTable = new Table() {
-                        connection = sourceConnection,
-                        tableName = tablename,
-                        columns = columns,
-                        ids = primaryKeys,
-                    };
+                    QueryUtils.executeQuery(sourceConnection, queryInsert, null, transaction, 60*10);
+
+                    var dataCount = QueryUtils.getDataCount(sourceConnection, tablename);
+                    int insertedCount = QueryUtils.getDataCount(targetConnection, tablename);
+
                     Table targetTable = new Table() {
                         connection = targetConnection,
                         tableName = tablename,
-                        columns = columns,
-                        ids = primaryKeys,
+                        columns = QueryUtils.getColumnNames(targetConnection, tablename),
+                        ids = QueryUtils.getPrimaryKeys(targetConnection, tablename),
                     };
-                    List<RowData<ColumnName, object>> batchData;
-                    while((batchData = sourceTable.getDatas(batchSize, null, true, false)).Count > 0) {
-                        try {
-                            try {
-                                QueryUtils.toggleTrigger(targetConnection, tablename, false);
-                                targetTable.insertData(batchData, false, false, transaction, false);
-                                insertedCount += batchData.Count;
-                                MyConsole.EraseLine();
-                                MyConsole.Write(insertedCount + "/" + dataCount + " data inserted ... ");
-                            } catch(Exception e) {
-                                if(!e.Message.Contains("duplicate key value violates unique constraint")) {
-                                    throw;
-                                }
-                            } finally {
-                                QueryUtils.toggleTrigger(targetConnection, tablename, true);
-                            }
-                        } catch(Exception e) {
-                            if(e.Message.Contains("duplicate key value violates unique constraint")) {
-                                //MyConsole.Warning(e.Message);
-                            } else {
-                                throw;
-                            }
-                        }
-
-                        if(_isModeTest) break;
-                    }
 
                     //update sequencer
                     targetTable.updateSequencer();
                     transaction.Commit();
                     MyConsole.EraseLine();
-                    MyConsole.Information("Successfully copying " + insertedCount + "/"+ dataCount + " data on table " + tablename);
+                    MyConsole.Information("Successfully copying " + insertedCount + "/" + dataCount + " data on table " + tablename);
                     MyConsole.WriteLine("", false);
                 } catch(Exception) {
                     transaction.Rollback();
                     throw;
+                } finally {
+                    QueryUtils.toggleTrigger(targetConnection, tablename, true);
                 }
             }
         }
 
-        private RowData<ColumnName, object>[] getTables() {
+        private string[] getTableNames() {
             string query = @"
                 SELECT 
 	                table_name,
@@ -158,20 +129,27 @@ namespace SurplusMigrator.Tasks {
                 FROM 
 	                information_schema.tables 
                 WHERE 
-	                table_schema = '<schema>'
+	                table_schema = @schema
 	                and table_type = 'BASE TABLE'
                 order by table_name 
                 ;
             ";
 
-            query = query.Replace("<schema>", sourceConnection.GetDbLoginInfo().schema);
+            var sourceTables = QueryUtils.executeQuery(sourceConnection, query, 
+                new Dictionary<string, object> { { "@schema", sourceConnection.GetDbLoginInfo().schema } }
+                );
 
-            var allTable = QueryUtils.executeQuery(sourceConnection, query);
+            var targetTables = QueryUtils.executeQuery(targetConnection, query,
+                new Dictionary<string, object> { { "@schema", targetConnection.GetDbLoginInfo().schema } }
+                );
 
-            var filtered = allTable.Where(a => !excludedTables.Any(b => Utils.obj2str(a["table_name"]) == b)).ToArray();
+            var unionTable = targetTables.Where(tg => sourceTables.Any(sc => tg["table_name"].ToString() == sc["table_name"].ToString()))
+                .Select(a => a["table_name"].ToString()).ToArray();
+
+            var filtered = unionTable.Where(a => !excludedTables.Contains(a)).ToArray();
 
             if(onlyMigrateTables.Count > 0) {
-                filtered = filtered.Where(a => onlyMigrateTables.Any(b => Utils.obj2str(a["table_name"]) == b)).ToArray();
+                filtered = filtered.Where(a => onlyMigrateTables.Contains(a)).ToArray();
             }
 
             return filtered;

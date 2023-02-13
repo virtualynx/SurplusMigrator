@@ -1,3 +1,4 @@
+using Npgsql;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System;
@@ -6,7 +7,7 @@ using System.Linq;
 using System.Text.Json;
 
 namespace SurplusMigrator.Tasks {
-    class _MirrorDatabase_Old : _BaseTask {
+    class _MirrorSchema : _BaseTask {
         private DbConnection_ sourceConnection;
         private DbConnection_ targetConnection;
 
@@ -39,7 +40,7 @@ namespace SurplusMigrator.Tasks {
             
         };
 
-        public _MirrorDatabase_Old(DbConnection_[] connections) : base(connections) {
+        public _MirrorSchema(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
             };
             destinations = new TableInfo[] {
@@ -58,23 +59,31 @@ namespace SurplusMigrator.Tasks {
 
             sourceConnection = connections.Where(a => a.GetDbLoginInfo().name == "mirror_source").First();
             targetConnection = connections.Where(a => a.GetDbLoginInfo().name == "mirror_target").First();
-            var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
+            Console.WriteLine("\n");
             MyConsole.Information("Mirror Source: " + JsonSerializer.Serialize(sourceConnection.GetDbLoginInfo()));
+            Console.WriteLine();
             MyConsole.Information("Mirror Target: " + JsonSerializer.Serialize(targetConnection.GetDbLoginInfo()));
+            Console.WriteLine();
+            Console.Write("Continue performing database mirroring (Y/N)? ");
+            string choice = Console.ReadLine();
+            if(choice.ToLower() != "y") {
+                throw new Exceptions.JobAbortedException();
+            }
         }
 
         protected override void onFinished() {
-            var tables = getTables();
+            var tables = getTableNames();
 
-            foreach(var row in tables) {
+            foreach(var tablename in tables) {
+                NpgsqlTransaction transaction = ((NpgsqlConnection)targetConnection.GetDbConnection()).BeginTransaction();
                 try {
-                    string tablename = row["table_name"].ToString();
                     var columns = QueryUtils.getColumnNames(sourceConnection, tablename);
+                    var primaryKeys = QueryUtils.getPrimaryKeys(sourceConnection, tablename);
 
                     MyConsole.Write("Deleting all data in table " + tablename + " ... ");
                     try {
                         QueryUtils.toggleTrigger(targetConnection, tablename, false);
-                        var rs = QueryUtils.executeQuery(targetConnection, "DELETE FROM \""+ targetConnection.GetDbLoginInfo().schema + "\".\""+ tablename + "\";");
+                        var rs = QueryUtils.executeQuery(targetConnection, "DELETE FROM \""+ targetConnection.GetDbLoginInfo().schema + "\".\""+ tablename + "\";", null, transaction);
                     } catch(Exception) {
                         throw;
                     } finally {
@@ -88,43 +97,34 @@ namespace SurplusMigrator.Tasks {
                     int insertedCount = 0;
                     int batchSize = batchsizeMap.ContainsKey(tablename)? batchsizeMap[tablename] : DEFAULT_BATCH_SIZE;
 
-                    RowData<ColumnName, object>[] batchData;
-                    while((batchData = QueryUtils.getDataBatch(sourceConnection, tablename, null, batchSize)).Length > 0) {
+                    Table sourceTable = new Table() {
+                        connection = sourceConnection,
+                        tableName = tablename,
+                        columns = columns,
+                        ids = primaryKeys,
+                    };
+                    Table targetTable = new Table() {
+                        connection = targetConnection,
+                        tableName = tablename,
+                        columns = columns,
+                        ids = primaryKeys,
+                    };
+                    List<RowData<ColumnName, object>> batchData;
+                    while((batchData = sourceTable.getDatas(batchSize, null, true, false)).Count > 0) {
                         try {
-                            string query = @"
-                                insert into ""[target_schema]"".""[tablename]""([columns])
-                                values [values];
-                            ";
-                            query = query.Replace("[target_schema]", targetConnection.GetDbLoginInfo().schema);
-                            query = query.Replace("[tablename]", tablename);
-                            query = query.Replace("[columns]", "\"" + String.Join("\",\"", columns) + "\"");
-
-                            List<string> insertArgs = new List<string>();
-                            foreach(var rowSource in batchData) {
-                                List<string> valueArgs = new List<string>();
-                                foreach(var map in rowSource) {
-                                    string column = map.Key;
-                                    object data = map.Value;
-                                    valueArgs.Add(QueryUtils.getInsertArg(data));
-                                }
-                                insertArgs.Add("(" + String.Join(",", valueArgs) + ")");
-                            }
-                            query = query.Replace("[values]", String.Join(",", insertArgs));
-
-                            QueryUtils.toggleTrigger(targetConnection, tablename, false);
                             try {
-                                var rs = QueryUtils.executeQuery(targetConnection, query);
+                                QueryUtils.toggleTrigger(targetConnection, tablename, false);
+                                targetTable.insertData(batchData, false, false, transaction, false);
+                                insertedCount += batchData.Count;
+                                MyConsole.EraseLine();
+                                MyConsole.Write(insertedCount + "/" + dataCount + " data inserted ... ");
                             } catch(Exception e) {
                                 if(!e.Message.Contains("duplicate key value violates unique constraint")) {
-                                    MyConsole.Error(query);
+                                    throw;
                                 }
-                                throw;
                             } finally {
                                 QueryUtils.toggleTrigger(targetConnection, tablename, true);
                             }
-                            insertedCount += batchData.Length;
-                            MyConsole.EraseLine();
-                            MyConsole.Write(insertedCount + "/" + dataCount + " data inserted ... ");
                         } catch(Exception e) {
                             if(e.Message.Contains("duplicate key value violates unique constraint")) {
                                 //MyConsole.Warning(e.Message);
@@ -136,17 +136,20 @@ namespace SurplusMigrator.Tasks {
                         if(_isModeTest) break;
                     }
 
-                    QueryUtils.toggleTrigger(targetConnection, tablename, true);
+                    //update sequencer
+                    targetTable.updateSequencer();
+                    transaction.Commit();
                     MyConsole.EraseLine();
                     MyConsole.Information("Successfully copying " + insertedCount + "/"+ dataCount + " data on table " + tablename);
                     MyConsole.WriteLine("", false);
                 } catch(Exception) {
+                    transaction.Rollback();
                     throw;
                 }
             }
         }
 
-        private RowData<ColumnName, object>[] getTables() {
+        private string[] getTableNames() {
             string query = @"
                 SELECT 
 	                table_name,
@@ -154,20 +157,27 @@ namespace SurplusMigrator.Tasks {
                 FROM 
 	                information_schema.tables 
                 WHERE 
-	                table_schema = '<schema>'
+	                table_schema = @schema
 	                and table_type = 'BASE TABLE'
                 order by table_name 
                 ;
             ";
 
-            query = query.Replace("<schema>", sourceConnection.GetDbLoginInfo().schema);
+            var sourceTables = QueryUtils.executeQuery(sourceConnection, query,
+                new Dictionary<string, object> { { "@schema", sourceConnection.GetDbLoginInfo().schema } }
+                );
 
-            var allTable = QueryUtils.executeQuery(sourceConnection, query);
+            var targetTables = QueryUtils.executeQuery(targetConnection, query,
+                new Dictionary<string, object> { { "@schema", targetConnection.GetDbLoginInfo().schema } }
+                );
 
-            var filtered = allTable.Where(a => !excludedTables.Any(b => Utils.obj2str(a["table_name"]) == b)).ToArray();
+            var unionTable = targetTables.Where(tg => sourceTables.Any(sc => tg["table_name"].ToString() == sc["table_name"].ToString()))
+                .Select(a => a["table_name"].ToString()).ToArray();
+
+            var filtered = unionTable.Where(a => !excludedTables.Contains(a)).ToArray();
 
             if(onlyMigrateTables.Count > 0) {
-                filtered = filtered.Where(a => onlyMigrateTables.Any(b => Utils.obj2str(a["table_name"]) == b)).ToArray();
+                filtered = filtered.Where(a => onlyMigrateTables.Contains(a)).ToArray();
             }
 
             return filtered;
