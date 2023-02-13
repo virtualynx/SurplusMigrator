@@ -239,7 +239,7 @@ namespace SurplusMigrator.Libraries {
             return result.ToArray();
         }
 
-        public static int getDataCount(DbConnection_ connection, string tablename) {
+        public static int getDataCount(DbConnection_ connection, string tablename, string whereClauses = null) {
             char[] dbObjectEnclosers = new char[] { };
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 dbObjectEnclosers = new char[] { '[', ']' };
@@ -247,7 +247,10 @@ namespace SurplusMigrator.Libraries {
                 dbObjectEnclosers = new char[] { '"', '"' };
             }
 
-            string queryCount = "select count(1) as datacount from " + dbObjectEnclosers[0] + connection.GetDbLoginInfo().schema + dbObjectEnclosers[1] + "." + dbObjectEnclosers[0] + tablename + dbObjectEnclosers[1]; ;
+            string queryCount = "select count(1) as datacount from " + dbObjectEnclosers[0] + connection.GetDbLoginInfo().schema + dbObjectEnclosers[1] + "." + dbObjectEnclosers[0] + tablename + dbObjectEnclosers[1];
+            if(whereClauses != null) {
+                queryCount = queryCount + " WHERE " +whereClauses;
+            }
             var count = executeQuery(connection, queryCount);
 
             return Utils.obj2int(count[0]["datacount"]);
@@ -261,14 +264,14 @@ namespace SurplusMigrator.Libraries {
         /// <param name="onlyApplicationGeneratedData"></param>
         /// <param name="batchSize"></param>
         /// <param name="ids"></param>
-        /// <param name="filters">Map of column and the filter value</param>
+        /// <param name="whereClauses">The optional where clause(s)</param>
         /// <param name="verbose"></param>
         /// <returns></returns>
         /// <exception cref="NotImplementedException"></exception>
         public static RowData<ColumnName, object>[] getDataBatch(
             DbConnection_ connection,
             string tablename,
-            string[] filters = null,
+            string whereClauses = null,
             int batchSize = 10000,
             string[] ids = null,
             bool verbose = false
@@ -298,11 +301,6 @@ namespace SurplusMigrator.Libraries {
                 ids = getPrimaryKeys(connection, tablename);
             }
 
-            string filter = "";
-            if(filters != null) {
-                filter = " WHERE " + String.Join(" AND ", filters);
-            }
-
             string query;
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 query = @"
@@ -314,7 +312,7 @@ namespace SurplusMigrator.Libraries {
                                     , *
                                 FROM      
                                     [<schema>].[<tablename>]
-                                <filters>
+                                <where_clauses>
                             ) AS RowConstrainedResult
                     WHERE   
                         RowNum >= <offset_start>
@@ -340,7 +338,7 @@ namespace SurplusMigrator.Libraries {
                         <columns> 
                     from 
                         ""<schema_name>"".""<tablename>""
-                    <filters>
+                    <where_clauses>
                     <order_by>
                     <offset_limit>
                 ";
@@ -362,7 +360,7 @@ namespace SurplusMigrator.Libraries {
                 throw new NotImplementedException("Unknown database implementation");
             }
 
-            query = query.Replace("<filters>", filter);
+            query = query.Replace("<where_clauses>", whereClauses!=null? "WHERE "+ whereClauses: "");
 
             var rs = executeQuery(connection, query);
 

@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text.Json;
 
 namespace SurplusMigrator.Tasks {
-    class _MirrorDatabase_v2 : _BaseTask {
+    class _MirrorSchema_v2 : _BaseTask {
         private DbConnection_ sourceConnection;
         private DbConnection_ targetConnection;
 
@@ -40,7 +40,7 @@ namespace SurplusMigrator.Tasks {
             
         };
 
-        public _MirrorDatabase_v2(DbConnection_[] connections) : base(connections) {
+        public _MirrorSchema_v2(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
             };
             destinations = new TableInfo[] {

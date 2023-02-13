@@ -31,7 +31,7 @@ namespace SurplusMigrator.Tasks {
                         "jurnal_invoice_id",
                         "jurnal_invoice_descr",
                         "jurnal_source",
-                        //"jurnaltype_id",
+                        "jurnaltype_id",
                         "rekanan_id",
                         "periode_id",
                         //"channel_id",
@@ -195,6 +195,7 @@ namespace SurplusMigrator.Tasks {
                         "is_posted",
                         "posted_by",
                         "posted_date",
+                        "journaltypeid"
                     },
                     ids = new string[] { "tjournalid" }
                 },

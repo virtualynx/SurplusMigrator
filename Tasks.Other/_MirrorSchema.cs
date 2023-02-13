@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text.Json;
 
 namespace SurplusMigrator.Tasks {
-    class _MirrorDatabase : _BaseTask {
+    class _MirrorSchema : _BaseTask {
         private DbConnection_ sourceConnection;
         private DbConnection_ targetConnection;
 
@@ -40,7 +40,7 @@ namespace SurplusMigrator.Tasks {
             
         };
 
-        public _MirrorDatabase(DbConnection_[] connections) : base(connections) {
+        public _MirrorSchema(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
             };
             destinations = new TableInfo[] {
@@ -72,12 +72,11 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override void onFinished() {
-            var tables = getTables();
+            var tables = getTableNames();
 
-            foreach(var row in tables) {
+            foreach(var tablename in tables) {
                 NpgsqlTransaction transaction = ((NpgsqlConnection)targetConnection.GetDbConnection()).BeginTransaction();
                 try {
-                    string tablename = row["table_name"].ToString();
                     var columns = QueryUtils.getColumnNames(sourceConnection, tablename);
                     var primaryKeys = QueryUtils.getPrimaryKeys(sourceConnection, tablename);
 
@@ -150,7 +149,7 @@ namespace SurplusMigrator.Tasks {
             }
         }
 
-        private RowData<ColumnName, object>[] getTables() {
+        private string[] getTableNames() {
             string query = @"
                 SELECT 
 	                table_name,
@@ -158,20 +157,27 @@ namespace SurplusMigrator.Tasks {
                 FROM 
 	                information_schema.tables 
                 WHERE 
-	                table_schema = '<schema>'
+	                table_schema = @schema
 	                and table_type = 'BASE TABLE'
                 order by table_name 
                 ;
             ";
 
-            query = query.Replace("<schema>", sourceConnection.GetDbLoginInfo().schema);
+            var sourceTables = QueryUtils.executeQuery(sourceConnection, query,
+                new Dictionary<string, object> { { "@schema", sourceConnection.GetDbLoginInfo().schema } }
+                );
 
-            var allTable = QueryUtils.executeQuery(sourceConnection, query);
+            var targetTables = QueryUtils.executeQuery(targetConnection, query,
+                new Dictionary<string, object> { { "@schema", targetConnection.GetDbLoginInfo().schema } }
+                );
 
-            var filtered = allTable.Where(a => !excludedTables.Any(b => Utils.obj2str(a["table_name"]) == b)).ToArray();
+            var unionTable = targetTables.Where(tg => sourceTables.Any(sc => tg["table_name"].ToString() == sc["table_name"].ToString()))
+                .Select(a => a["table_name"].ToString()).ToArray();
+
+            var filtered = unionTable.Where(a => !excludedTables.Contains(a)).ToArray();
 
             if(onlyMigrateTables.Count > 0) {
-                filtered = filtered.Where(a => onlyMigrateTables.Any(b => Utils.obj2str(a["table_name"]) == b)).ToArray();
+                filtered = filtered.Where(a => onlyMigrateTables.Contains(a)).ToArray();
             }
 
             return filtered;
