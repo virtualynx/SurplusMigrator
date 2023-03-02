@@ -10,7 +10,7 @@ namespace SurplusMigrator.Libraries {
     class SequencerString {
         private static Dictionary<Prefixtag, Dictionary<Datetag, int>> _sequencerMap = new Dictionary<Prefixtag, Dictionary<Datetag, int>>();
 
-        public static string getId(DbConnection_ connection, string prefix, DateTime createdDate) {
+        public static string getId(DbConnection_ connection, string prefix, DateTime createdDate, int initialValue = 0) {
             if(!_sequencerMap.ContainsKey(prefix)) {
                 _sequencerMap[prefix] = new Dictionary<Datetag, int>();
             }
@@ -18,7 +18,7 @@ namespace SurplusMigrator.Libraries {
             Datetag datetag = createdDate.Date.ToString();
             if(!datemap.ContainsKey(datetag)) {
                 if(connection == null) {
-                    _sequencerMap[prefix][datetag] = 0;
+                    _sequencerMap[prefix][datetag] = initialValue;
                 } else {
                     string query = @"select lastid from master_sequencer where type = <type> and to_char(lastmonth,'yyyymmdd') = <lastmonth>;";
                     query = query.Replace("<type>", QueryUtils.getInsertArg(prefix));
@@ -28,7 +28,7 @@ namespace SurplusMigrator.Libraries {
                         int lastid = Utils.obj2int(rs[0]["lastid"]);
                         _sequencerMap[prefix][datetag] = lastid;
                     } else {
-                        _sequencerMap[prefix][datetag] = 0;
+                        _sequencerMap[prefix][datetag] = initialValue;
                     }
                 }
             }
