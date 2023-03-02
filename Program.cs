@@ -57,14 +57,15 @@ namespace SurplusMigrator {
             Console.ReadLine();
 
             try {
-                if(config.pre_queries_path != null) {
+                IdRemapper.loadMap();
+
+                bool runAllJobMode = false;
+                OrderedJob[] jobs = getAllJob(config, ref runAllJobMode);
+
+                if(runAllJobMode && config.pre_queries_path != null) {
                     QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault());
                     qe.execute(config.pre_queries_path);
                 }
-
-                IdRemapper.loadMap();
-
-                OrderedJob[] jobs = getAllJob(config);
 
                 foreach(var job in jobs) {
                     var taskType = Type.GetType("SurplusMigrator.Tasks." + job.name);
@@ -84,7 +85,7 @@ namespace SurplusMigrator {
                     }
                 }
                 
-                if(config.post_queries_path != null) {
+                if(runAllJobMode && config.post_queries_path != null) {
                     QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault());
                     qe.execute(config.post_queries_path);
                 }
@@ -105,7 +106,7 @@ namespace SurplusMigrator {
             Console.ReadLine();
         }
 
-        private static OrderedJob[] getAllJob(AppConfig config) {
+        private static OrderedJob[] getAllJob(AppConfig config, ref bool runAllJobMode) {
             List<OrderedJob> orderedJobs = new List<OrderedJob>();
 
             var activeJobs = config.job_playlist.Where(a => a.active).ToArray();
@@ -118,6 +119,7 @@ namespace SurplusMigrator {
                 }
             }
             if(activeJobs.Length > 0) {
+                runAllJobMode = false;
                 int order = 0;
                 foreach(var job in activeJobs) {
                     job.order = order++;
@@ -125,6 +127,8 @@ namespace SurplusMigrator {
 
                 return activeJobs;
             } else {
+                runAllJobMode = true;
+
                 var taskList = Assembly.GetExecutingAssembly().GetTypes()
                 .Where(a =>
                     a.Namespace == "SurplusMigrator.Tasks"
