@@ -44,7 +44,7 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
-            return sourceTables.Where(a => a.tableName == "master_gl_report_row").FirstOrDefault().getDatas(batchSize, null, false);
+            return sourceTables.Where(a => a.tableName == "master_gl_report_row").FirstOrDefault().getData(batchSize, null, false);
         }
 
         protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {

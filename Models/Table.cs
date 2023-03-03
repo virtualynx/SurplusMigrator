@@ -47,7 +47,7 @@ namespace SurplusMigrator.Models {
         /// <param name="trimWhitespaces"></param>
         /// <param name="verbose"></param>
         /// <returns></returns>
-        public List<RowData<ColumnName, object>> getDatas(int batchSize, string whereClause = null, bool trimWhitespaces = true, bool verbose = true) {
+        public List<RowData<ColumnName, object>> getData(int batchSize, string whereClause = null, bool trimWhitespaces = true, bool verbose = true) {
             List<RowData<ColumnName, object>> result = new List<RowData<ColumnName, object>> ();
 
             //check for first time run/batchSize has changed
@@ -184,7 +184,7 @@ namespace SurplusMigrator.Models {
             List<RowData<ColumnName, object>> result = new List<RowData<ColumnName, object>>();
 
             List<RowData<ColumnName, object>> batchData;
-            while((batchData = getDatas(batchSize, whereClause, trimWhitespaces, verbose)).Count > 0) {
+            while((batchData = getData(batchSize, whereClause, trimWhitespaces, verbose)).Count > 0) {
                 result.AddRange(batchData);
             }
 

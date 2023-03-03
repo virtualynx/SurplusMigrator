@@ -37,7 +37,7 @@ namespace SurplusMigrator.Tasks {
         protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
             List<RowData<ColumnName, object>> result = new List<RowData<string, object>>();
 
-            List<RowData<ColumnName, object>> masterGolongan = sourceTables.Where(a => a.tableName == "master_golongan").FirstOrDefault().getDatas(batchSize);
+            List<RowData<ColumnName, object>> masterGolongan = sourceTables.Where(a => a.tableName == "master_golongan").FirstOrDefault().getData(batchSize);
             Dictionary<string, string> factions = new Dictionary<string, string>();
 
             foreach(RowData<ColumnName, object> row in masterGolongan) {

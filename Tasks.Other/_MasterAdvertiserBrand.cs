@@ -50,7 +50,7 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
-            return sourceTables.Where(a => a.tableName == "master_advertiserbrand").FirstOrDefault().getDatas(batchSize);
+            return sourceTables.Where(a => a.tableName == "master_advertiserbrand").FirstOrDefault().getData(batchSize);
         }
 
         protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {

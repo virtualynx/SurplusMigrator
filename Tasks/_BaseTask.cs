@@ -555,7 +555,7 @@ namespace SurplusMigrator.Tasks {
                 throw new TaskConfigException("More than one source table mapping found, please override the \"getSourceData()\" method");
             }
 
-            return sourceTables.First().getDatas(batchSize);
+            return sourceTables.First().getData(batchSize);
         }
 
         protected virtual MappedData mapData(List<RowData<ColumnName, object>> inputs) {

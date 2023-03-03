@@ -113,7 +113,7 @@ namespace SurplusMigrator.Tasks {
                         ids = primaryKeys,
                     };
                     List<RowData<ColumnName, object>> batchData;
-                    while((batchData = sourceTable.getDatas(batchSize, null, true, false)).Count > 0) {
+                    while((batchData = sourceTable.getData(batchSize, null, true, false)).Count > 0) {
                         try {
                             try {
                                 QueryUtils.toggleTrigger(targetConnection, tablename, false);

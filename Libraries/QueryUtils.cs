@@ -147,18 +147,7 @@ namespace SurplusMigrator.Libraries {
 
             if(parameters != null) {
                 foreach(var map in parameters) {
-                    if(map.Value != null && (map.Value.GetType().IsArray || Utils.isList(map.Value))) {
-                        object[] valueArr;
-                        if(map.Value.GetType().IsArray) {
-                            valueArr = (object[])map.Value;
-                        } else {
-                            throw new NotImplementedException();
-                        }
-                        var valueList = (from v in valueArr select getInsertArg(v)).ToArray();
-                        sql = sql.Replace(map.Key, "(" + String.Join(",", valueList) + ")");
-                    } else {
-                        sql = sql.Replace(map.Key, getInsertArg(map.Value));
-                    }
+                    sql = sql.Replace(map.Key, getInsertArg(map.Value));
                 }
             }
 
@@ -249,7 +238,10 @@ namespace SurplusMigrator.Libraries {
 
             string queryCount = "select count(1) as datacount from " + dbObjectEnclosers[0] + connection.GetDbLoginInfo().schema + dbObjectEnclosers[1] + "." + dbObjectEnclosers[0] + tablename + dbObjectEnclosers[1];
             if(whereClauses != null) {
-                queryCount = queryCount + " WHERE " +whereClauses;
+                if(!whereClauses.ToLower().Trim().StartsWith("where")) {
+                    whereClauses = " WHERE " + whereClauses; 
+                }
+                queryCount = queryCount + whereClauses;
             }
             var count = executeQuery(connection, queryCount);
 
@@ -537,36 +529,40 @@ namespace SurplusMigrator.Libraries {
             return queryResult;
         }
 
-        public static string getInsertArg(object data, Type targetType = null) {
-            string convertedData = null;
+        public static string getInsertArg(object data, Type forcedType = null) {
+            string stringData = null;
 
             Type type = data?.GetType();
             if(data == null || type == typeof(DBNull)) {
-                convertedData = "NULL";
-            } else if(type == typeof(string)) {
-                string dataStr = data.ToString();
-                dataStr = dataStr.Replace("'", "''");
-                dataStr = dataStr.Replace("\\", "\\\\");
-                convertedData = "'" + dataStr + "'";
-            } else if(type == typeof(bool)) {
-                convertedData = data.ToString().ToLower();
-            } else if(type == typeof(DateTime)) {
-                convertedData = "'" + ((DateTime)data).ToString("yyyy-MM-dd HH:mm:ss.fff") + "'";
-            } else if(type == typeof(TimeSpan)) {
-                convertedData = "'" + data.ToString() + "'";
+                stringData = "NULL";
+            } else if(data.GetType().IsArray || Utils.isList(data)) {
+                object[] valueArr = Utils.obj2array(data);
+                var valueList = (from v in valueArr select getInsertArg(v)).ToArray();
+                stringData = "(" + String.Join(",", valueList) + ")";
+            } else if(type == typeof(string) || (forcedType != null && forcedType == typeof(string))) {
+                string str = data.ToString();
+                str = str.Replace("'", "''");
+                str = str.Replace("\\", "\\\\");
+                stringData = "'" + str + "'";
+            } else if(type == typeof(bool) || (forcedType != null && forcedType == typeof(bool))) {
+                stringData = data.ToString().ToLower();
+            } else if(type == typeof(DateTime) || (forcedType != null && forcedType == typeof(DateTime))) {
+                stringData = "'" + ((DateTime)data).ToString("yyyy-MM-dd HH:mm:ss.fff") + "'";
+            } else if(type == typeof(TimeSpan) || (forcedType != null && forcedType == typeof(TimeSpan))) {
+                stringData = "'" + data.ToString() + "'";
             } else if(
-                type == typeof(short)
-                || type == typeof(int) 
-                || type == typeof(long)
-                || type == typeof(double)
-                || type == typeof(decimal)
+                (type == typeof(short) || (forcedType != null && forcedType == typeof(short)))
+                || (type == typeof(int) || (forcedType != null && forcedType == typeof(int)))
+                || (type == typeof(long) || (forcedType != null && forcedType == typeof(long)))
+                || (type == typeof(double) || (forcedType != null && forcedType == typeof(double)))
+                || (type == typeof(decimal) || (forcedType != null && forcedType == typeof(decimal)))
             ) {
-                convertedData = data.ToString();
+                stringData = data.ToString();
             } else {
-                throw new Exception("Unknown data type: "+type?.ToString()+", value: "+data?.ToString());
+                throw new Exception("Unknown data type: " + type?.ToString() + ", value: " + data?.ToString());
             }
 
-            return convertedData;
+            return stringData;
         }
 
         public static bool isConnectionProblem(Exception e) {
