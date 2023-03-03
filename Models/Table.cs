@@ -309,7 +309,14 @@ namespace SurplusMigrator.Models {
                 } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                     sql = "SELECT COUNT(1) FROM \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"<where_clause>";
                 }
-                sql = sql.Replace("<where_clause>", whereClause != null ? " WHERE " + whereClause : "");
+                if(whereClause != null) {
+                    if(!whereClause.ToLower().Trim().StartsWith("where")) {
+                        whereClause = " WHERE " + whereClause;
+                    }
+                    sql = sql.Replace("<where_clause>", whereClause);
+                } else {
+                    sql = sql.Replace("<where_clause>", "");
+                }
                 dataCount = Convert.ToInt64(executeScalar(sql));
             }
 
@@ -632,7 +639,9 @@ namespace SurplusMigrator.Models {
             foreach(RowData<ColumnName, object> rowSelect in selectResults) {
                 var predicate = PredicateBuilder.New<RowData<ColumnName, object>>();
                 foreach(string id in ids) {
-                    predicate = predicate.And(rowData => rowData[id].ToString().Trim() == rowSelect[id].ToString().Trim());
+                    predicate = predicate.And(rowData =>
+                        (rowData[id]==null? "": rowData[id]).ToString().Trim() == (rowSelect[id]==null? "": rowSelect[id]).ToString().Trim()
+                    );
                 }
                 RowData<ColumnName, object> duplicate = inputs.Where(predicate).FirstOrDefault();
                 if(duplicate != null) {
