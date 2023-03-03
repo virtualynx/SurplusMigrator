@@ -72,6 +72,9 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override void onFinished() {
+            QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault());
+            qe.execute(GlobalConfig.getPreQueriesPath());
+
             var tables = getTableNames();
 
             foreach(var tablename in tables) {
@@ -147,6 +150,8 @@ namespace SurplusMigrator.Tasks {
                     throw;
                 }
             }
+
+            qe.execute(GlobalConfig.getPostQueriesPath());
         }
 
         private string[] getTableNames() {

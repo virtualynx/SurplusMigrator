@@ -50,5 +50,13 @@ namespace SurplusMigrator.Libraries {
         public static OrderedJob[] getJobPlaylist() {
             return _config.job_playlist;
         }
+
+        public static string getPreQueriesPath() {
+            return _config.pre_queries_path;
+        }
+
+        public static string getPostQueriesPath() {
+            return _config.post_queries_path;
+        }
     }
 }

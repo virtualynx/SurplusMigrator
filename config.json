@@ -93,7 +93,7 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "_live_23_02_11",
+      "schema": "_live_23_02",
       "type": "POSTGRESQL"
     },
     {
@@ -103,7 +103,7 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "_migrasi_backup",
+      "schema": "dev",
       "type": "POSTGRESQL"
     }
   ],
@@ -115,19 +115,34 @@
       "options": "salesorderids=SO0223010603;tests"
     },
     {
-      "name": "_MirrorDatabase",
+      "name": "_FixRelations",
       "cascade": false,
       "active": false
     },
     {
-      "name": "MasterVendor",
-      "cascade": true,
+      "name": "_CreatePaymentPlanning",
+      "cascade": false,
       "active": false
     },
     {
-      "name": "TransactionBudget",
+      "name": "_MirrorSchema",
+      "cascade": false,
+      "active": false
+    },
+    {
+      "name": "_FixRelations",
+      "cascade": false,
+      "active": false
+    },
+    {
+      "name": "MasterVendorCheckout",
       "cascade": true,
       "active": true
+    },
+    {
+      "name": "TransactionBudget",
+      "cascade": false,
+      "active": false
     },
     {
       "name": "_RestoreDataFromAudit",
@@ -150,12 +165,18 @@
       "name": "_NewJournalInsosysToSurplus",
       "cascade": false,
       "active": false,
-      "options": "journalids=JV0223020034, JV0223020035, JV0223020036, JV0223020076, JV0223020079, JV0223020081",
+      "options": "journalids=AP0223020143",
       "options_": "filters=('2022-12-01 00:00:00' <= jurnal_bookdate and jurnal_bookdate <= '2022-12-31 23:59:59')"
+    },
+    {
+      "name": "_NewJournalSurplusToInsosys",
+      "cascade": false,
+      "active": false,
+      "options": "filters=bookdate >= '2022-12-01 00:00:00'"
     }
   ],
-  "pre_queries_pathx": "../../../SurplusMigrator-ExternalSource/Queries-Pre",
-  "post_queries_pathx": "../../../SurplusMigrator-ExternalSource/Queries-Post",
+  "pre_queries_path": "../../../SurplusMigrator-ExternalSource/Queries-Pre",
+  "post_queries_path": "../../../SurplusMigrator-ExternalSource/Queries-Post",
   "excel_sources_path": "../../../SurplusMigrator-ExternalSource/Excels",
   "json_sources_path": "../../../SurplusMigrator-ExternalSource/Jsons",
   "excluded_tables": [
@@ -290,6 +311,7 @@
     "MasterVendorCategory",
     "MasterVendorType",
     "MasterVendor",
+    "MasterVendorCheckout",
 
     "MasterTrafficAgency",
 

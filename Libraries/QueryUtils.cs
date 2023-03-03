@@ -285,12 +285,12 @@ namespace SurplusMigrator.Libraries {
                 batchInfo = new BatchInfo() {
                     dbLoginInfo = connection.GetDbLoginInfo(),
                     tablename = tablename,
-                    dataCount = getDataCount(connection, tablename),
+                    dataCount = getDataCount(connection, tablename, whereClauses),
                     dataRead = 0
                 };
                 batchInfos.Add(batchInfo);
             } else if(batchInfo.dataRead >= batchInfo.dataCount) {
-                batchInfo.dataCount = getDataCount(connection, tablename);
+                batchInfo.dataCount = getDataCount(connection, tablename, whereClauses);
                 batchInfo.dataRead = 0;
 
                 return new RowData<ColumnName, object>[] { };
