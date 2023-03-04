@@ -52,7 +52,7 @@ namespace SurplusMigrator.Tasks {
             return sourceTables.Where(a => a.tableName == "master_artisbank").FirstOrDefault().getData(batchSize);
         }
 
-        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             inputs = excludeProblematicAccounts(inputs);

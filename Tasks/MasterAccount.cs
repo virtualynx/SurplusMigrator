@@ -54,7 +54,7 @@ namespace SurplusMigrator.Tasks {
             };
         }
 
-        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             foreach(RowData<ColumnName, object> data in inputs) {

@@ -144,7 +144,7 @@ namespace SurplusMigrator.Tasks {
             return sourceTables.Where(a => a.tableName == "transaksi_salesorder").FirstOrDefault().getData(batchSize, queryWhere);
         }
 
-        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             MissingReference missingReferenceAdvertiser = new MissingReference() {

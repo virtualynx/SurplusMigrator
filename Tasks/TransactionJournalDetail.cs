@@ -94,7 +94,7 @@ namespace SurplusMigrator.Tasks {
             return sourceTables.Where(a => a.tableName == "transaksi_jurnaldetil").FirstOrDefault().getData(batchSize, queryWhere);
         }
 
-        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             DataIntegration integration = new DataIntegration(connections);
@@ -157,10 +157,6 @@ namespace SurplusMigrator.Tasks {
                 }
 
                 string ref_budgetline = Utils.obj2str(data["ref_budgetline"]);
-                string ref_subdetail_id = null;
-                if(ref_detail_id != null && ref_budgetline != null) {
-                    ref_subdetail_id = ref_detail_id + "_" + ref_budgetline;
-                }
 
                 string departmentId = Utils.obj2str(data["strukturunit_id"]);
                 if(departmentId == "0") {
@@ -186,7 +182,8 @@ namespace SurplusMigrator.Tasks {
                         { "tbudget_detailid",  tbudget_detailid},
                         { "ref_id",  data["ref_id"]},
                         { "ref_detail_id",  ref_detail_id},
-                        { "ref_subdetail_id",  Utils.obj2int(data["ref_line"])},
+                        //{ "ref_subdetail_id",  Utils.obj2int(data["ref_line"])},
+                        { "ref_subdetail_id", 0},
                         { "bilyet_no",  null},
                         { "bilyet_date",  null},
                         { "bilyet_effectivedate",  null},

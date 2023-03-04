@@ -94,7 +94,7 @@ namespace SurplusMigrator.Tasks {
             return sourceTables.Where(a => a.tableName == "program_detil_eps").FirstOrDefault().getData(batchSize);
         }
 
-        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             Dictionary<string, Dictionary<string, object>> createdDateMaps = getCreatedInfoMap(inputs);

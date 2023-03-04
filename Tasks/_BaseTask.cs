@@ -558,7 +558,7 @@ namespace SurplusMigrator.Tasks {
             return sourceTables.First().getData(batchSize);
         }
 
-        protected virtual MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        public virtual MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             return new MappedData();
         }
 
