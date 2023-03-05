@@ -464,7 +464,7 @@ namespace SurplusMigrator.Tasks {
 
                     insertedSOIds.Add(Utils.obj2str(data["salesorder_id"]).ToUpper());
                 }
-                soTable.insertData(newDatas, false, true, transaction);
+                soTable.insertData(newDatas, transaction);
             }
             MyConsole.Information("Inserted SO: "+ String.Join(",", insertedSOIds));
             if(exceptions.Count > 0) {
@@ -485,10 +485,10 @@ namespace SurplusMigrator.Tasks {
 
                 var batchJurnalDetails = getNewJurnalDetailFromInsosys(batchJurnals);
                 if(batchJurnalDetails.Length > 0) {
-                    tableJournalDetail.insertData(getMappedJournalDetailData(batchJurnalDetails), false, true, transaction);
+                    tableJournalDetail.insertData(getMappedJournalDetailData(batchJurnalDetails), transaction);
                 }
 
-                tableJournal.insertData(getMappedJournalData(batchJurnals), false, true, transaction);
+                tableJournal.insertData(getMappedJournalData(batchJurnals), transaction);
 
                 insertedJournal += batchJurnals.Length;
             }

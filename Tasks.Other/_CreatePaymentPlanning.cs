@@ -126,7 +126,7 @@ namespace SurplusMigrator.Tasks {
                         { "is_disabled", false },
                     }
                 };
-                ppTable.insertData(pp.ToList(), false, true, transaction, false);
+                ppTable.insertData(pp.ToList(), transaction, false);
                 //SequencerString.updateMasterSequencer(surplusConn, "PP", createdDate, transaction);
 
                 string queryGetPvSource = @"
@@ -209,7 +209,7 @@ namespace SurplusMigrator.Tasks {
                     }
 
                     if(ppdDatas.Count > 0) {
-                        ppdTable.insertData(ppdDatas, false, true, transaction, false);
+                        ppdTable.insertData(ppdDatas, transaction, false);
                         QueryUtils.executeQuery(surplusConn, String.Join(";", updateQueries), null, transaction);
                     }
 

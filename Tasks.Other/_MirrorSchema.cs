@@ -117,7 +117,7 @@ namespace SurplusMigrator.Tasks {
                         try {
                             try {
                                 QueryUtils.toggleTrigger(targetConnection, tablename, false);
-                                targetTable.insertData(batchData, false, false, transaction, false);
+                                targetTable.insertData(batchData, transaction, false);
                                 insertedCount += batchData.Count;
                                 MyConsole.EraseLine();
                                 MyConsole.Write(insertedCount + "/" + dataCount + " data inserted ... ");

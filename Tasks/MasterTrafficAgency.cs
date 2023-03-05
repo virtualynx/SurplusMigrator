@@ -6,8 +6,6 @@ using System.Linq;
 
 namespace SurplusMigrator.Tasks {
     class MasterTrafficAgency : _BaseTask {
-        private static int advertiserIdCounter = 1;
-
         public MasterTrafficAgency(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
@@ -27,7 +25,7 @@ namespace SurplusMigrator.Tasks {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
                     tableName = "master_traffic_agency",
                     columns = new string[] {
-                        "trafficagencyid",
+                        //"trafficagencyid",
                         "vendorid",
                         "name",
                         "created_by",
@@ -37,24 +35,6 @@ namespace SurplusMigrator.Tasks {
                     ids = new string[] { "vendorid", "name" }
                 }
             };
-
-            var res = QueryUtils.searchSimilar(
-                connections.Where(a => a.GetDbLoginInfo().name == "surplus").First(), 
-                "master_vendor",
-                new string[] { "vendorid", "name" },
-                "name",
-                "Leo Burnett Kreasindo Indonesia, PT"
-            );
-
-            var res2 = QueryUtils.searchSimilar(
-                connections.Where(a => a.GetDbLoginInfo().name == "gen21").First(),
-                "view_master_advertiser_temp",
-                new string[] { "advertiserid" },
-                "name",
-                "Konidin"
-            );
-
-            var a = 1;
         }
 
         protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
@@ -64,11 +44,14 @@ namespace SurplusMigrator.Tasks {
         public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
+            var insosysConn = connections.First(a => a.GetDbLoginInfo().name == "e_frm");
+            skipsIfMissingReferences("rekanan_id", "master_rekanan", "rekanan_id", insosysConn, inputs);
+
             foreach(RowData<ColumnName, object> data in inputs) {
                 result.addData(
                     "master_traffic_agency",
                     new RowData<ColumnName, object>() {
-                        { "trafficagencyid",  advertiserIdCounter++},
+                        //{ "trafficagencyid",  trafficAgencyLastId++},
                         { "vendorid",  data["rekanan_id"]},
                         { "name",  data["trafficagency_name"]},
                         { "created_by", DefaultValues.CREATED_BY},

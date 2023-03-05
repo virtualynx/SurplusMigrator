@@ -70,6 +70,9 @@ namespace SurplusMigrator.Models {
                     if(verbose) {
                         MyConsole.Write("Batch-" + fetchBatchCounter + "/" + fetchBatchMax + "(" + getProgressPercentage().ToString("0.0") + "%), fetch data from " + tableName + " ... ");
                     }
+                    if(whereClause != null && !whereClause.TrimStart().ToLower().StartsWith("where")) {
+                        whereClause = " where " + whereClause;
+                    }
                     if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                         string sqlString = @"SELECT <selected_columns> 
                             FROM    ( 
@@ -88,7 +91,7 @@ namespace SurplusMigrator.Models {
                         }
                         sqlString = sqlString.Replace("<over_orderby>", over_orderby);
                         sqlString = sqlString.Replace("<tablename>", connection.GetDbLoginInfo().schema + "." + tableName);
-                        sqlString = sqlString.Replace("<where>", whereClause!=null? "WHERE " + whereClause: "");
+                        sqlString = sqlString.Replace("<where>", whereClause!=null? whereClause: "");
                         sqlString = sqlString.Replace("<offset_start>", (((fetchBatchCounter - 1) * batchSize) + 1).ToString());
                         sqlString = sqlString.Replace("<offset_end>", (((fetchBatchCounter - 1) * batchSize) + batchSize).ToString());
 
@@ -133,7 +136,7 @@ namespace SurplusMigrator.Models {
                         if(ids != null && ids.Length > 0) {
                             order_by = "ORDER BY " + String.Join(',', ids);
                         }
-                        sqlString = sqlString.Replace("<where>", whereClause != null ? "WHERE " + whereClause : "");
+                        sqlString = sqlString.Replace("<where>", whereClause!=null ? whereClause : "");
                         sqlString = sqlString.Replace("<order_by>", order_by);
                         sqlString = sqlString.Replace("<limit_size>", batchSize.ToString());
                         sqlString = sqlString.Replace("<offset_size>", (((fetchBatchCounter - 1) * batchSize)).ToString());
@@ -191,13 +194,17 @@ namespace SurplusMigrator.Models {
             return result;
         }
 
-        public TaskInsertStatus insertData(List<RowData<ColumnName, object>> inputs, bool truncateBeforeInsert, bool onlyTruncateMigratedData, DbTransaction transaction = null, bool verbose = true) {
+        public TaskInsertStatus insertData(List<RowData<ColumnName, object>> inputs, DbTransaction transaction = null, bool verbose = true, TaskTruncateOption truncateOption = null) {
             TaskInsertStatus result = new TaskInsertStatus();
             List<DbInsertFail> failures = new List<DbInsertFail>();
             result.errors = failures;
 
-            if(truncateBeforeInsert && !GlobalConfig.isAlreadyTruncated(tableName) && getDataCount(null) > 0) {
-                truncate(transaction, onlyTruncateMigratedData);
+            if(truncateOption == null) {
+                truncateOption = new TaskTruncateOption();
+            }
+
+            if(truncateOption.truncateBeforeInsert && !GlobalConfig.isAlreadyTruncated(tableName) && getDataCount(null) > 0) {
+                truncate(transaction, truncateOption);
             }
 
             //check & omit if attempted insert data is already in table
@@ -517,18 +524,18 @@ namespace SurplusMigrator.Models {
             throw new NotImplementedException("Only SQL-Server and PostgreSql database is supported");
         }
 
-        private void truncate(DbTransaction transaction, bool onlyTruncateMigratedData = true, bool cascade = true) {
+        private void truncate(DbTransaction transaction, TaskTruncateOption truncateOption) {
             try {
                 if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                     throw new NotImplementedException();
                 } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                    if(cascade) {
+                    if(truncateOption.cascade) {
                         TableRelation relation = GlobalConfig.getTableRelation(tableName);
                         if(relation != null) {
-                            truncateRelation(relation, onlyTruncateMigratedData, cascade, transaction);
+                            truncateRelation(relation, truncateOption.onlyTruncateMigratedData, truncateOption.cascade, transaction);
                         }
                     }
-                    doTruncate(tableName, onlyTruncateMigratedData, cascade, transaction);
+                    doTruncate(tableName, truncateOption.onlyTruncateMigratedData, truncateOption.cascade, transaction);
                 }
             } catch(NotImplementedException) {
                 throw;

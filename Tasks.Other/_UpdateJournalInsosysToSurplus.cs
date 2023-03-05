@@ -550,7 +550,7 @@ namespace SurplusMigrator.Tasks {
                     var insosysDetailIds = jurnaldetils.Select(a => a["tjournal_detailid"].ToString()).ToArray();
                     var detailsToDelete = surplusJournalDetails.Where(sjd => !insosysDetailIds.Contains(sjd["tjournal_detailid"].ToString())).ToList();
 
-                    tableJournalDetail.insertData(getMappedJournalDetailData(detailsToAdd.ToArray()), false, true, transaction);
+                    tableJournalDetail.insertData(getMappedJournalDetailData(detailsToAdd.ToArray()), transaction);
 
                     var detailsToUpdateMapped = getMappedJournalDetailData(detailsToUpdate.ToArray());
                     foreach(var row in detailsToUpdateMapped) {

@@ -1,4 +1,5 @@
 using SurplusMigrator.Exceptions;
+using SurplusMigrator.Exceptions.Gen21;
 using SurplusMigrator.Interfaces;
 using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
@@ -159,8 +160,8 @@ namespace SurplusMigrator.Tasks {
                 referencedColumnName = "name",
             };
 
-            string logFilenameMissingAdvertiser = "log_(" + this.GetType().Name + ")_nullified_missing_reference_to_("+ missingReferenceAdvertiser.referencedTableName + ")_" + _startedAt.ToString("yyyyMMdd_HHmmss") + ".json";
-            string logFilenameMissingBrand = "log_(" + this.GetType().Name + ")_nullified_missing_reference_to_("+ missingReferenceBrand.referencedTableName + ")_" + _startedAt.ToString("yyyyMMdd_HHmmss") + ".json";
+            string logFilenameMissingAdvertiser = "log_(" + this.GetType().Name + ")_nullified_missing_reference_to_(" + missingReferenceAdvertiser.referencedTableName + ")_" + _startedAt.ToString("yyyyMMdd_HHmmss") + ".json";
+            string logFilenameMissingBrand = "log_(" + this.GetType().Name + ")_nullified_missing_reference_to_(" + missingReferenceBrand.referencedTableName + ")_" + _startedAt.ToString("yyyyMMdd_HHmmss") + ".json";
 
             try {
                 missingReferenceAdvertiser = Utils.loadJson<MissingReference>(logFilenameMissingAdvertiser);
@@ -174,12 +175,53 @@ namespace SurplusMigrator.Tasks {
 
             List<DbInsertFail> nullAdvertiserOrBrandErrors = new List<DbInsertFail>();
             foreach(RowData<ColumnName, object> data in inputs) {
+                //string advertisercode = null;
+                //int advertiserid = Utils.obj2int(data["salesorder_advertiser"]);
+                //if(advertiserid != 0) {
+                //    try {
+                //        advertisercode = gen21.getAdvertiserId2(advertiserid);
+                //    } catch(MissingDataException) {
+                //        nullAdvertiserOrBrandErrors.Add(new DbInsertFail() {
+                //            info = "Missing reference to table (" + missingReferenceAdvertiser.referencedTableName + ")",
+                //            severity = DbInsertFail.DB_FAIL_SEVERITY_WARNING,
+                //            type = DbInsertFail.DB_FAIL_TYPE_FOREIGNKEY_VIOLATION,
+                //            loggedInFilename = logFilenameMissingAdvertiser
+                //        });
+                //        missingReferenceAdvertiser.referencedIds.Add(advertiserid);
+                //    } catch(Exception) {
+                //        throw;
+                //    }
+                //}
+
+                //string advertiserbrandcode = null;
+                //int advertiserbrandid = Utils.obj2int(data["salesorder_brand"]);
+                //if(advertiserbrandid != 0) {
+                //    try {
+                //        advertiserbrandcode = gen21.getAdvertiserBrandId2(advertiserbrandid);
+                //    } catch(MissingDataException) {
+                //        nullAdvertiserOrBrandErrors.Add(new DbInsertFail() {
+                //            info = "Missing reference to table (" + missingReferenceBrand.referencedTableName + ")",
+                //            severity = DbInsertFail.DB_FAIL_SEVERITY_WARNING,
+                //            type = DbInsertFail.DB_FAIL_TYPE_FOREIGNKEY_VIOLATION,
+                //            loggedInFilename = logFilenameMissingBrand
+                //        });
+                //        missingReferenceBrand.referencedIds.Add(advertiserbrandid);
+                //    } catch(Exception) {
+                //        throw;
+                //    }
+                //}
+
+                string advertiserid = Utils.obj2str(data["advertiser_id"]);
+                string advertiserbrandid = Utils.obj2str(data["brand_id"]);
                 string advertisercode = null;
-                int advertiserid = Utils.obj2int(data["salesorder_advertiser"]);
-                if(advertiserid != 0) {
+                string advertiserbrandcode = null;
+                if(advertiserbrandid != null && advertiserid != null && advertiserbrandid != "0" && advertiserid != "0") {
                     try {
-                        advertisercode = gen21.getAdvertiserId2(advertiserid);
-                    } catch(MissingDataException) {
+                        (advertisercode, advertiserbrandcode) = gen21.getAdvertiserBrandId(advertiserid, advertiserbrandid);
+                    } catch(MissingAdvertiserBrandException e) {
+                        advertisercode = advertiserid;
+                        advertiserbrandcode = advertiserbrandid;
+
                         nullAdvertiserOrBrandErrors.Add(new DbInsertFail() {
                             info = "Missing reference to table (" + missingReferenceAdvertiser.referencedTableName + ")",
                             severity = DbInsertFail.DB_FAIL_SEVERITY_WARNING,
@@ -187,17 +229,7 @@ namespace SurplusMigrator.Tasks {
                             loggedInFilename = logFilenameMissingAdvertiser
                         });
                         missingReferenceAdvertiser.referencedIds.Add(advertiserid);
-                    } catch(Exception) {
-                        throw;
-                    }
-                }
 
-                string advertiserbrandcode = null;
-                int advertiserbrandid = Utils.obj2int(data["salesorder_brand"]);
-                if(advertiserbrandid != 0) {
-                    try {
-                        advertiserbrandcode = gen21.getAdvertiserBrandId2(advertiserbrandid);
-                    } catch(MissingDataException) {
                         nullAdvertiserOrBrandErrors.Add(new DbInsertFail() {
                             info = "Missing reference to table (" + missingReferenceBrand.referencedTableName + ")",
                             severity = DbInsertFail.DB_FAIL_SEVERITY_WARNING,
@@ -216,7 +248,7 @@ namespace SurplusMigrator.Tasks {
                     vendorbillid = IdRemapper.get("vendorbillid", vendorbillidTag);
                 } catch(Exception e) {
                     if(e.Message.StartsWith("RemappedId map does not have mapping for id-columnname")) {
-
+                        throw;
                     }
                 }
 
