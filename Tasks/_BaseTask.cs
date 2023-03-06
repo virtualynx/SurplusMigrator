@@ -94,7 +94,7 @@ namespace SurplusMigrator.Tasks {
                 }
 
                 if(truncateOption.truncateBeforeInsert && this.GetType().GetInterfaces().Contains(typeof(RemappableId))) {
-                    var method = ((object)this).GetType().GetMethod("clearRemappingCache");
+                    var method = this.GetType().GetMethod("clearRemappingCache");
                     method.Invoke(this, new object[] { });
                 }
 
@@ -199,7 +199,7 @@ namespace SurplusMigrator.Tasks {
                 }
 
                 foreach(Table dest in destinationTables) {
-                    dest.updateSequencer();
+                    dest.maximizeSequencerId();
                 }
 
                 onFinished();

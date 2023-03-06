@@ -69,6 +69,7 @@ namespace SurplusMigrator.Tasks {
         public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
+            var surplusConn = connections.First(a => a.GetDbLoginInfo().name == "surplus");
             foreach(RowData<ColumnName, object> data in inputs) {
                 string addr1 = Utils.obj2str(data["addr1"]);
                 string addr2 = Utils.obj2str(data["addr2"]);
@@ -78,7 +79,7 @@ namespace SurplusMigrator.Tasks {
                     address = null;
                 }
 
-                int vendorbillid = Utils.obj2int(SequencerString.getId(null, "DUMMY_MVB", DateTime.Now).Substring(("DUMMY_MVB" + "yyMMdd").Length));
+                int vendorbillid = Sequencer.getId(surplusConn, "master_vendor_bill");
                 string vendorbillidTag = Utils.obj2str(data["rekanan_id"]) + "-" + Utils.obj2str(data["rekananbill_line"]);
                 IdRemapper.add("vendorbillid", vendorbillidTag, vendorbillid);
 
