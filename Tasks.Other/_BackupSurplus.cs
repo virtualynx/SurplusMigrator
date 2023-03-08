@@ -55,6 +55,8 @@ namespace SurplusMigrator.Tasks {
 
                     //System.Diagnostics.Process.Start("CMD.exe", strCmdText);
                     ProcessStartInfo cmdsi = new ProcessStartInfo("cmd.exe");
+                    cmdsi.EnvironmentVariables["PGPASSWORD"] = loginInfo.password;
+                    cmdsi.UseShellExecute = false;
                     cmdsi.Arguments = strCmdText;
                     Process cmd = Process.Start(cmdsi);
                     cmd.WaitForExit();
