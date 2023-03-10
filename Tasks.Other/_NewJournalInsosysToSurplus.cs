@@ -374,7 +374,6 @@ namespace SurplusMigrator.Tasks {
         public void clearRemappingCache() {
             IdRemapper.clearMapping("advertiserid");
             IdRemapper.clearMapping("advertiserbrandid");
-            IdRemapper.clearMapping("vendorbillid");
         }
 
         protected override void onFinished() {
