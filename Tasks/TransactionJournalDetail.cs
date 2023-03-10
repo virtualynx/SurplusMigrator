@@ -9,7 +9,7 @@ namespace SurplusMigrator.Tasks {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
-                    tableName = "transaksi_jurnaldetil",
+                    tablename = "transaksi_jurnaldetil",
                     columns = new string[] {
                         "jurnal_id",
                         "jurnaldetil_line",
@@ -40,7 +40,7 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "transaction_journal_detail",
+                    tablename = "transaction_journal_detail",
                     columns = new string[] {
                         "tjournal_detailid",
                         "tjournalid",
@@ -91,7 +91,7 @@ namespace SurplusMigrator.Tasks {
                 queryWhere = "WHERE jurnal_id in ('" + string.Join("','", journalids) + "')";
             }
 
-            return sourceTables.Where(a => a.tableName == "transaksi_jurnaldetil").FirstOrDefault().getData(batchSize, queryWhere);
+            return sourceTables.Where(a => a.tablename == "transaksi_jurnaldetil").FirstOrDefault().getData(batchSize, queryWhere);
         }
 
         public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {

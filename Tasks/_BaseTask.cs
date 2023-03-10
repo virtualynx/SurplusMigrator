@@ -44,8 +44,8 @@ namespace SurplusMigrator.Tasks {
             }
             //skips if excluded in config
             if(
-                sources.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName)) ||
-                destinations.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tableName))
+                sources.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tablename)) ||
+                destinations.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tablename))
             ) {
                 bool isRun = false;
                 if(GlobalConfig.getJobPlaylist().Length > 0) {
@@ -74,7 +74,7 @@ namespace SurplusMigrator.Tasks {
             List<DbInsertFail> allErrors = new List<DbInsertFail>();
             try {
                 //truncate options is in the config file
-                if(truncateOption.truncateBeforeInsert == false && destinations.Any(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))) {
+                if(truncateOption.truncateBeforeInsert == false && destinations.Any(tinfo => GlobalConfig.isTruncatedTable(tinfo.tablename))) {
                     bool confirmTruncate = true;
                     if(GlobalConfig.getJobPlaylist().Length > 0) {
                         MyConsole.Write("Use truncate options in "+GetType().Name+ " (type \"truncate\" to perform truncating)? ");
@@ -86,8 +86,8 @@ namespace SurplusMigrator.Tasks {
                     if(confirmTruncate) {
                         truncateOption.truncateBeforeInsert = true;
                         string[] truncatedTables = destinations
-                            .Where(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))
-                            .Select(a => a.tableName)
+                            .Where(tinfo => GlobalConfig.isTruncatedTable(tinfo.tablename))
+                            .Select(a => a.tablename)
                             .ToArray();
                         MyConsole.Information("Using truncating options from the config file for: " + String.Join(", ", truncatedTables));
                     }
@@ -102,7 +102,7 @@ namespace SurplusMigrator.Tasks {
                     from tinfo in sources 
                     select new Table() {
                         connection = tinfo.connection,
-                        tableName = tinfo.tableName,
+                        tablename = tinfo.tablename,
                         columns = tinfo.columns,
                         ids = tinfo.ids,
                     }
@@ -112,7 +112,7 @@ namespace SurplusMigrator.Tasks {
                     from tinfo in destinations
                     select new Table() {
                         connection = tinfo.connection,
-                        tableName = tinfo.tableName,
+                        tablename = tinfo.tablename,
                         columns = tinfo.columns,
                         ids = tinfo.ids,
                     }
@@ -140,13 +140,13 @@ namespace SurplusMigrator.Tasks {
                         }
 
                         try {
-                            TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), transaction, true, truncateOption);
+                            TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tablename), transaction, true, truncateOption);
                             successCount += taskStatus.successCount;
                             failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
-                            failureCount += mappedData.getError(dest.tableName).Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
+                            failureCount += mappedData.getError(dest.tablename).Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
                             duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
                             allErrors.AddRange(taskStatus.errors);
-                            allErrors.AddRange(mappedData.getError(dest.tableName));
+                            allErrors.AddRange(mappedData.getError(dest.tablename));
                             MyConsole.EraseLine();
                             MyConsole.WriteLine("Total " + (successCount + failureCount + duplicateCount) + " data processed");
                             transaction.Commit();
@@ -161,14 +161,14 @@ namespace SurplusMigrator.Tasks {
                 if(staticDatas.Count() > 0) {
                     string[] destinations = staticDatas.getDestinations();
                     foreach(string dest in destinations) {
-                        if(destinationTables.Any(a => a.tableName == dest)) {
+                        if(destinationTables.Any(a => a.tablename == dest)) {
                             MyConsole.WriteLine(this.GetType().Name + " has " + staticDatas.Count(dest) + " static data to be inserted into [" + dest + "]");
                         } else {
                             throw new TaskConfigException(this.GetType().Name + " has " + staticDatas.Count(dest) + " static data to be inserted into [" + dest + "], but destination-table is not mapped in config");
                         }
                     }
                     foreach(Table dest in destinationTables) {
-                        var datas = staticDatas.getData(dest.tableName);
+                        var datas = staticDatas.getData(dest.tablename);
                         for(int a = 0; a < datas.Count; a += readBatchSize) {
                             var batchDatas = datas.Skip(a).Take(readBatchSize).ToList();
 

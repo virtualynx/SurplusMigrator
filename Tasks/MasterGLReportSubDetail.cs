@@ -10,7 +10,7 @@ namespace SurplusMigrator.Tasks {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
-                    tableName = "master_gl_report_row_acc",
+                    tablename = "master_gl_report_row_acc",
                     columns = new string[] {
                         "code",
                         "row",
@@ -27,7 +27,7 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "master_glreport_subdetail",
+                    tablename = "master_glreport_subdetail",
                     columns = new string[] {
                         "glreportsubdetailid",
                         "glreportdetailid",
@@ -42,7 +42,7 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
-            return sourceTables.Where(a => a.tableName == "master_gl_report_row_acc").FirstOrDefault().getData(batchSize);
+            return sourceTables.Where(a => a.tablename == "master_gl_report_row_acc").FirstOrDefault().getData(batchSize);
         }
 
         public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {

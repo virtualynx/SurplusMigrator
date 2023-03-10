@@ -11,7 +11,7 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "AspNetUsers",
+                    tablename = "AspNetUsers",
                     columns = new string[] {
                         "id",
                         "nik",
@@ -33,7 +33,7 @@ namespace SurplusMigrator.Tasks {
                 },
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "relation_user_usergroup",
+                    tablename = "relation_user_usergroup",
                     columns = new string[] {
                         "userid",
                         "usergroupid",

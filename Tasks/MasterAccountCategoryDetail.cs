@@ -14,7 +14,7 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "master_account_category_detail",
+                    tablename = "master_account_category_detail",
                     columns = new string[] {
                         //"accountcategorydetailid",
                         "accountcategoryid",

@@ -10,7 +10,7 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "relation_hris_inventory_department",
+                    tablename = "relation_hris_inventory_department",
                     columns = new string[] {
                         "hris_id",
                         "inventory_id",

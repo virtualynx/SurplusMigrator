@@ -17,7 +17,7 @@ namespace SurplusMigrator.Tasks {
             //sources = new TableInfo[] {
             //    new TableInfo() {
             //        connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
-            //        tableName = "transaksi_jurnal",
+            //        tablename = "transaksi_jurnal",
             //        columns = new string[] {
             //            "jurnal_id",
             //            "jurnal_bookdate",
@@ -61,7 +61,7 @@ namespace SurplusMigrator.Tasks {
             //destinations = new TableInfo[] {
             //    new TableInfo() {
             //        connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-            //        tableName = "transaction_journal",
+            //        tablename = "transaction_journal",
             //        columns = new string[] {
             //            "tjournalid",
             //            "bookdate",
@@ -254,7 +254,7 @@ namespace SurplusMigrator.Tasks {
                     where
                         jurnal_id in (<jurnalids>)
                 ";
-                string[] selectColumns = sources.Where(a => a.tableName == "transaksi_jurnaldetil").First().columns;
+                string[] selectColumns = sources.Where(a => a.tablename == "transaksi_jurnaldetil").First().columns;
                 query = query.Replace("<columns>", "[" + String.Join("],[", selectColumns) + "]");
                 query = query.Replace("<schema>", insosysConn.GetDbLoginInfo().schema);
                 query = query.Replace("<jurnalids>", "'" + String.Join("','", jurnalids) + "'");
@@ -273,7 +273,7 @@ namespace SurplusMigrator.Tasks {
             for(int a = 0; a < newJournals.Length; a += insertBatchSize) {
                 var batchJurnals = newJournals.Skip(a).Take(insertBatchSize).ToArray();
                 
-                string[] targetColumnsJournal = destinations.Where(a => a.tableName == "transaction_journal").First().columns;
+                string[] targetColumnsJournal = destinations.Where(a => a.tablename == "transaction_journal").First().columns;
                 List<string> insertedJournalIds = new List<string>();
                 List<string> journalValues = new List<string>();
                 foreach(var row in batchJurnals) {
@@ -350,7 +350,7 @@ namespace SurplusMigrator.Tasks {
                 //journal_detail
                 var batchJurnalDetails = getNewJurnalDetailFromInsosys(batchJurnals);
                 if(batchJurnalDetails.Length > 0) {
-                    string[] targetColumnsJournalDetail = destinations.Where(a => a.tableName == "transaction_journal_detail").First().columns;
+                    string[] targetColumnsJournalDetail = destinations.Where(a => a.tablename == "transaction_journal_detail").First().columns;
                     List<string> journalDetailValues = new List<string>();
                     foreach(var row in batchJurnalDetails) {
                         string str = "(<" + String.Join(">,<", targetColumnsJournalDetail) + ">)";

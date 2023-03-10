@@ -84,7 +84,7 @@ namespace SurplusMigrator.Tasks {
 
             Table ppdTable = new Table() {
                 connection = targetConnection,
-                tableName = "transaction_payment_planning_detail",
+                tablename = "transaction_payment_planning_detail",
                 columns = new string[] {
                     "id",
                     "payment_planning_id",
@@ -116,7 +116,7 @@ namespace SurplusMigrator.Tasks {
             };
             Table pvdTable = new Table() {
                 connection = targetConnection,
-                tableName = "transaction_journal_detail",
+                tablename = "transaction_journal_detail",
                 columns = new string[] {
                     "tjournal_detailid",
                     "tjournalid",
