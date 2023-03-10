@@ -47,7 +47,7 @@ namespace SurplusMigrator.Models {
         /// <param name="trimWhitespaces"></param>
         /// <param name="verbose"></param>
         /// <returns></returns>
-        public List<RowData<ColumnName, object>> getDatas(int batchSize, string whereClause = null, bool trimWhitespaces = true, bool verbose = true) {
+        public List<RowData<ColumnName, object>> getData(int batchSize, string whereClause = null, bool trimWhitespaces = true, bool verbose = true) {
             List<RowData<ColumnName, object>> result = new List<RowData<ColumnName, object>> ();
 
             //check for first time run/batchSize has changed
@@ -70,6 +70,9 @@ namespace SurplusMigrator.Models {
                     if(verbose) {
                         MyConsole.Write("Batch-" + fetchBatchCounter + "/" + fetchBatchMax + "(" + getProgressPercentage().ToString("0.0") + "%), fetch data from " + tableName + " ... ");
                     }
+                    if(whereClause != null && !whereClause.TrimStart().ToLower().StartsWith("where")) {
+                        whereClause = " where " + whereClause;
+                    }
                     if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                         string sqlString = @"SELECT <selected_columns> 
                             FROM    ( 
@@ -88,7 +91,7 @@ namespace SurplusMigrator.Models {
                         }
                         sqlString = sqlString.Replace("<over_orderby>", over_orderby);
                         sqlString = sqlString.Replace("<tablename>", connection.GetDbLoginInfo().schema + "." + tableName);
-                        sqlString = sqlString.Replace("<where>", whereClause!=null? "WHERE " + whereClause: "");
+                        sqlString = sqlString.Replace("<where>", whereClause!=null? whereClause: "");
                         sqlString = sqlString.Replace("<offset_start>", (((fetchBatchCounter - 1) * batchSize) + 1).ToString());
                         sqlString = sqlString.Replace("<offset_end>", (((fetchBatchCounter - 1) * batchSize) + batchSize).ToString());
 
@@ -133,7 +136,7 @@ namespace SurplusMigrator.Models {
                         if(ids != null && ids.Length > 0) {
                             order_by = "ORDER BY " + String.Join(',', ids);
                         }
-                        sqlString = sqlString.Replace("<where>", whereClause != null ? "WHERE " + whereClause : "");
+                        sqlString = sqlString.Replace("<where>", whereClause!=null ? whereClause : "");
                         sqlString = sqlString.Replace("<order_by>", order_by);
                         sqlString = sqlString.Replace("<limit_size>", batchSize.ToString());
                         sqlString = sqlString.Replace("<offset_size>", (((fetchBatchCounter - 1) * batchSize)).ToString());
@@ -184,20 +187,24 @@ namespace SurplusMigrator.Models {
             List<RowData<ColumnName, object>> result = new List<RowData<ColumnName, object>>();
 
             List<RowData<ColumnName, object>> batchData;
-            while((batchData = getDatas(batchSize, whereClause, trimWhitespaces, verbose)).Count > 0) {
+            while((batchData = getData(batchSize, whereClause, trimWhitespaces, verbose)).Count > 0) {
                 result.AddRange(batchData);
             }
 
             return result;
         }
 
-        public TaskInsertStatus insertData(List<RowData<ColumnName, object>> inputs, bool truncateBeforeInsert, bool onlyTruncateMigratedData, DbTransaction transaction = null, bool verbose = true) {
+        public TaskInsertStatus insertData(List<RowData<ColumnName, object>> inputs, DbTransaction transaction = null, bool verbose = true, TaskTruncateOption truncateOption = null) {
             TaskInsertStatus result = new TaskInsertStatus();
             List<DbInsertFail> failures = new List<DbInsertFail>();
             result.errors = failures;
 
-            if(truncateBeforeInsert && !GlobalConfig.isAlreadyTruncated(tableName) && getDataCount(null) > 0) {
-                truncate(transaction, onlyTruncateMigratedData);
+            if(truncateOption == null) {
+                truncateOption = new TaskTruncateOption();
+            }
+
+            if(truncateOption.truncateBeforeInsert && !GlobalConfig.isAlreadyTruncated(tableName) && getDataCount(null) > 0) {
+                truncate(transaction, truncateOption);
             }
 
             //check & omit if attempted insert data is already in table
@@ -309,7 +316,14 @@ namespace SurplusMigrator.Models {
                 } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                     sql = "SELECT COUNT(1) FROM \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"<where_clause>";
                 }
-                sql = sql.Replace("<where_clause>", whereClause != null ? " WHERE " + whereClause : "");
+                if(whereClause != null) {
+                    if(!whereClause.ToLower().Trim().StartsWith("where")) {
+                        whereClause = " WHERE " + whereClause;
+                    }
+                    sql = sql.Replace("<where_clause>", whereClause);
+                } else {
+                    sql = sql.Replace("<where_clause>", "");
+                }
                 dataCount = Convert.ToInt64(executeScalar(sql));
             }
 
@@ -356,19 +370,7 @@ namespace SurplusMigrator.Models {
             return columnTypes;
         }
 
-        public bool setSequencer(int num) {
-            int affectedRow = 0;
-            string sequenceName = tableName + "_" + ids[0] + "_seq";
-            if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                throw new System.NotImplementedException();
-            } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                executeNonQuery("ALTER SEQUENCE " + sequenceName + " RESTART WITH " + num);
-            }
-
-            return affectedRow > 0;
-        }
-
-        public bool updateSequencer() {
+        public bool maximizeSequencerId() {
             bool success = false;
             bool retry = false;
             do {
@@ -450,6 +452,8 @@ namespace SurplusMigrator.Models {
                                     command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
                                     affectedRow = command.ExecuteNonQuery();
                                 }
+                            } else {
+                                throw new Exception("Table " + tableName + " has no sequencer");
                             }
                         }
                     }
@@ -510,18 +514,18 @@ namespace SurplusMigrator.Models {
             throw new NotImplementedException("Only SQL-Server and PostgreSql database is supported");
         }
 
-        private void truncate(DbTransaction transaction, bool onlyTruncateMigratedData = true, bool cascade = true) {
+        private void truncate(DbTransaction transaction, TaskTruncateOption truncateOption) {
             try {
                 if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                     throw new NotImplementedException();
                 } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                    if(cascade) {
+                    if(truncateOption.cascade) {
                         TableRelation relation = GlobalConfig.getTableRelation(tableName);
                         if(relation != null) {
-                            truncateRelation(relation, onlyTruncateMigratedData, cascade, transaction);
+                            truncateRelation(relation, truncateOption.onlyTruncateMigratedData, truncateOption.cascade, transaction);
                         }
                     }
-                    doTruncate(tableName, onlyTruncateMigratedData, cascade, transaction);
+                    doTruncate(tableName, truncateOption.onlyTruncateMigratedData, truncateOption.cascade, transaction);
                 }
             } catch(NotImplementedException) {
                 throw;
@@ -632,7 +636,9 @@ namespace SurplusMigrator.Models {
             foreach(RowData<ColumnName, object> rowSelect in selectResults) {
                 var predicate = PredicateBuilder.New<RowData<ColumnName, object>>();
                 foreach(string id in ids) {
-                    predicate = predicate.And(rowData => rowData[id].ToString().Trim() == rowSelect[id].ToString().Trim());
+                    predicate = predicate.And(rowData =>
+                        (rowData[id]==null? "": rowData[id]).ToString().Trim() == (rowSelect[id]==null? "": rowSelect[id]).ToString().Trim()
+                    );
                 }
                 RowData<ColumnName, object> duplicate = inputs.Where(predicate).FirstOrDefault();
                 if(duplicate != null) {

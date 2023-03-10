@@ -1,5 +1,3 @@
-using Microsoft.Data.SqlClient;
-using Microsoft.Office.Interop.Excel;
 using Npgsql;
 using SurplusMigrator.Exceptions.Gen21;
 using SurplusMigrator.Interfaces;
@@ -10,7 +8,6 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Data.Entity.Core.Common.CommandTrees.ExpressionBuilder;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace SurplusMigrator.Tasks {
     class _UpdateJournalInsosysToSurplus : _BaseTask, RemappableId {
@@ -315,6 +312,8 @@ namespace SurplusMigrator.Tasks {
             var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
             NpgsqlTransaction transaction = ((NpgsqlConnection)surplusConn.GetDbConnection()).BeginTransaction();
 
+            var updatedIds = updatedJurnals.Select(a => a["jurnal_id"].ToString()).ToArray();
+
             QueryUtils.toggleTrigger(surplusConn, "transaction_journal", false);
             QueryUtils.toggleTrigger(surplusConn, "transaction_journal_detail", false);
             try {
@@ -364,17 +363,17 @@ namespace SurplusMigrator.Tasks {
             if(journalIds != null) {
                 string whereIn = "jurnal_id in (<jurnal_ids>)".Replace("<jurnal_ids>", "'" + String.Join("','", journalIds) + "'");
                 List<RowData<ColumnName, object>> batchData;
-                while((batchData = tableJurnal.getDatas(1000, whereIn)).Count > 0) {
+                while((batchData = tableJurnal.getData(1000, whereIn)).Count > 0) {
                     updatedJurnalInsosys.AddRange(getUpdatedDataOnly(batchData));
                 }
             } else if(filter != null) {
                 List<RowData<ColumnName, object>> batchData;
-                while((batchData = tableJurnal.getDatas(1000, filter)).Count > 0) {
+                while((batchData = tableJurnal.getData(1000, filter)).Count > 0) {
                     updatedJurnalInsosys.AddRange(getUpdatedDataOnly(batchData));
                 }
             } else {
                 List<RowData<ColumnName, object>> batchDataInsosys;
-                while((batchDataInsosys = tableJurnal.getDatas(5000)).Count > 0) {
+                while((batchDataInsosys = tableJurnal.getData(5000)).Count > 0) {
                     updatedJurnalInsosys.AddRange(getUpdatedDataOnly(batchDataInsosys));
                 }
             }
@@ -391,15 +390,14 @@ namespace SurplusMigrator.Tasks {
                 var batchDataInsosys = inputs.Skip(a).Take(readBatchSize).ToArray();
 
                 string[] insosysJournalIds = batchDataInsosys.Select(a => Utils.obj2str(a["jurnal_id"]).ToUpper()).Distinct().ToArray();
-                string whereInClause = "tjournalid in (@jurnal_ids)"
-                    .Replace("@jurnal_ids", "'" + String.Join("','", insosysJournalIds) + "'");
+                string whereInClause = "tjournalid in (@jurnal_ids)".Replace("@jurnal_ids", "'" + String.Join("','", insosysJournalIds) + "'");
                 var dataSurplus = tableJournal.getAllData(whereInClause, 5000, true, false);
                 var updated_datas = batchDataInsosys.Where(iData =>
                     dataSurplus.Any(sData =>
                         Utils.obj2str(iData["jurnal_id"]) == Utils.obj2str(sData["tjournalid"])
                         && (
                             (Utils.obj2datetimeNullable(iData["modified_dt"]) != null && Utils.obj2datetimeNullable(sData["modified_date"]) == null)
-                            || Utils.obj2datetime(iData["modified_dt"]) > Utils.obj2datetime(sData["modified_date"])
+                            || Utils.obj2datetimeNullable(iData["modified_dt"]) > Utils.obj2datetimeNullable(sData["modified_date"])
                         )
                     )
                 ).ToList();
@@ -492,9 +490,16 @@ namespace SurplusMigrator.Tasks {
 
         private int doUpdateJournalDetail(RowData<ColumnName, object> jurnal, DbTransaction transaction) {
             var jurnalDetails = getUpdatedJurnalDetailFromInsosys(new RowData<string, object>[] { jurnal });
+            var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
 
-            if(jurnalDetails.Length > 0) {
-                var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
+            int surplusActiveCount = QueryUtils.getDataCount(
+                surplusConn, 
+                "transaction_journal_detail", 
+                "is_disabled = false and tjournalid = '"+ Utils.obj2str(jurnal["jurnal_id"]) + "'"
+            );
+            if(jurnalDetails.Length == 0 && surplusActiveCount > 0) {
+
+            }else if(jurnalDetails.Length > 0) {
                 var journalDetailIds = destinations.First(a => a.tableName == "transaction_journal_detail").ids;
                 var journalDetailColumns = destinations.First(a => a.tableName == "transaction_journal_detail").columns.Where(a => !journalDetailIds.Contains(a)).ToArray();
                 
@@ -544,7 +549,7 @@ namespace SurplusMigrator.Tasks {
                     var insosysDetailIds = jurnaldetils.Select(a => a["tjournal_detailid"].ToString()).ToArray();
                     var detailsToDelete = surplusJournalDetails.Where(sjd => !insosysDetailIds.Contains(sjd["tjournal_detailid"].ToString())).ToList();
 
-                    tableJournalDetail.insertData(getMappedJournalDetailData(detailsToAdd.ToArray()), false, true, transaction);
+                    tableJournalDetail.insertData(getMappedJournalDetailData(detailsToAdd.ToArray()), transaction);
 
                     var detailsToUpdateMapped = getMappedJournalDetailData(detailsToUpdate.ToArray());
                     foreach(var row in detailsToUpdateMapped) {

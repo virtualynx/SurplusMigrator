@@ -120,11 +120,6 @@
       "active": false
     },
     {
-      "name": "_CreatePaymentPlanning",
-      "cascade": false,
-      "active": false
-    },
-    {
       "name": "_MirrorSchema",
       "cascade": false,
       "active": false
@@ -135,14 +130,17 @@
       "active": false
     },
     {
-      "name": "MasterVendorCheckout",
-      "cascade": true,
-      "active": true
+      "name": "_NewJournalInsosysToSurplus",
+      "cascade": false,
+      "active": true,
+      "options": "journalids=AP0223020195,AP0223020196,AP0223020181",
+      "options_": "filters='2023-01-31 23:59:59' < jurnal_bookdate"
     },
     {
-      "name": "TransactionBudget",
+      "name": "_NewJournalSurplusToInsosys",
       "cascade": false,
-      "active": false
+      "active": false,
+      "options": "filters=bookdate >= '2022-12-01 00:00:00'"
     },
     {
       "name": "_RestoreDataFromAudit",
@@ -160,19 +158,6 @@
       "cascade": false,
       "active": false,
       "options": "date=2022-11-30 00:00:00"
-    },
-    {
-      "name": "_NewJournalInsosysToSurplus",
-      "cascade": false,
-      "active": false,
-      "options": "journalids=AP0223020143",
-      "options_": "filters=('2022-12-01 00:00:00' <= jurnal_bookdate and jurnal_bookdate <= '2022-12-31 23:59:59')"
-    },
-    {
-      "name": "_NewJournalSurplusToInsosys",
-      "cascade": false,
-      "active": false,
-      "options": "filters=bookdate >= '2022-12-01 00:00:00'"
     }
   ],
   "pre_queries_path": "../../../SurplusMigrator-ExternalSource/Queries-Pre",

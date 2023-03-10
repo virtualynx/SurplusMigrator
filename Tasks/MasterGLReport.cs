@@ -36,10 +36,10 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
-            return sourceTables.Where(a => a.tableName == "master_gl_report_row_h").FirstOrDefault().getDatas(batchSize);
+            return sourceTables.Where(a => a.tableName == "master_gl_report_row_h").FirstOrDefault().getData(batchSize);
         }
 
-        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             foreach(RowData<ColumnName, object> data in inputs) {

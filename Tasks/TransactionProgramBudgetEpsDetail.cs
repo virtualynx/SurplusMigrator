@@ -91,10 +91,10 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
-            return sourceTables.Where(a => a.tableName == "program_detil_eps").FirstOrDefault().getDatas(batchSize);
+            return sourceTables.Where(a => a.tableName == "program_detil_eps").FirstOrDefault().getData(batchSize);
         }
 
-        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             Dictionary<string, Dictionary<string, object>> createdDateMaps = getCreatedInfoMap(inputs);

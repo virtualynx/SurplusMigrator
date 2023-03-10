@@ -60,6 +60,15 @@ namespace SurplusMigrator.Libraries {
             if(o == null) return null;
             return Convert.ToDateTime(o);
         }
+        public static object[] obj2array(object o) {
+            if(o.GetType().IsArray) {
+                return (object[])o;
+            } else if(isList(o)) {
+                return new List<Object>((IEnumerable<Object>)o).ToArray();
+            } else {
+                throw new Exception("Argument type is neither an Array or List, type: "+o.GetType().FullName);
+            }
+        }
         public static string getElapsedTimeString(long milliseconds, bool showMilliseconds = false) {
             string format = @"hh\:mm\:ss";
             if(showMilliseconds) {

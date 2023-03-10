@@ -6,8 +6,6 @@ using System.Linq;
 
 namespace SurplusMigrator.Tasks {
     class MasterTrafficAgency : _BaseTask {
-        private static int advertiserIdCounter = 1;
-
         public MasterTrafficAgency(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
@@ -37,38 +35,28 @@ namespace SurplusMigrator.Tasks {
                     ids = new string[] { "vendorid", "name" }
                 }
             };
-
-            var res = QueryUtils.searchSimilar(
-                connections.Where(a => a.GetDbLoginInfo().name == "surplus").First(), 
-                "master_vendor",
-                new string[] { "vendorid", "name" },
-                "name",
-                "Leo Burnett Kreasindo Indonesia, PT"
-            );
-
-            var res2 = QueryUtils.searchSimilar(
-                connections.Where(a => a.GetDbLoginInfo().name == "gen21").First(),
-                "view_master_advertiser_temp",
-                new string[] { "advertiserid" },
-                "name",
-                "Konidin"
-            );
-
-            var a = 1;
         }
 
         protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
-            return sourceTables.Where(a => a.tableName == "master_trafficagency").FirstOrDefault().getDatas(batchSize);
+            return sourceTables.Where(a => a.tableName == "master_trafficagency").FirstOrDefault().getData(batchSize);
         }
 
-        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
+            var insosysConn = connections.First(a => a.GetDbLoginInfo().name == "e_frm");
+            skipsIfMissingReferences("rekanan_id", "master_rekanan", "rekanan_id", insosysConn, inputs);
+
+            var surplusConn = connections.First(a => a.GetDbLoginInfo().name == "surplus");
             foreach(RowData<ColumnName, object> data in inputs) {
+                int trafficagencyid = Sequencer.getId(surplusConn, "master_traffic_agency");
+                string trafficagencyidTag = Utils.obj2str(data["rekanan_id"]) + "-" + Utils.obj2str(data["trafficagency_line"]);
+                IdRemapper.add("trafficagencyid", trafficagencyidTag, trafficagencyid);
+
                 result.addData(
                     "master_traffic_agency",
                     new RowData<ColumnName, object>() {
-                        { "trafficagencyid",  advertiserIdCounter++},
+                        { "trafficagencyid",  trafficagencyid},
                         { "vendorid",  data["rekanan_id"]},
                         { "name",  data["trafficagency_name"]},
                         { "created_by", DefaultValues.CREATED_BY},
@@ -79,6 +67,14 @@ namespace SurplusMigrator.Tasks {
             }
 
             return result;
+        }
+
+        protected override void onFinished() {
+            IdRemapper.saveMap();
+        }
+
+        public void clearRemappingCache() {
+            IdRemapper.clearMapping("trafficagencyid");
         }
 
         protected override void runDependencies() {

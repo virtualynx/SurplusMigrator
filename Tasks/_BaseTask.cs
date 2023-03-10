@@ -11,7 +11,6 @@ using System.Data.Common;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 using TaskName = System.String;
 
 namespace SurplusMigrator.Tasks {
@@ -31,7 +30,7 @@ namespace SurplusMigrator.Tasks {
             _startedAt = DateTime.Now;
         }
 
-        public bool run(bool includeDependencies = true, bool truncateBeforeInsert = false, bool onlyTruncateMigratedData = true) {
+        public bool run(bool includeDependencies = true, TaskTruncateOption truncateOption = null) {
             if(isAlreadyRun()) return true;
 
             if(includeDependencies) {
@@ -64,6 +63,10 @@ namespace SurplusMigrator.Tasks {
 
             MyConsole.Information("Task " + this.GetType().Name + " started ...");
 
+            if(truncateOption == null) {
+                truncateOption = new TaskTruncateOption();
+            }
+
             bool allSuccess = true;
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
@@ -71,7 +74,7 @@ namespace SurplusMigrator.Tasks {
             List<DbInsertFail> allErrors = new List<DbInsertFail>();
             try {
                 //truncate options is in the config file
-                if(destinations.Any(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))) {
+                if(truncateOption.truncateBeforeInsert == false && destinations.Any(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))) {
                     bool confirmTruncate = true;
                     if(GlobalConfig.getJobPlaylist().Length > 0) {
                         MyConsole.Write("Use truncate options in "+GetType().Name+ " (type \"truncate\" to perform truncating)? ");
@@ -81,7 +84,7 @@ namespace SurplusMigrator.Tasks {
                         }
                     }
                     if(confirmTruncate) {
-                        truncateBeforeInsert = true;
+                        truncateOption.truncateBeforeInsert = true;
                         string[] truncatedTables = destinations
                             .Where(tinfo => GlobalConfig.isTruncatedTable(tinfo.tableName))
                             .Select(a => a.tableName)
@@ -90,8 +93,8 @@ namespace SurplusMigrator.Tasks {
                     }
                 }
 
-                if(truncateBeforeInsert && this.GetType().GetInterfaces().Contains(typeof(RemappableId))) {
-                    var method = ((object)this).GetType().GetMethod("clearRemappingCache");
+                if(truncateOption.truncateBeforeInsert && this.GetType().GetInterfaces().Contains(typeof(RemappableId))) {
+                    var method = this.GetType().GetMethod("clearRemappingCache");
                     method.Invoke(this, new object[] { });
                 }
 
@@ -137,7 +140,7 @@ namespace SurplusMigrator.Tasks {
                         }
 
                         try {
-                            TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), truncateBeforeInsert, onlyTruncateMigratedData, transaction);
+                            TaskInsertStatus taskStatus = dest.insertData(mappedData.getData(dest.tableName), transaction, true, truncateOption);
                             successCount += taskStatus.successCount;
                             failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
                             failureCount += mappedData.getError(dest.tableName).Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
@@ -179,7 +182,7 @@ namespace SurplusMigrator.Tasks {
                             }
 
                             try {
-                                TaskInsertStatus taskStatus = dest.insertData(batchDatas, truncateBeforeInsert, onlyTruncateMigratedData, transaction);
+                                TaskInsertStatus taskStatus = dest.insertData(batchDatas, transaction, true, truncateOption);
                                 successCount += taskStatus.successCount;
                                 failureCount += taskStatus.errors.Where(a => a.severity == DbInsertFail.DB_FAIL_SEVERITY_ERROR).ToList().Count;
                                 duplicateCount += taskStatus.errors.Where(a => a.type == DbInsertFail.DB_FAIL_TYPE_DUPLICATE).ToList().Count;
@@ -196,7 +199,7 @@ namespace SurplusMigrator.Tasks {
                 }
 
                 foreach(Table dest in destinationTables) {
-                    dest.updateSequencer();
+                    dest.maximizeSequencerId();
                 }
 
                 onFinished();
@@ -555,10 +558,10 @@ namespace SurplusMigrator.Tasks {
                 throw new TaskConfigException("More than one source table mapping found, please override the \"getSourceData()\" method");
             }
 
-            return sourceTables.First().getDatas(batchSize);
+            return sourceTables.First().getData(batchSize);
         }
 
-        protected virtual MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        public virtual MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             return new MappedData();
         }
 

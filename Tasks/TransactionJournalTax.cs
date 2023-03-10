@@ -62,10 +62,10 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
-            return sourceTables.Where(a => a.tableName == "transaksi_jurnal_tax").FirstOrDefault().getDatas(batchSize);
+            return sourceTables.Where(a => a.tableName == "transaksi_jurnal_tax").FirstOrDefault().getData(batchSize);
         }
 
-        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();

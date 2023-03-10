@@ -238,7 +238,7 @@ namespace SurplusMigrator.Tasks {
                             { "tbudget_detailid", Utils.obj2str(rowSource["tbudget_detailid"]) },
                         };
                     }
-                    ppdTable.insertData(newPpdDatas, false, true, transaction, false);
+                    ppdTable.insertData(newPpdDatas, transaction, false);
                     SequencerString.updateMasterSequencer(targetConnection, "PPD", now, transaction);
                     MyConsole.Information(newPpdDatas.Count + " data inserted into [transaction_payment_planning_detail] for PV: " + pvId);
 
@@ -290,7 +290,7 @@ namespace SurplusMigrator.Tasks {
                             { "ref_subdetail_id", 0 },
                         });
                     }
-                    pvdTable.insertData(newPvdDatas, false, true, transaction, false);
+                    pvdTable.insertData(newPvdDatas, transaction, false);
                     SequencerString.updateMasterSequencer(targetConnection, "PVD", now, transaction);
                     MyConsole.Information(newPpdDatas.Count + " data inserted into [transaction_journal_detail] for PV: " + pvId);
                     Console.WriteLine();

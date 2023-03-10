@@ -109,10 +109,10 @@ namespace SurplusMigrator.Tasks {
                 queryWhere = "WHERE jurnal_id in ('" + string.Join("','", journalids) + "')";
             }
 
-            return sourceTables.Where(a => a.tableName == "transaksi_jurnal").FirstOrDefault().getDatas(batchSize, queryWhere);
+            return sourceTables.Where(a => a.tableName == "transaksi_jurnal").FirstOrDefault().getData(batchSize, queryWhere);
         }
 
-        protected override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
+        public override MappedData mapData(List<RowData<ColumnName, object>> inputs) {
             MappedData result = new MappedData();
 
             nullifyMissingReferences("rekanan_id", "master_rekanan", "rekanan_id", connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(), inputs);

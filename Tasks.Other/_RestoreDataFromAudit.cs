@@ -94,7 +94,7 @@ namespace SurplusMigrator.Tasks {
 
             try {
                 List<RowData<ColumnName, object>> batchData;
-                while((batchData = tableAudit.getDatas(500, whereClause)).Count > 0) {
+                while((batchData = tableAudit.getData(500, whereClause)).Count > 0) {
                     NpgsqlTransaction transaction = ((NpgsqlConnection)targetConnection.GetDbConnection()).BeginTransaction();
                     try {
                         foreach(var row in batchData) {
