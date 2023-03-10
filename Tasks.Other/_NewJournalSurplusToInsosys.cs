@@ -19,7 +19,7 @@ namespace SurplusMigrator.Tasks {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "transaction_journal",
+                    tablename = "transaction_journal",
                     columns = new string[] {
                         "tjournalid",
                         "bookdate",
@@ -56,7 +56,7 @@ namespace SurplusMigrator.Tasks {
                 },
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "transaction_journal_detail",
+                    tablename = "transaction_journal_detail",
                     columns = new string[] {
                         "tjournal_detailid",
                         "tjournalid",
@@ -97,7 +97,7 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
-                    tableName = "transaksi_jurnal",
+                    tablename = "transaksi_jurnal",
                     columns = new string[] {
                         "jurnal_id",
                         "jurnal_bookdate",
@@ -139,7 +139,7 @@ namespace SurplusMigrator.Tasks {
                 },
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
-                    tableName = "transaksi_jurnaldetil",
+                    tablename = "transaksi_jurnaldetil",
                     columns = new string[] {
                         "jurnal_id",
                         "jurnaldetil_line",
@@ -192,7 +192,7 @@ namespace SurplusMigrator.Tasks {
             int dataFetchedCount = 0;
 
             RowData<ColumnName, object>[] datas;
-            string[] primaryKeys = sources.Where(a => a.tableName == "transaction_journal").First().ids;
+            string[] primaryKeys = sources.Where(a => a.tablename == "transaction_journal").First().ids;
             while((datas = QueryUtils.getDataBatch(surplusConn, "transaction_journal", filters, 2000)).Length > 0) {
                 List<string> tjournalids = new List<string>();
                 foreach(var row in datas) {
@@ -252,7 +252,7 @@ namespace SurplusMigrator.Tasks {
                         is_disabled = false
                         and tjournalid in (<tjournalids>)
                 ";
-                string[] selectColumns = sources.Where(a => a.tableName == "transaction_journal_detail").First().columns;
+                string[] selectColumns = sources.Where(a => a.tablename == "transaction_journal_detail").First().columns;
                 query = query.Replace("<columns>", "\"" + String.Join("\",\"", selectColumns) + "\"");
                 query = query.Replace("<schema>", surplusConn.GetDbLoginInfo().schema);
                 query = query.Replace("<tjournalids>", "'" + String.Join("','", tjournalids) + "'");
@@ -281,7 +281,7 @@ namespace SurplusMigrator.Tasks {
             for(int a = 0; a < newJournals.Length; a += insertBatchSize) {
                 var batchJournals = newJournals.Skip(a).Take(insertBatchSize).ToArray();
 
-                string[] targetColumnsJurnal = destinations.Where(a => a.tableName == "transaksi_jurnal").First().columns;
+                string[] targetColumnsJurnal = destinations.Where(a => a.tablename == "transaksi_jurnal").First().columns;
                 List<string> journalValues = new List<string>();
 
                 SqlTransaction transaction = ((SqlConnection)insosysConn.GetDbConnection()).BeginTransaction();
@@ -364,7 +364,7 @@ namespace SurplusMigrator.Tasks {
                     //journal_detail
                     var batchJurnalDetails = getNewJurnalDetailFromSurplus(batchJournals);
                     if(batchJurnalDetails.Length > 0) {
-                        string[] targetColumnsJournalDetail = destinations.Where(a => a.tableName == "transaksi_jurnaldetil").First().columns;
+                        string[] targetColumnsJournalDetail = destinations.Where(a => a.tablename == "transaksi_jurnaldetil").First().columns;
                         List<string> journalDetailValues = new List<string>();
                         Dictionary<string, int> detailLineCounter = new Dictionary<string, int>();
                         foreach(var row in batchJurnalDetails) {

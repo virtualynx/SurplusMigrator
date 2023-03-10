@@ -12,7 +12,7 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "master_tax_object",
+                    tablename = "master_tax_object",
                     columns = new string[] {
                         "taxobjectid",
                         "name",

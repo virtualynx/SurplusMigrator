@@ -13,7 +13,7 @@ namespace SurplusMigrator.Tasks {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
-                    tableName = "master_acc",
+                    tablename = "master_acc",
                     columns = new string[] {
                         "acc_id",
                         "acc_name",
@@ -33,7 +33,7 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "master_account",
+                    tablename = "master_account",
                     columns = new string[] {
                         "accountid",
                         "name",

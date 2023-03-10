@@ -102,13 +102,13 @@ namespace SurplusMigrator.Tasks {
 
                     Table sourceTable = new Table() {
                         connection = sourceConnection,
-                        tableName = tablename,
+                        tablename = tablename,
                         columns = columns,
                         ids = primaryKeys,
                     };
                     Table targetTable = new Table() {
                         connection = targetConnection,
-                        tableName = tablename,
+                        tablename = tablename,
                         columns = columns,
                         ids = primaryKeys,
                     };

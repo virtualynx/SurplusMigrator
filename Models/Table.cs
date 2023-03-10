@@ -17,7 +17,7 @@ namespace SurplusMigrator.Models {
     class Table
     {
         public DbConnection_ connection;
-        public string tableName;
+        public string tablename;
         public string[] columns;
         private ColumnType<ColumnName, string> columnTypes = null;
         public string[] ids;
@@ -34,7 +34,7 @@ namespace SurplusMigrator.Models {
 
         public Table(TableInfo tableInfo) { 
             connection = tableInfo.connection;
-            tableName = tableInfo.tableName;
+            tablename = tableInfo.tablename;
             columns = tableInfo.columns;
             ids = tableInfo.ids;
         }
@@ -68,7 +68,7 @@ namespace SurplusMigrator.Models {
             do {
                 try {
                     if(verbose) {
-                        MyConsole.Write("Batch-" + fetchBatchCounter + "/" + fetchBatchMax + "(" + getProgressPercentage().ToString("0.0") + "%), fetch data from " + tableName + " ... ");
+                        MyConsole.Write("Batch-" + fetchBatchCounter + "/" + fetchBatchMax + "(" + getProgressPercentage().ToString("0.0") + "%), fetch data from " + tablename + " ... ");
                     }
                     if(whereClause != null && !whereClause.TrimStart().ToLower().StartsWith("where")) {
                         whereClause = " where " + whereClause;
@@ -90,7 +90,7 @@ namespace SurplusMigrator.Models {
                             over_orderby = String.Join(',', ids);
                         }
                         sqlString = sqlString.Replace("<over_orderby>", over_orderby);
-                        sqlString = sqlString.Replace("<tablename>", connection.GetDbLoginInfo().schema + "." + tableName);
+                        sqlString = sqlString.Replace("<tablename>", connection.GetDbLoginInfo().schema + "." + tablename);
                         sqlString = sqlString.Replace("<where>", whereClause!=null? whereClause: "");
                         sqlString = sqlString.Replace("<offset_start>", (((fetchBatchCounter - 1) * batchSize) + 1).ToString());
                         sqlString = sqlString.Replace("<offset_end>", (((fetchBatchCounter - 1) * batchSize) + batchSize).ToString());
@@ -131,7 +131,7 @@ namespace SurplusMigrator.Models {
                         ";
 
                         sqlString = sqlString.Replace("<selected_columns>", "\"" + String.Join("\",\"", columns) + "\"");
-                        sqlString = sqlString.Replace("<tablename>", "\"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"");
+                        sqlString = sqlString.Replace("<tablename>", "\"" + connection.GetDbLoginInfo().schema + "\".\"" + tablename + "\"");
                         string order_by = "";
                         if(ids != null && ids.Length > 0) {
                             order_by = "ORDER BY " + String.Join(',', ids);
@@ -203,7 +203,7 @@ namespace SurplusMigrator.Models {
                 truncateOption = new TaskTruncateOption();
             }
 
-            if(truncateOption.truncateBeforeInsert && !GlobalConfig.isAlreadyTruncated(tableName) && getDataCount(null) > 0) {
+            if(truncateOption.truncateBeforeInsert && !GlobalConfig.isAlreadyTruncated(tablename) && getDataCount(null) > 0) {
                 truncate(transaction, truncateOption);
             }
 
@@ -258,7 +258,7 @@ namespace SurplusMigrator.Models {
                         if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                             throw new System.NotImplementedException();
                         } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                            string sql = "INSERT INTO \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"(\"" + String.Join("\",\"", targetColumns) + "\") VALUES " + String.Join(',', sqlParams);
+                            string sql = "INSERT INTO \"" + connection.GetDbLoginInfo().schema + "\".\"" + tablename + "\"(\"" + String.Join("\",\"", targetColumns) + "\") VALUES " + String.Join(',', sqlParams);
                             
                             try {
                                 affectedRowCount = executeNonQuery(sql, sqlArguments, transaction);
@@ -279,7 +279,7 @@ namespace SurplusMigrator.Models {
                                     omitNotNullViolationInsertData(e, failures, sqlParams, sqlArguments);
                                     retryInsert = true;
                                 } else if(e.Message.Contains("duplicate key value violates unique constraint")) {
-                                    throw new Exception("Unique constraint violation upon insert into " + tableName + ": " + e.Detail);
+                                    throw new Exception("Unique constraint violation upon insert into " + tablename + ": " + e.Detail);
                                 } else {
                                     //MyConsole.Error(e, "SQL error upon insert into " + tablename + ": " + e.Detail);
                                     throw;
@@ -293,7 +293,7 @@ namespace SurplusMigrator.Models {
                         result.successCount += affectedRowCount;
                         if(verbose) {
                             MyConsole.EraseLine();
-                            MyConsole.Write(insertedCount + "/" + inputs.Count + " data inserted into " + tableName);
+                            MyConsole.Write(insertedCount + "/" + inputs.Count + " data inserted into " + tablename);
                         }
                     } while(retryInsert);
                     sqlParams.Clear();
@@ -312,9 +312,9 @@ namespace SurplusMigrator.Models {
             if(dataCount == -1) {
                 string sql = "";
                 if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                    sql = "SELECT COUNT(1) FROM [" + connection.GetDbLoginInfo().schema + "].[" + tableName + "]<where_clause>";
+                    sql = "SELECT COUNT(1) FROM [" + connection.GetDbLoginInfo().schema + "].[" + tablename + "]<where_clause>";
                 } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                    sql = "SELECT COUNT(1) FROM \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\"<where_clause>";
+                    sql = "SELECT COUNT(1) FROM \"" + connection.GetDbLoginInfo().schema + "\".\"" + tablename + "\"<where_clause>";
                 }
                 if(whereClause != null) {
                     if(!whereClause.ToLower().Trim().StartsWith("where")) {
@@ -338,7 +338,7 @@ namespace SurplusMigrator.Models {
                     do {
                         try {
                             SqlConnection conn = (SqlConnection)connection.GetDbConnection();
-                            SqlCommand command = new SqlCommand("select TOP 1 [" + String.Join("],[", columns) + "] from [" + connection.GetDbLoginInfo().schema + "].[" + tableName + "]", conn);
+                            SqlCommand command = new SqlCommand("select TOP 1 [" + String.Join("],[", columns) + "] from [" + connection.GetDbLoginInfo().schema + "].[" + tablename + "]", conn);
                             SqlDataReader reader = command.ExecuteReader();
 
                             foreach(string columnName in columns) {
@@ -357,7 +357,7 @@ namespace SurplusMigrator.Models {
                         }
                     } while(retry);
                 } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                    List<RowData<ColumnName, object>> datas = executeQuery("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema='" + connection.GetDbLoginInfo().schema + "' AND table_name = '" + tableName + "'");
+                    List<RowData<ColumnName, object>> datas = executeQuery("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema='" + connection.GetDbLoginInfo().schema + "' AND table_name = '" + tablename + "'");
 
                     foreach(RowData<ColumnName, object> row in datas) {
                         string column_name = row["column_name"].ToString();
@@ -383,6 +383,8 @@ namespace SurplusMigrator.Models {
                         string identityColumn = getIdentityColumnName();
 
                         if(identityColumn != null) {
+                            string sequencerTablename = tablename.Length>30? tablename.Substring(0, 30): tablename;
+
                             string query = @"
                                 SELECT 
 	                                schemaname,
@@ -395,7 +397,7 @@ namespace SurplusMigrator.Models {
                             ";
 
                             query = query.Replace("<schema>", connection.GetDbLoginInfo().schema);
-                            query = query.Replace("<tablename>", tableName);
+                            query = query.Replace("<tablename>", sequencerTablename);
                             query = query.Replace("<identity_column>", identityColumn);
 
                             List<RowData<ColumnName, object>> rs_sequencer = new List<RowData<string, dynamic>>();
@@ -420,11 +422,11 @@ namespace SurplusMigrator.Models {
 
                             if(rs_sequencer.Count > 0) {
                                 if(rs_sequencer.Count > 1) {
-                                    throw new Exception("Found 2 sequencer for table " + tableName);
+                                    throw new Exception("Found 2 sequencer for table " + tablename);
                                 }
 
                                 string sequencerColumnName = rs_sequencer[0]["sequencename"].ToString();
-                                sequencerColumnName = sequencerColumnName.Replace(tableName + "_", "");
+                                sequencerColumnName = sequencerColumnName.Replace(tablename + "_", "");
                                 sequencerColumnName = sequencerColumnName.Replace("_seq", "");
 
                                 query = @"
@@ -436,7 +438,7 @@ namespace SurplusMigrator.Models {
 
                                 query = query.Replace("<column>", sequencerColumnName);
                                 query = query.Replace("<schema>", connection.GetDbLoginInfo().schema);
-                                query = query.Replace("<tablename>", tableName);
+                                query = query.Replace("<tablename>", tablename);
 
                                 command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
                                 long lastId = -1;
@@ -453,7 +455,7 @@ namespace SurplusMigrator.Models {
                                     affectedRow = command.ExecuteNonQuery();
                                 }
                             } else {
-                                throw new Exception("Table " + tableName + " has no sequencer");
+                                throw new Exception("Table " + tablename + " has no sequencer");
                             }
                         }
                     }
@@ -502,7 +504,7 @@ namespace SurplusMigrator.Models {
                     ;
                 ";
                 query = query.Replace("[schema]", connection.GetDbLoginInfo().schema);
-                query = query.Replace("[tablename]", tableName);
+                query = query.Replace("[tablename]", tablename);
 
                 NpgsqlCommand command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
                 object identityColumnObj = command.ExecuteScalar();
@@ -520,12 +522,12 @@ namespace SurplusMigrator.Models {
                     throw new NotImplementedException();
                 } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
                     if(truncateOption.cascade) {
-                        TableRelation relation = GlobalConfig.getTableRelation(tableName);
+                        TableRelation relation = GlobalConfig.getTableRelation(tablename);
                         if(relation != null) {
                             truncateRelation(relation, truncateOption.onlyTruncateMigratedData, truncateOption.cascade, transaction);
                         }
                     }
-                    doTruncate(tableName, truncateOption.onlyTruncateMigratedData, truncateOption.cascade, transaction);
+                    doTruncate(tablename, truncateOption.onlyTruncateMigratedData, truncateOption.cascade, transaction);
                 }
             } catch(NotImplementedException) {
                 throw;
@@ -550,7 +552,7 @@ namespace SurplusMigrator.Models {
                         }
                         doTruncate(relTable, onlyTruncateMigratedData, cascade, transaction);
                     }
-                    if(relation.tablename != tableName) {
+                    if(relation.tablename != tablename) {
                         doTruncate(relation.tablename, onlyTruncateMigratedData, cascade, transaction);
                     }
                 }
@@ -615,7 +617,7 @@ namespace SurplusMigrator.Models {
                 } else {
                     duplicatedDatas.Add(row);
                     failures.Add(new DbInsertFail() {
-                        info = "Data already exists upon insert into " + tableName + ", value: " + JsonSerializer.Serialize(row),
+                        info = "Data already exists upon insert into " + tablename + ", value: " + JsonSerializer.Serialize(row),
                         severity = DbInsertFail.DB_FAIL_SEVERITY_WARNING,
                         type = DbInsertFail.DB_FAIL_TYPE_DUPLICATE
                     });
@@ -630,7 +632,7 @@ namespace SurplusMigrator.Models {
             if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
                 throw new System.NotImplementedException();
             } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                string sqlSelect = "select \"" + String.Join("\",\"", ids) + "\" from \"" + connection.GetDbLoginInfo().schema + "\".\"" + tableName + "\" where (\"" + String.Join("\",\"", ids) + "\") in" + "(" + String.Join(',', sqlSelectParams) + ")";
+                string sqlSelect = "select \"" + String.Join("\",\"", ids) + "\" from \"" + connection.GetDbLoginInfo().schema + "\".\"" + tablename + "\" where (\"" + String.Join("\",\"", ids) + "\") in" + "(" + String.Join(',', sqlSelectParams) + ")";
                 selectResults = executeQuery(sqlSelect, sqlSelectArgs);
             }
             foreach(RowData<ColumnName, object> rowSelect in selectResults) {
@@ -645,7 +647,7 @@ namespace SurplusMigrator.Models {
                     duplicatedDatas.Add(duplicate);
                     inputs.Remove(duplicate);
                     DbInsertFail insertfailInfo = new DbInsertFail() {
-                        info = "Data already exists upon insert into " + tableName + ", value: " + JsonSerializer.Serialize(rowSelect),
+                        info = "Data already exists upon insert into " + tablename + ", value: " + JsonSerializer.Serialize(rowSelect),
                         severity = DbInsertFail.DB_FAIL_SEVERITY_WARNING,
                         type = DbInsertFail.DB_FAIL_TYPE_DUPLICATE
                     };
@@ -655,7 +657,7 @@ namespace SurplusMigrator.Models {
 
             if(duplicatedDatas.Count > 0) {
                 MyConsole.EraseLine();
-                MyConsole.WriteLine("Skipping " + duplicatedDatas.Count + " duplicated data upon inserting into " + tableName);
+                MyConsole.WriteLine("Skipping " + duplicatedDatas.Count + " duplicated data upon inserting into " + tablename);
             }
         }
 
@@ -690,7 +692,7 @@ namespace SurplusMigrator.Models {
                 }
                 DbInsertFail insertfailInfo = new DbInsertFail() {
                     exception = e,
-                    info = "Foreignkey constraint violation upon insert into " + tableName + ", " + e.Detail + ", value: " + JsonSerializer.Serialize(arg),
+                    info = "Foreignkey constraint violation upon insert into " + tablename + ", " + e.Detail + ", value: " + JsonSerializer.Serialize(arg),
                     severity = DbInsertFail.DB_FAIL_SEVERITY_ERROR,
                     type = DbInsertFail.DB_FAIL_TYPE_FOREIGNKEY_VIOLATION
                 };
@@ -699,7 +701,7 @@ namespace SurplusMigrator.Models {
 
             if(filteredArguments.Count > 0) {
                 MyConsole.EraseLine();
-                MyConsole.Error("Error upon insert into " + tableName + ", " + e.Detail + "(" + filteredArguments.Count + " data)");
+                MyConsole.Error("Error upon insert into " + tablename + ", " + e.Detail + "(" + filteredArguments.Count + " data)");
             }
         }
 
@@ -717,7 +719,7 @@ namespace SurplusMigrator.Models {
             ).ToList();
 
             if(filteredArguments.Count == 0) {
-                throw new TaskConfigException("Not-null violation(column="+column+") is found upon inserting into "+ tableName + ", but (column=" + column + ") is not listed on the Task Configuration");
+                throw new TaskConfigException("Not-null violation(column="+column+") is found upon inserting into "+ tablename + ", but (column=" + column + ") is not listed on the Task Configuration");
             }
 
             foreach(Dictionary<ParamNotation, object> arg in filteredArguments) {
@@ -736,7 +738,7 @@ namespace SurplusMigrator.Models {
                 }
                 DbInsertFail insertfailInfo = new DbInsertFail() {
                     exception = e,
-                    info = "Not-Null constraint violation upon insert into " + tableName + ", " + e.MessageText + ", value: " + JsonSerializer.Serialize(arg),
+                    info = "Not-Null constraint violation upon insert into " + tablename + ", " + e.MessageText + ", value: " + JsonSerializer.Serialize(arg),
                     severity = DbInsertFail.DB_FAIL_SEVERITY_ERROR,
                     type = DbInsertFail.DB_FAIL_TYPE_NOTNULL_VIOLATION
                 };
@@ -744,7 +746,7 @@ namespace SurplusMigrator.Models {
             }
 
             if(filteredArguments.Count > 0) {
-                MyConsole.Error("Error upon insert into " + tableName + ", " + e.MessageText + "(" + filteredArguments.Count + " data)");
+                MyConsole.Error("Error upon insert into " + tablename + ", " + e.MessageText + "(" + filteredArguments.Count + " data)");
             }
         }
 

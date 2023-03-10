@@ -101,7 +101,7 @@ namespace SurplusMigrator.Tasks {
 
                     Table targetTable = new Table() {
                         connection = targetConnection,
-                        tableName = tablename,
+                        tablename = tablename,
                         columns = QueryUtils.getColumnNames(targetConnection, tablename),
                         ids = QueryUtils.getPrimaryKeys(targetConnection, tablename),
                     };

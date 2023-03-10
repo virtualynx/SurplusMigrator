@@ -14,8 +14,8 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    //tableName = "master_user_group",
-                    tableName = "usergroup",
+                    //tablename = "master_user_group",
+                    tablename = "usergroup",
                     columns = new string[] {
                         "usergroupid",
                         "name",

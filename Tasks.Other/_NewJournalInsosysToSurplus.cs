@@ -16,7 +16,7 @@ namespace SurplusMigrator.Tasks {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
-                    tableName = "transaksi_jurnal",
+                    tablename = "transaksi_jurnal",
                     columns = new string[] {
                         "jurnal_id",
                         "jurnal_bookdate",
@@ -58,7 +58,7 @@ namespace SurplusMigrator.Tasks {
                 },
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
-                    tableName = "transaksi_jurnaldetil",
+                    tablename = "transaksi_jurnaldetil",
                     columns = new string[] {
                         "jurnal_id",
                         "jurnaldetil_line",
@@ -87,7 +87,7 @@ namespace SurplusMigrator.Tasks {
                 },
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
-                    tableName = "transaksi_salesorder",
+                    tablename = "transaksi_salesorder",
                     columns = new string[] {
                         "salesorder_id",
                         "salesorder_agency",
@@ -143,7 +143,7 @@ namespace SurplusMigrator.Tasks {
                 },
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
-                    tableName = "transaksi_jurnalreference",
+                    tablename = "transaksi_jurnalreference",
                     columns = new string[] {
                         "jurnal_id",
                         "jurnaldetil_line",
@@ -156,7 +156,7 @@ namespace SurplusMigrator.Tasks {
                 },
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
-                    tableName = "transaksi_jurnal_tax",
+                    tablename = "transaksi_jurnal_tax",
                     columns = new string[] {
                         "jurnaltax_id",
                         "jurnaltax_fakturid",
@@ -179,7 +179,7 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "transaction_journal",
+                    tablename = "transaction_journal",
                     columns = new string[] {
                         "tjournalid",
                         "bookdate",
@@ -217,7 +217,7 @@ namespace SurplusMigrator.Tasks {
                 },
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "transaction_journal_detail",
+                    tablename = "transaction_journal_detail",
                     columns = new string[] {
                         "tjournal_detailid",
                         "tjournalid",
@@ -256,7 +256,7 @@ namespace SurplusMigrator.Tasks {
                 },
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "transaction_sales_order",
+                    tablename = "transaction_sales_order",
                     columns = new string[] {
                         "tsalesorderid",
                         "vendorid",
@@ -309,7 +309,7 @@ namespace SurplusMigrator.Tasks {
                 },
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "transaction_journal_tax",
+                    tablename = "transaction_journal_tax",
                     columns = new string[] {
                         "tjournaltaxid",
                         "tjournalid",
@@ -426,7 +426,7 @@ namespace SurplusMigrator.Tasks {
 
             List<RowData<ColumnName, object>> migratedJurnalInsosys = new List<RowData<ColumnName, object>>();
 
-            Table tableJurnal = new Table(sources.First(a => a.tableName == "transaksi_jurnal"));
+            Table tableJurnal = new Table(sources.First(a => a.tablename == "transaksi_jurnal"));
             if(journalIds != null) {
                 string whereIn = "jurnal_id in @jurnal_ids".Replace("@jurnal_ids", QueryUtils.getInsertArg(journalIds));
                 List<RowData<ColumnName, object>> batchData;
@@ -451,7 +451,7 @@ namespace SurplusMigrator.Tasks {
         private RowData<ColumnName, object>[] getNewDataOnly(List<RowData<ColumnName, object>> inputs) {
             List<RowData<ColumnName, object>> result = new List<RowData<string, object>>();
 
-            Table tableJournal = new Table(destinations.First(a => a.tableName == "transaction_journal"));
+            Table tableJournal = new Table(destinations.First(a => a.tablename == "transaction_journal"));
             int readBatchSize = 250;
             for(int a=0; a<inputs.Count; a+=readBatchSize) {
                 var batchDataInsosys = inputs.Skip(a).Take(readBatchSize).ToArray();
@@ -493,7 +493,7 @@ namespace SurplusMigrator.Tasks {
                     where
                         jurnal_id in @jurnalids
                 ";
-                string[] selectColumns = sources.Where(a => a.tableName == "transaksi_jurnaldetil").First().columns;
+                string[] selectColumns = sources.Where(a => a.tablename == "transaksi_jurnaldetil").First().columns;
                 query = query.Replace("<columns>", "[" + String.Join("],[", selectColumns) + "]");
                 query = query.Replace("<schema>", insosysConn.GetDbLoginInfo().schema);
                 query = query.Replace("@jurnalids", QueryUtils.getInsertArg(jurnalids));
@@ -516,8 +516,8 @@ namespace SurplusMigrator.Tasks {
             for(int a = 0; a < newJournals.Length; a += insertBatchSize) {
                 var batchJurnals = newJournals.Skip(a).Take(insertBatchSize).ToArray();
 
-                Table tableJournal = new Table(destinations.First(a => a.tableName == "transaction_journal"));
-                Table tableJournalDetail = new Table(destinations.First(a => a.tableName == "transaction_journal_detail"));
+                Table tableJournal = new Table(destinations.First(a => a.tablename == "transaction_journal"));
+                Table tableJournalDetail = new Table(destinations.First(a => a.tablename == "transaction_journal_detail"));
 
                 var mappedJournalData = tjournalTask.mapData(batchJurnals.ToList()).getData("transaction_journal");
                 tableJournal.insertData(mappedJournalData, transaction);
@@ -527,7 +527,7 @@ namespace SurplusMigrator.Tasks {
                     .Where(a => Utils.obj2str(a["jurnal_id"]).ToUpper().StartsWith("SA"))
                     .Select(a => Utils.obj2str(a["jurnal_id"]).ToUpper()).ToArray();
                 if(saList.Length > 0) {
-                    Table tableJurnalReference = new Table(sources.First(a => a.tableName == "transaksi_jurnalreference"));
+                    Table tableJurnalReference = new Table(sources.First(a => a.tablename == "transaksi_jurnalreference"));
                     string whereInJurnalRef = "jurnal_id in @jurnal_ids".Replace("@jurnal_ids", QueryUtils.getInsertArg(saList));
                     var soIdList = tableJurnalReference.getAllData(whereInJurnalRef)
                         .Where(a => Utils.obj2str(a["jurnal_id_ref"]).ToUpper().StartsWith("SO"))
@@ -536,22 +536,22 @@ namespace SurplusMigrator.Tasks {
                         .ToArray();
 
                     if(soIdList.Length > 0) {
-                        Table tableSoSource = new Table(sources.First(a => a.tableName == "transaksi_salesorder"));
+                        Table tableSoSource = new Table(sources.First(a => a.tablename == "transaksi_salesorder"));
                         string whereInSo = "salesorder_id in @salesorder_ids".Replace("@salesorder_ids", QueryUtils.getInsertArg(soIdList));
                         var soDatas = tableSoSource.getAllData(whereInSo);
                         if(soDatas.Count > 0) {
-                            Table tableSoDest = new Table(destinations.First(a => a.tableName == "transaction_sales_order"));
+                            Table tableSoDest = new Table(destinations.First(a => a.tablename == "transaction_sales_order"));
                             var mappedSoData = tsalesOrderTask.mapData(soDatas).getData("transaction_sales_order");
                             tableSoDest.insertData(mappedSoData, transaction);
                             Console.WriteLine();
                         }
                     }
 
-                    Table tableJurnalTaxSource = new Table(sources.First(a => a.tableName == "transaksi_jurnal_tax"));
+                    Table tableJurnalTaxSource = new Table(sources.First(a => a.tablename == "transaksi_jurnal_tax"));
                     string whereInJurnalTax = "jurnaltax_id in @jurnal_ids".Replace("@jurnal_ids", QueryUtils.getInsertArg(saList));
                     var jurnalTaxList = tableJurnalTaxSource.getAllData(whereInJurnalTax);
                     if(jurnalTaxList.Count > 0) {
-                        Table tableJournalTaxDest = new Table(destinations.First(a => a.tableName == "transaction_journal_tax"));
+                        Table tableJournalTaxDest = new Table(destinations.First(a => a.tablename == "transaction_journal_tax"));
                         var mappedJournalTaxData = tsalesOrderTask.mapData(jurnalTaxList).getData("transaction_journal_tax");
                         tableJournalTaxDest.insertData(mappedJournalTaxData, transaction);
                         Console.WriteLine();

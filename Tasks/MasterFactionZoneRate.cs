@@ -9,7 +9,7 @@ namespace SurplusMigrator.Tasks {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
-                    tableName = "master_golongan",
+                    tablename = "master_golongan",
                     columns = new string[] {
                         "golongan_id",
                         "golongan_desc",
@@ -25,7 +25,7 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "master_faction_zone_rate",
+                    tablename = "master_faction_zone_rate",
                     columns = new string[] {
                         "factionid",
                         "zoneid",
@@ -43,7 +43,7 @@ namespace SurplusMigrator.Tasks {
         protected override List<RowData<ColumnName, object>> getSourceData(Table[] sourceTables, int batchSize = defaultReadBatchSize) {
             List<RowData<ColumnName, object>> result = new List<RowData<string, object>>();
 
-            List<RowData<ColumnName, object>> masterGolongan = sourceTables.Where(a => a.tableName == "master_golongan").FirstOrDefault().getData(batchSize);
+            List<RowData<ColumnName, object>> masterGolongan = sourceTables.Where(a => a.tablename == "master_golongan").FirstOrDefault().getData(batchSize);
             
             foreach(RowData<ColumnName, object> row in masterGolongan) {
                 string[] golonganIdArr = row["golongan_id"].ToString().Split(" ");

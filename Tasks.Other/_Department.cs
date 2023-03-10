@@ -15,7 +15,7 @@ namespace SurplusMigrator.Tasks {
             sources = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "hris").FirstOrDefault(),
-                    tableName = "Organization_structure",
+                    tablename = "Organization_structure",
                     columns = new string[] {
                         "structure_code",
                         "structure_name",
@@ -28,7 +28,7 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "master_department",
+                    tablename = "master_department",
                     columns = new string[] {
                         "departmentid",
                         "name",
@@ -41,7 +41,7 @@ namespace SurplusMigrator.Tasks {
                 },
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "relation_department_surplus_hris",
+                    tablename = "relation_department_surplus_hris",
                     columns = new string[] {
                         "departmentid",
                         "departmentid_hris",

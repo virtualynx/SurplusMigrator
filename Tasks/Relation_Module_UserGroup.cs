@@ -10,7 +10,7 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] {
                 new TableInfo() {
                     connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tableName = "relation_module_usergroup",
+                    tablename = "relation_module_usergroup",
                     columns = new string[] {
                         "moduleid",
                         "usergroupid",

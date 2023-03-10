@@ -66,7 +66,7 @@ namespace SurplusMigrator.Tasks {
 
             var tableAudit = new Table(new TableInfo() {
                 connection = sourceConnection,
-                tableName = "audit",
+                tablename = "audit",
                 columns = new string[] {
                     "id",
                     "inserted_date",
@@ -272,7 +272,7 @@ namespace SurplusMigrator.Tasks {
 
             var tableAudit = new Table(new TableInfo() {
                 connection = sourceConnection,
-                tableName = "audit",
+                tablename = "audit",
                 columns = new string[] {
                     "id",
                     "inserted_date",
@@ -351,7 +351,7 @@ namespace SurplusMigrator.Tasks {
             if(!columnTypeMap.ContainsKey(tablename)) {
                 columnTypeMap[tablename] = new Table(new TableInfo() {
                     connection = targetConnection,
-                    tableName = tablename,
+                    tablename = tablename,
                     columns = QueryUtils.getColumnNames(targetConnection, tablename),
                     ids = QueryUtils.getPrimaryKeys(targetConnection, tablename)
                 }).getColumnTypes();
