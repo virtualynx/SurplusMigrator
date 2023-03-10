@@ -28,14 +28,13 @@ namespace SurplusMigrator.Tasks {
             //    .Replace("[filename]", "surplus_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".gzip")
             //;
 
-            string strCmdText = @"/C pg_dump --host [host] --port [port] --username ""[username]"" --role ""[username]"" --format tar --encoding UTF8 --verbose --exclude-table ""[schema].view_*"" --file ""[filename]"" --schema ""[schema]"" ""[dbname]"""
+            string strCmdTemplate = @"/C pg_dump --host [host] --port [port] --username ""[username]"" --role ""[username]"" --format tar --encoding UTF8 --verbose --exclude-table ""[schema].view_*"" --file ""[filename]"" --schema ""[schema]"" ""[dbname]"""
                 .Replace("[username]", loginInfo.username)
                 .Replace("[password]", loginInfo.password)
                 .Replace("[host]", loginInfo.host)
                 .Replace("[port]", loginInfo.port.ToString())
                 .Replace("[dbname]", loginInfo.dbname)
                 .Replace("[schema]", loginInfo.schema)
-                .Replace("[filename]", "surplus_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".tar")
             ;
 
             DateTime today = DateTime.MinValue;
@@ -52,6 +51,8 @@ namespace SurplusMigrator.Tasks {
                 if(!alreadyRunToday && now >= scheduledTime) {
                     Console.WriteLine();
                     MyConsole.Information("Backup database " + loginInfo.dbname + "(schema: "+loginInfo.schema+") started ...");
+
+                    string strCmdText = strCmdTemplate.Replace("[filename]", "surplus_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".tar");
 
                     //System.Diagnostics.Process.Start("CMD.exe", strCmdText);
                     ProcessStartInfo cmdsi = new ProcessStartInfo("cmd.exe");
