@@ -1,5 +1,3 @@
-using Microsoft.Data.SqlClient;
-using Microsoft.Office.Interop.Excel;
 using Npgsql;
 using SurplusMigrator.Exceptions.Gen21;
 using SurplusMigrator.Interfaces;
@@ -10,7 +8,6 @@ using System.Collections.Generic;
 using System.Data.Common;
 using System.Data.Entity.Core.Common.CommandTrees.ExpressionBuilder;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace SurplusMigrator.Tasks {
     class _UpdateJournalInsosysToSurplus : _BaseTask, RemappableId {
@@ -315,6 +312,8 @@ namespace SurplusMigrator.Tasks {
             var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
             NpgsqlTransaction transaction = ((NpgsqlConnection)surplusConn.GetDbConnection()).BeginTransaction();
 
+            var updatedIds = updatedJurnals.Select(a => a["jurnal_id"].ToString()).ToArray();
+
             QueryUtils.toggleTrigger(surplusConn, "transaction_journal", false);
             QueryUtils.toggleTrigger(surplusConn, "transaction_journal_detail", false);
             try {
@@ -398,7 +397,7 @@ namespace SurplusMigrator.Tasks {
                         Utils.obj2str(iData["jurnal_id"]) == Utils.obj2str(sData["tjournalid"])
                         && (
                             (Utils.obj2datetimeNullable(iData["modified_dt"]) != null && Utils.obj2datetimeNullable(sData["modified_date"]) == null)
-                            || Utils.obj2datetime(iData["modified_dt"]) > Utils.obj2datetime(sData["modified_date"])
+                            || Utils.obj2datetimeNullable(iData["modified_dt"]) > Utils.obj2datetimeNullable(sData["modified_date"])
                         )
                     )
                 ).ToList();
