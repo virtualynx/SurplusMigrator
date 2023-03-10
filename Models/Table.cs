@@ -370,19 +370,7 @@ namespace SurplusMigrator.Models {
             return columnTypes;
         }
 
-        public bool setSequencer(int num) {
-            int affectedRow = 0;
-            string sequenceName = tableName + "_" + ids[0] + "_seq";
-            if(connection.GetDbLoginInfo().type == DbTypes.MSSQL) {
-                throw new System.NotImplementedException();
-            } else if(connection.GetDbLoginInfo().type == DbTypes.POSTGRESQL) {
-                executeNonQuery("ALTER SEQUENCE " + sequenceName + " RESTART WITH " + num);
-            }
-
-            return affectedRow > 0;
-        }
-
-        public bool updateSequencer() {
+        public bool maximizeSequencerId() {
             bool success = false;
             bool retry = false;
             do {
@@ -464,6 +452,8 @@ namespace SurplusMigrator.Models {
                                     command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
                                     affectedRow = command.ExecuteNonQuery();
                                 }
+                            } else {
+                                throw new Exception("Table " + tableName + " has no sequencer");
                             }
                         }
                     }

@@ -140,7 +140,7 @@ namespace SurplusMigrator.Tasks {
                     }
 
                     //update sequencer
-                    targetTable.updateSequencer();
+                    targetTable.maximizeSequencerId();
                     transaction.Commit();
                     MyConsole.EraseLine();
                     MyConsole.Information("Successfully copying " + insertedCount + "/"+ dataCount + " data on table " + tablename);
