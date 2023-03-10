@@ -393,11 +393,12 @@ namespace SurplusMigrator.Models {
                                     pg_sequences
                                 WHERE
                                     schemaname = '<schema>'
-                                    and sequencename = '<tablename>_<identity_column>_seq'
+                                    and sequencename like '<sequencer_tablename>%'
+                                    and sequencename like '%_<identity_column>_seq'
                             ";
 
                             query = query.Replace("<schema>", connection.GetDbLoginInfo().schema);
-                            query = query.Replace("<tablename>", sequencerTablename);
+                            query = query.Replace("<sequencer_tablename>", sequencerTablename);
                             query = query.Replace("<identity_column>", identityColumn);
 
                             List<RowData<ColumnName, object>> rs_sequencer = new List<RowData<string, dynamic>>();
@@ -425,10 +426,6 @@ namespace SurplusMigrator.Models {
                                     throw new Exception("Found 2 sequencer for table " + tablename);
                                 }
 
-                                string sequencerColumnName = rs_sequencer[0]["sequencename"].ToString();
-                                sequencerColumnName = sequencerColumnName.Replace(tablename + "_", "");
-                                sequencerColumnName = sequencerColumnName.Replace("_seq", "");
-
                                 query = @"
                                     SELECT 
 	                                    MAX(""<column>"")
@@ -436,7 +433,7 @@ namespace SurplusMigrator.Models {
                                         ""<schema>"".""<tablename>""
                                 ";
 
-                                query = query.Replace("<column>", sequencerColumnName);
+                                query = query.Replace("<column>", identityColumn);
                                 query = query.Replace("<schema>", connection.GetDbLoginInfo().schema);
                                 query = query.Replace("<tablename>", tablename);
 
@@ -498,13 +495,13 @@ namespace SurplusMigrator.Models {
 			                    pg_class s
 			                    join pg_namespace sn on sn.oid = s.relnamespace
 		                    where 
-			                    sn.nspname = '[schema]'
-			                    and relname = '[tablename]'
+			                    sn.nspname = '<schema>'
+			                    and relname = '<tablename>'
                         )
                     ;
                 ";
-                query = query.Replace("[schema]", connection.GetDbLoginInfo().schema);
-                query = query.Replace("[tablename]", tablename);
+                query = query.Replace("<schema>", connection.GetDbLoginInfo().schema);
+                query = query.Replace("<tablename>", tablename);
 
                 NpgsqlCommand command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
                 object identityColumnObj = command.ExecuteScalar();
