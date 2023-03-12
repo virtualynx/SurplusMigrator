@@ -52,7 +52,7 @@ namespace SurplusMigrator.Tasks {
                     Console.WriteLine();
                     MyConsole.Information("Backup database " + loginInfo.dbname + "(schema: "+loginInfo.schema+") started ...");
 
-                    string strCmdText = strCmdTemplate.Replace("[filename]", "surplus_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".tar");
+                    string strCmdText = strCmdTemplate.Replace("[filename]", "surplus_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".backup");
 
                     //System.Diagnostics.Process.Start("CMD.exe", strCmdText);
                     ProcessStartInfo cmdsi = new ProcessStartInfo("cmd.exe");

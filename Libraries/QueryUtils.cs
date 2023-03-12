@@ -565,6 +565,36 @@ namespace SurplusMigrator.Libraries {
             return stringData;
         }
 
+        public static string getSequencerName(DbConnection_ connection, string tablename) {
+            string[] primaryKeys = getPrimaryKeys(connection, tablename);
+
+            if(primaryKeys.Length == 0 || primaryKeys.Length > 1) {
+                throw new Exception(
+                    @"Table <tablename> has <primary_key_count> primary-keys"
+                    .Replace("<tablename>", tablename)
+                    .Replace("<primary_key_count>", primaryKeys.Length.ToString())
+                );
+            }
+
+            var rs = executeQuery(
+                connection,
+                @"select pg_get_serial_sequence(@tablename, @primarykey)",
+                new Dictionary<string, object> { 
+                    { "@tablename", "\""+tablename+"\"" },
+                    { "@primarykey", primaryKeys[0] },
+                }
+            );
+
+            if(rs.Length == 0) {
+                return null;
+            }
+
+            return Utils.obj2str(rs.First()["pg_get_serial_sequence"])
+                .Replace(connection.GetDbLoginInfo().schema + ".", "")
+                .Replace("\"", "")
+            ;
+        }
+
         public static bool isConnectionProblem(Exception e) {
             bool result = false;
 

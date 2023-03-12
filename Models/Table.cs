@@ -383,61 +383,23 @@ namespace SurplusMigrator.Models {
                         string identityColumn = getIdentityColumnName();
 
                         if(identityColumn != null) {
-                            string sequencerTablename = tablename.Length>30? tablename.Substring(0, 30): tablename;
+                            string sequencerName = QueryUtils.getSequencerName(connection, tablename);
 
-                            string query = @"
-                                SELECT 
-	                                schemaname,
-	                                sequencename
-                                FROM 
-                                    pg_sequences
-                                WHERE
-                                    schemaname = '<schema>'
-                                    and sequencename like '<sequencer_tablename>%'
-                                    and sequencename like '%_<identity_column>_seq'
-                            ";
-
-                            query = query.Replace("<schema>", connection.GetDbLoginInfo().schema);
-                            query = query.Replace("<sequencer_tablename>", sequencerTablename);
-                            query = query.Replace("<identity_column>", identityColumn);
-
-                            List<RowData<ColumnName, object>> rs_sequencer = new List<RowData<string, dynamic>>();
-                            NpgsqlCommand command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
-                            NpgsqlDataReader reader = command.ExecuteReader();
-                            while(reader.Read()) {
-                                RowData<ColumnName, dynamic> rowData = new RowData<ColumnName, dynamic>();
-                                for(int a = 0; a < reader.FieldCount; a++) {
-                                    string columnName = reader.GetName(a);
-                                    dynamic data = reader.GetValue(a);
-                                    if(data.GetType() == typeof(System.DBNull)) {
-                                        data = null;
-                                    } else if(data.GetType() == typeof(string)) {
-                                        data = data.ToString().Trim();
-                                    }
-                                    rowData.Add(columnName, data);
-                                }
-                                rs_sequencer.Add(rowData);
-                            }
-                            reader.Close();
-                            command.Dispose();
-
-                            if(rs_sequencer.Count > 0) {
-                                if(rs_sequencer.Count > 1) {
-                                    throw new Exception("Found 2 sequencer for table " + tablename);
-                                }
-
-                                query = @"
+                            if(sequencerName == null) {
+                                throw new Exception("Table " + tablename + " has no sequencer");
+                            } else {
+                                string query = @"
                                     SELECT 
 	                                    MAX(""<column>"")
                                     FROM 
                                         ""<schema>"".""<tablename>""
-                                ";
+                                "
+                                .Replace("<column>", identityColumn)
+                                .Replace("<schema>", connection.GetDbLoginInfo().schema)
+                                .Replace("<tablename>", tablename)
+                                ;
 
-                                query = query.Replace("<column>", identityColumn);
-                                query = query.Replace("<schema>", connection.GetDbLoginInfo().schema);
-                                query = query.Replace("<tablename>", tablename);
-
-                                command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
+                                NpgsqlCommand command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
                                 long lastId = -1;
                                 bool hasValue = Int64.TryParse(command.ExecuteScalar().ToString(), out lastId);
                                 command.Dispose();
@@ -445,14 +407,12 @@ namespace SurplusMigrator.Models {
                                 if(hasValue) {
                                     //query = @"SELECT setval('<sequencer_name>', [last_id], true)";
                                     query = @"ALTER SEQUENCE ""<sequencer_name>"" RESTART WITH <last_id>;";
-                                    query = query.Replace("<sequencer_name>", rs_sequencer[0]["sequencename"].ToString());
+                                    query = query.Replace("<sequencer_name>", sequencerName);
                                     query = query.Replace("<last_id>", lastId.ToString());
 
                                     command = new NpgsqlCommand(query, (NpgsqlConnection)connection.GetDbConnection());
                                     affectedRow = command.ExecuteNonQuery();
                                 }
-                            } else {
-                                throw new Exception("Table " + tablename + " has no sequencer");
                             }
                         }
                     }
