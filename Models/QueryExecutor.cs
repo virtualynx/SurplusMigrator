@@ -20,6 +20,7 @@ namespace SurplusMigrator.Models {
 
             if((attr & FileAttributes.Directory) == FileAttributes.Directory) {
                 string[] files = Directory.GetFiles(path, "*.sql", SearchOption.AllDirectories);
+                Array.Sort(files);
                 foreach(string filename in files) {
                     execute(filename);
                 }

@@ -86,7 +86,7 @@ namespace SurplusMigrator.Tasks {
                     MyConsole.Write("Deleting all data in table " + tablename + " ... ");
                     try {
                         QueryUtils.toggleTrigger(targetConnection, tablename, false);
-                        var rs = QueryUtils.executeQuery(targetConnection, "DELETE FROM \""+ targetConnection.GetDbLoginInfo().schema + "\".\""+ tablename + "\";", null, transaction);
+                        var rs = QueryUtils.executeQuery(targetConnection, "DELETE FROM \""+ targetConnection.GetDbLoginInfo().schema + "\".\""+ tablename + "\";", null, transaction, 0);
                     } catch(Exception) {
                         throw;
                     } finally {

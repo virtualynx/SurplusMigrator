@@ -130,14 +130,18 @@ namespace SurplusMigrator.Libraries {
             DataTable dtTablesList = oleExcelConnection.GetSchema("Tables");
 
             if(sheetName == null && dtTablesList.Rows.Count > 0) {
-                sheetName = dtTablesList.Rows[0]["TABLE_NAME"].ToString().Replace("$","");
+                sheetName = dtTablesList.Rows[0]["TABLE_NAME"].ToString();
             }
             dtTablesList.Clear();
             dtTablesList.Dispose();
 
             if(sheetName != null) {
+                if(!sheetName.EndsWith("$")) {
+                    sheetName = sheetName + "$";
+                }
+
                 OleDbCommand oleExcelCommand = oleExcelConnection.CreateCommand();
-                oleExcelCommand.CommandText = "Select * From [" + sheetName + "$]";
+                oleExcelCommand.CommandText = "Select * From [" + sheetName + "]";
                 oleExcelCommand.CommandType = CommandType.Text;
 
                 OleDbDataReader oleExcelReader = oleExcelCommand.ExecuteReader();

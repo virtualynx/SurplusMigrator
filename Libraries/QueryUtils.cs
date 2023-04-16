@@ -159,7 +159,7 @@ namespace SurplusMigrator.Libraries {
                     if(transaction != null) {
                         command.Transaction = (SqlTransaction)transaction;
                     }
-                    if(timeoutSeconds != -1) {
+                    if(timeoutSeconds > 0) {
                         command.CommandTimeout = timeoutSeconds;
                     }
                     try {
@@ -193,7 +193,7 @@ namespace SurplusMigrator.Libraries {
                     if(transaction != null) {
                         command.Transaction = (NpgsqlTransaction)transaction;
                     }
-                    if(timeoutSeconds != -1) {
+                    if(timeoutSeconds > 0) {
                         command.CommandTimeout = timeoutSeconds;
                     }
                     try {
