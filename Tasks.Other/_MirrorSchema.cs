@@ -123,6 +123,7 @@ namespace SurplusMigrator.Tasks {
                                 MyConsole.Write(insertedCount + "/" + dataCount + " data inserted ... ");
                             } catch(Exception e) {
                                 if(!e.Message.Contains("duplicate key value violates unique constraint")) {
+                                    MyConsole.Error(e, e.Message);
                                     throw;
                                 }
                             } finally {
