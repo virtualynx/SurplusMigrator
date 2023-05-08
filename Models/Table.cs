@@ -467,7 +467,13 @@ namespace SurplusMigrator.Models {
                 object identityColumnObj = command.ExecuteScalar();
                 command.Dispose();
 
-                return identityColumnObj?.ToString();
+                if(identityColumnObj == null) {
+                    return null;
+                } else if(identityColumnObj != null && identityColumnObj.ToString().Contains("pg.dropped")) {
+                    return null;
+                } else {
+                    return identityColumnObj?.ToString();
+                }
             }
 
             throw new NotImplementedException("Only SQL-Server and PostgreSql database is supported");

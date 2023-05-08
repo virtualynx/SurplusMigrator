@@ -585,7 +585,7 @@ namespace SurplusMigrator.Libraries {
                 }
             );
 
-            if(rs.Length == 0) {
+            if(rs.Length == 0 || rs.First()["pg_get_serial_sequence"] == null) {
                 return null;
             }
 
