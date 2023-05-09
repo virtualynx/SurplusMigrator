@@ -13,6 +13,7 @@ namespace SurplusMigrator.Tasks {
 
         private const int DEFAULT_BATCH_SIZE = 200;
         private bool _isModeTest = false;
+        private bool _isModeNoQuery = false;
 
         private Dictionary<string, int> batchsizeMap = new Dictionary<string, int>() {
             { "transaction_budget", 1000},
@@ -57,6 +58,10 @@ namespace SurplusMigrator.Tasks {
                 }
             }
 
+            if(getOptions("no-query") != null) {
+                _isModeNoQuery = getOptions("no-query") == "true";
+            }
+
             sourceConnection = connections.Where(a => a.GetDbLoginInfo().name == "mirror_source").First();
             targetConnection = connections.Where(a => a.GetDbLoginInfo().name == "mirror_target").First();
             Console.WriteLine("\n");
@@ -73,7 +78,10 @@ namespace SurplusMigrator.Tasks {
 
         protected override void onFinished() {
             QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault());
-            qe.execute(GlobalConfig.getPreQueriesPath());
+
+            if(!_isModeNoQuery) {
+                qe.execute(GlobalConfig.getPreQueriesPath());
+            }
 
             var tables = getTableNames();
 
@@ -152,7 +160,9 @@ namespace SurplusMigrator.Tasks {
                 }
             }
 
-            qe.execute(GlobalConfig.getPostQueriesPath());
+            if(!_isModeNoQuery) {
+                qe.execute(GlobalConfig.getPostQueriesPath());
+            }
         }
 
         private string[] getTableNames() {
