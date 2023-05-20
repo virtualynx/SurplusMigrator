@@ -146,7 +146,7 @@ namespace SurplusMigrator.Libraries {
             List<RowData<ColumnName, object>> result = new List<RowData<string, dynamic>>();
 
             if(parameters != null) {
-                foreach(var map in parameters) {
+                foreach(var map in parameters.OrderByDescending(a => a.Key)) {
                     sql = sql.Replace(map.Key, getInsertArg(map.Value));
                 }
             }
