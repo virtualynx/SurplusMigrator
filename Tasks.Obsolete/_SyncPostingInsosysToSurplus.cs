@@ -16,7 +16,7 @@ namespace SurplusMigrator.Tasks {
             destinations = new TableInfo[] { };
             //sources = new TableInfo[] {
             //    new TableInfo() {
-            //        connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
+            //        _connection = connections.Where(a => a.GetDbLoginInfo().name == "e_frm").FirstOrDefault(),
             //        tablename = "transaksi_jurnal",
             //        columns = new string[] {
             //            "jurnal_id",
@@ -60,7 +60,7 @@ namespace SurplusMigrator.Tasks {
             //};
             //destinations = new TableInfo[] {
             //    new TableInfo() {
-            //        connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
+            //        _connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
             //        tablename = "transaction_journal",
             //        columns = new string[] {
             //            "tjournalid",
