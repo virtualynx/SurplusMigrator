@@ -25,7 +25,7 @@ namespace SurplusMigrator.Tasks {
             { "transaction_sales_order", 1500}
         };
 
-        private string[] excludedTables = new string[] {
+        private List<string> excludedTables = new List<string> {
             "AspNetRoleClaims",
             "AspNetRoles",
             "AspNetUserClaims",
@@ -55,6 +55,13 @@ namespace SurplusMigrator.Tasks {
                 string[] tableList = getOptions("tables").Split(",");
                 foreach(var table in tableList) {
                     onlyMigrateTables.Add(table.Trim());
+                }
+            }
+
+            if(getOptions("skips") != null) {
+                string[] tableList = getOptions("skips").Split(",");
+                foreach(var table in tableList) {
+                    excludedTables.Add(table.Trim());
                 }
             }
 
