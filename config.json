@@ -103,15 +103,42 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "_staging_pre",
+      "schema": "test_rename",
       "type": "POSTGRESQL"
     }
   ],
   "job_playlist": [
     {
-      "name": "_MirrorSchema",
+      "name": "_RenameSchema",
       "active": true,
+      "options": "new_name=_staging"
+    },
+    {
+      "name": "_Accrue_RearrangeJournalRefVQ",
+      "active": false
+    },
+    {
+      "name": "_AddExcludeFromAging",
+      "active": false
+    },
+    {
+      "name": "_RoundingUnbalanceGL",
+      "active": false,
+      "options": "from=2023-01-01 00:00:00; to=2023-07-31 23:59:59; filters=left(tjd.tjournalid, 2) = 'SA'"
+    },
+    {
+      "name": "_FixJournalMissingRefSupply",
+      "active": false
+    },
+    {
+      "name": "_MirrorSchema",
+      "active": false,
       "options": "no-query=false"
+    },
+    {
+      "name": "_RunPreparedQuery",
+      "active": false,
+      "options": "mode=pre"
     },
     {
       "name": "__EmptyJob",
@@ -123,7 +150,7 @@
       "name": "_NewJournalInsosysToSurplus",
       "cascade": false,
       "active": false,
-      "options": "journalids=AP0223050003",
+      "options": "journalids=AP0223050009",
       "options__": "filters='2023-03-01 00:00:00' <= created_dt and upper(jurnal_id) like 'SA%'",
       "options_": "filters='2023-04-01 00:00:00' <= jurnal_bookdate and jurnal_bookdate <= '2023-04-30 23:59:59'"
     },

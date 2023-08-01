@@ -6,52 +6,13 @@ using System.Globalization;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-    class _FixJournalRIMissingRefSupply : _BaseTask {
+    class _JournalRemovesAccruedRef : _BaseTask {
         private DbConnection_ _connection;
 
-        public _FixJournalRIMissingRefSupply(DbConnection_[] connections) : base(connections) {
+        public _JournalRemovesAccruedRef(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
             };
             destinations = new TableInfo[] {
-                new TableInfo() {
-                    connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault(),
-                    tablename = "transaction_journal_detail",
-                    columns = new string[] {
-                        "tjournal_detailid",
-                        "tjournalid",
-                        "dk",
-                        "description",
-                        "foreignamount",
-                        "foreignrate",
-                        "ref_detail_id",
-                        "ref_subdetail_id",
-                        "vendorid",
-                        "accountid",
-                        "currencyid",
-                        "departmentid",
-                        "tbudgetid",
-                        "tbudget_detailid",
-                        "ref_id",
-                        "bilyet_no",
-                        "bilyet_date",
-                        "bilyet_effectivedate",
-                        "received_by",
-                        "created_date",
-                        "created_by",
-                        "is_disabled",
-                        "disabled_date",
-                        "disabled_by",
-                        "modified_date",
-                        "modified_by",
-                        //"budgetdetail_name", removed
-                        "idramount",
-                        "bankaccountid",
-                        "paymenttypeid",
-                        "journalreferencetypeid",
-                        "subreference_id",
-                    },
-                    ids = new string[] { "tjournal_detailid" }
-                },
             };
 
             _connection = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();

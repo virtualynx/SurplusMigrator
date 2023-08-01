@@ -6,10 +6,10 @@ using System.Globalization;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-    class _RearrangeJournalRefGRAndCQ : _BaseTask {
+    class _Accrue_RearrangeJournalRefVQ : _BaseTask {
         private DbConnection_ _connection;
 
-        public _RearrangeJournalRefGRAndCQ(DbConnection_[] connections) : base(connections) {
+        public _Accrue_RearrangeJournalRefVQ(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
             };
             destinations = new TableInfo[] {
@@ -58,8 +58,7 @@ namespace SurplusMigrator.Tasks {
         }
 
         protected override void onFinished() {
-            relocateRefId("GR");
-            relocateRefId("CQ");
+            relocateRefId("VQ");
 
             var bymhdAccounts = getAccruedBymhdAccounts();
 
@@ -326,11 +325,32 @@ namespace SurplusMigrator.Tasks {
                     //    }
                     //}
 
-                    string accountbymhd = Utils.obj2str(accruedApds.First()["accountid"]);
-                    var matchedAccountMap = maps.Where(a => a["accountid"] == accountbymhd);
+                    //string accountbymhd = Utils.obj2str(accruedApds.First()["accountid"]);
+                    //var matchedAccountMap = maps.Where(a => a["accountid"] == accountbymhd);
+                    var accountUsedInTrx = maps.Select(a => a["accountid"]).Distinct().ToArray();
+                    var matchedAccountMap = maps.Where(a => accountUsedInTrx.Contains(a["accountid"]));
                     foreach(var map in matchedAccountMap) {
-                        map.Add("accrued-ap", Utils.obj2str(accruedApds.First()["tjournalid"]));
-                        map.Add("accrued-apd", Utils.obj2str(accruedApds.First()["tjournal_detailid"]));
+                        var matchedAccruedAps = accruedApds.Where(a => a["accountid"].ToString() == map["accountid"]).ToArray();
+
+                        if(matchedAccruedAps.Length == 0) {
+                            MyConsole.Warning(
+                                "Cannot find accrued-apd for @tjournalid - @tjournal_detailid"
+                                .Replace("@tjournalid", map["tjournalid"])
+                                .Replace("@tjournal_detailid", map["tjournal_detailid"])
+                            );
+                        } else {
+                            if(matchedAccruedAps.Length > 1) {
+                                matchedAccruedAps = matchedAccruedAps.OrderByDescending(a => decimal.Parse(a["idramount"].ToString())).ToArray();
+                                //Array.Sort(
+                                //    matchedAccruedAps,
+                                //    delegate (RowData<string, object> x, RowData<string, object> y) {
+                                //        return (int)(decimal.Parse(y["idramount"].ToString()) - decimal.Parse(x["idramount"].ToString()));
+                                //    }
+                                //);
+                            }
+                            map.Add("accrued-ap", Utils.obj2str(matchedAccruedAps.First()["tjournalid"]));
+                            map.Add("accrued-apd", Utils.obj2str(matchedAccruedAps.First()["tjournal_detailid"]));
+                        }
                     }
                 }
             }
@@ -399,14 +419,13 @@ namespace SurplusMigrator.Tasks {
 	                    transaction_journal tj 
 	                    join transaction_journal_detail tjd on tjd.tjournalid = tj.tjournalid 
                     where 
-                        left(tjd.ref_supply_id, 2) in ('GR', 'CQ')
+                        left(tjd.tjournalid, 2) = 'ST'
+                        and left(tjd.ref_supply_id, 2) = 'VQ'
 	                    and dk = 'D'
                         and (ref_id is null and ref_detail_id is null)
 	                    and tj.is_disabled = false and tjd.is_disabled = false
                         and accountid in @bymhdAccounts
                         and (tj.bookdate between @from and @to)
-	                    --and tjd.tjournalid in ('AP23030100013')
-                        --and tjd.tjournal_detailid = 'APD23021300484'
                     order by tjd.tjournal_detailid
                     ;
                 ",

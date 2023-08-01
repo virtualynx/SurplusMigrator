@@ -106,9 +106,15 @@ namespace SurplusMigrator.Tasks {
 	                    and tj.accountcaid is not null
                 ";
                 int dataCount = Utils.obj2int(QueryUtils.executeQuery(surplusConn, queryCount).First()["count"]);
-                //string ppId = SequencerString.getId(surplusConn, "PP", createdDate);
-                //string ppId = "PP23022700014";
-                string ppId = "PP23022700001";
+
+                string ppId = null;
+
+                if(getOptions("ppid") != null) {
+                    ppId = getOptions("ppid");
+                    //string ppId = "PP23022700001";
+                } else {
+                    ppId = SequencerString.getId(surplusConn, "PP", createdDate);
+                }
                 MyConsole.WriteLine("Adding Payment-Planning-Detail under Payment-Planning id " + ppId);
                 RowData<ColumnName, object>[] pp = new RowData<string, object>[] { 
                     new RowData<string, object> {
@@ -127,7 +133,7 @@ namespace SurplusMigrator.Tasks {
                     }
                 };
                 ppTable.insertData(pp.ToList(), transaction, false);
-                //SequencerString.updateMasterSequencer(surplusConn, "PP", createdDate, transaction);
+                SequencerString.updateMasterSequencer(surplusConn, "PP", createdDate, transaction);
 
                 string queryGetPvSource = @"
                     select 

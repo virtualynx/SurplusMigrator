@@ -381,6 +381,7 @@ namespace SurplusMigrator.Tasks {
             string logFilename = "log_(" + this.GetType().Name + ")_" + _startedAt.ToString("yyyyMMdd_HHmmss") + ".json";
 
             var newJurnals = getNewJurnalFromInsosys();
+            var journalIds = newJurnals.Select(a => a["jurnal_id"].ToString()).ToList();
             var surplusConn = connections.Where(a => a.GetDbLoginInfo().name == "surplus").First();
             NpgsqlTransaction transaction = ((NpgsqlConnection)surplusConn.GetDbConnection()).BeginTransaction();
 

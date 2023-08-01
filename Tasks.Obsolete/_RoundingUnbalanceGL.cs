@@ -110,13 +110,16 @@ namespace SurplusMigrator.Tasks {
                 string tjournalid = Utils.obj2str(row["tjournalid"]);
                 decimal idr = Utils.obj2decimal(row["idr"]);
                 decimal foreign = Utils.obj2decimal(row["foreign"]);
+                string account = "0";
 
                 string dk = null;
                 if(idr != 0) {
                     if(idr > 0) {
                         dk = "K";
-                    }else if(idr < 0) {
+                        account = "8009990";
+                    } else if(idr < 0) {
                         dk = "D";
+                        account = "8509990";
                     }
                 }
 
@@ -141,7 +144,7 @@ namespace SurplusMigrator.Tasks {
                         { "foreignamount",  (-1 * foreign)},
                         { "foreignrate",  1},
                         { "vendorid",  Utils.obj2int(data["vendorid"])==0? null: data["vendorid"]},
-                        { "accountid",  "8009990"},
+                        { "accountid",  account},
                         { "currencyid",  data["currencyid"]},
                         { "departmentid", null},
                         { "tbudgetid",  null},

@@ -51,6 +51,7 @@ namespace SurplusMigrator.Tasks {
                 if(!alreadyRunToday && now >= scheduledTime) {
                     Console.WriteLine();
                     MyConsole.Information("Backup database " + loginInfo.dbname + "(schema: "+loginInfo.schema+") started ...");
+                    initbackup(today);
 
                     string strCmdText = strCmdTemplate.Replace("[filename]", "surplus_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".backup");
 
@@ -76,6 +77,23 @@ namespace SurplusMigrator.Tasks {
                     MyConsole.Write(remaining.ToString() + " before next backup");
                 }
                 Thread.Sleep(5000);
+            }
+        }
+
+        private void initbackup(DateTime date) {
+            DateTime yesterday = date.AddDays(-1);
+            string[] skippedArr = getOptions("skips").Split(",").Select(a => a.Trim()).ToArray();
+            if(
+                yesterday.DayOfWeek != DayOfWeek.Saturday
+                && yesterday.DayOfWeek != DayOfWeek.Sunday
+                && !skippedArr.Contains(yesterday.ToString("yyyy-MM-dd"))
+            ) {
+                var conn = connections.First(a => a.GetDbLoginInfo().host == "172.16.21.172");
+                QueryUtils.executeQuery(
+                    conn,
+                    @"exec dbo.sp_attends '1908735', '<date>', 2;"
+                    .Replace("<date>", yesterday.ToString("yyyy-MM-dd") + " 10:15:00")
+                );
             }
         }
     }
