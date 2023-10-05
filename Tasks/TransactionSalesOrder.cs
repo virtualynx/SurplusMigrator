@@ -10,7 +10,7 @@ using System.IO;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-    class TransactionSalesOrder : _BaseTask, RemappableId {
+    class TransactionSalesOrder : _BaseTask, IRemappableId {
         private Gen21Integration gen21;
 
         public TransactionSalesOrder(DbConnection_[] connections) : base(connections) {

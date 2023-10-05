@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-    class MasterVendorBill : _BaseTask, RemappableId {
+    class MasterVendorBill : _BaseTask, IRemappableId {
         public MasterVendorBill(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {

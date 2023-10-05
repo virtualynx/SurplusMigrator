@@ -10,7 +10,7 @@ using System.Data.Entity.Core.Common.CommandTrees.ExpressionBuilder;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-    class _UpdateJournalInsosysToSurplus : _BaseTask, RemappableId {
+    class _UpdateJournalInsosysToSurplus : _BaseTask, IRemappableId {
         private string[] journalIds = null;
         private string filter = null;
 

@@ -9,7 +9,7 @@ using idNameTag = System.String;
 using newId = System.String;
 
 namespace SurplusMigrator.Tasks {
-    class MasterBudgetAccount : _BaseTask, RemappableId {
+    class MasterBudgetAccount : _BaseTask, IRemappableId {
         public MasterBudgetAccount(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {

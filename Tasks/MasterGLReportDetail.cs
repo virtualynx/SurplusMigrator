@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-    class MasterGLReportDetail : _BaseTask, RemappableId {
+    class MasterGLReportDetail : _BaseTask, IRemappableId {
         public MasterGLReportDetail(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {

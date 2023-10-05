@@ -93,7 +93,7 @@ namespace SurplusMigrator.Tasks {
                     }
                 }
 
-                if(truncateOption.truncateBeforeInsert && this.GetType().GetInterfaces().Contains(typeof(RemappableId))) {
+                if(truncateOption.truncateBeforeInsert && this.GetType().GetInterfaces().Contains(typeof(IRemappableId))) {
                     var method = this.GetType().GetMethod("clearRemappingCache");
                     method.Invoke(this, new object[] { });
                 }

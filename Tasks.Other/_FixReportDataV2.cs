@@ -7,7 +7,7 @@ using System.Globalization;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-    class _FixReportDataV2 : _BaseTask, RemappableId {
+    class _FixReportDataV2 : _BaseTask, IRemappableId {
         private DbConnection_ _insosysConnection;
         private DbConnection_ _surplusConnection;
 
@@ -82,7 +82,7 @@ namespace SurplusMigrator.Tasks {
 
         }
 
-        void RemappableId.clearRemappingCache() {
+        void IRemappableId.clearRemappingCache() {
             IdRemapper.clearMapping("advertiserid");
             IdRemapper.clearMapping("advertiserbrandid");
             IdRemapper.clearMapping("vendorbillid");

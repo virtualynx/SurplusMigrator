@@ -14,6 +14,9 @@ namespace SurplusMigrator.Tasks {
         private const int DEFAULT_BATCH_SIZE = 200;
         private bool _isModeTest = false;
         private bool _isModeNoQuery = false;
+        private string _dotnetMigrationRepo = null;
+        private string _dotnetMigrationProjectPath = null;
+        private string _dotnetMigrationDbContext = null;
 
         private Dictionary<string, int> batchsizeMap = new Dictionary<string, int>() {
             { "transaction_budget", 1000},
@@ -69,6 +72,18 @@ namespace SurplusMigrator.Tasks {
                 _isModeNoQuery = getOptions("no-query") == "true";
             }
 
+            if(getOptions("dotnet-migration") == "true" && getOptions("dotnet-migration-repo") != null) {
+                _dotnetMigrationRepo = getOptions("dotnet-migration-repo");
+            }
+
+            if(getOptions("dotnet-migration-project-path") != null) {
+                _dotnetMigrationProjectPath = getOptions("dotnet-migration-project-path");
+            }
+
+            if(getOptions("dotnet-migration-db-context") != null) {
+                _dotnetMigrationDbContext = getOptions("dotnet-migration-db-context");
+            }
+
             sourceConnection = connections.Where(a => a.GetDbLoginInfo().name == "mirror_source").First();
             targetConnection = connections.Where(a => a.GetDbLoginInfo().name == "mirror_target").First();
             Console.WriteLine("\n");
@@ -85,6 +100,26 @@ namespace SurplusMigrator.Tasks {
 
         protected override void onFinished() {
             QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault());
+
+            if(_dotnetMigrationRepo != null) {
+                string gitCloneCommand = "git clone "+_dotnetMigrationRepo;
+
+                if(getOptions("dotnet-migration-repo-github-user-and-token") != null) {
+                    string dotnetMigrationRepoGithubUserAndToken = getOptions("dotnet-migration-repo-github-user-and-token");
+                    gitCloneCommand = gitCloneCommand.Replace("https://", "https://"+ dotnetMigrationRepoGithubUserAndToken + "@");
+                }
+
+                if(getOptions("dotnet-migration-repo-branch") != null) {
+                    string dotnetMigrationRepoBranch = getOptions("dotnet-migration-repo-branch");
+                    gitCloneCommand = gitCloneCommand.Replace("git clone", "git clone --single-branch --branch " + dotnetMigrationRepoBranch);
+                }
+
+                if(_dotnetMigrationProjectPath != null) {
+                }
+                if(_dotnetMigrationDbContext != null) { 
+                
+                }
+            }
 
             if(!_isModeNoQuery) {
                 qe.execute(GlobalConfig.getPreQueriesPath());

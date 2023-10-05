@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 namespace SurplusMigrator.Tasks {
-    class TransactionProgramBudgetEpsDetail : _BaseTask, RemappableId {
+    class TransactionProgramBudgetEpsDetail : _BaseTask, IRemappableId {
         public TransactionProgramBudgetEpsDetail(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
                 new TableInfo() {
