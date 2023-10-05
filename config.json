@@ -103,11 +103,21 @@
       "username": "postgres",
       "password": "initrans7",
       "dbname": "insosys",
-      "schema": "dev",
+      "schema": "_staging_pre",
       "type": "POSTGRESQL"
     }
   ],
   "job_playlist": [
+    {
+      "name": "_MirrorSchema",
+      "active": true,
+      "options": "no-query=true; skips=transaction_advance_detail_episode, transaction_budget, transaction_budget_detail, transaction_journal, table transaction_journal_detail, SL_Logproof, table_update_post_tx, transaction_glreport_detail_estimation, transaction_glreport_detail_pairing; dotnet-migration=false; dotnet-migration-repo=https://github.com/Trans-7/surplus.git; dotnet-migration-repo-branch=dev; dotnet-migration-repo-github-user-and-token=virtualynx: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; dotnet-migration-project-path=surplus/API/NewInsosys.API; dotnet-migration-db-context=PostgresDbContext"
+    },
+    {
+      "name": "_RunPreparedQuery",
+      "active": false,
+      "options": "mode=post; excluded-files=tt_mo1.sql, tt_mo2.sql"
+    },
     {
       "name": "_RenameSchema",
       "active": false,
@@ -149,16 +159,6 @@
     {
       "name": "_FixJournalMissingRefSupply",
       "active": false
-    },
-    {
-      "name": "_MirrorSchema",
-      "active": true,
-      "options": "no-query=false;  dotnet-migration=true; dotnet-migration-repo=https://github.com/Trans-7/surplus.git; dotnet-migration-repo-branch=dev; dotnet-migration-repo-github-user-and-token=virtualynx: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"
-    },
-    {
-      "name": "_RunPreparedQuery",
-      "active": false,
-      "options": "mode=pre"
     },
     {
       "name": "__EmptyJob",

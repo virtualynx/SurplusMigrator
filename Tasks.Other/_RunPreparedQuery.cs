@@ -22,12 +22,17 @@ namespace SurplusMigrator.Tasks {
                 _mode = "post";
             }
 
+            string[] excludedFiles = null;
+            if(getOptions("excluded-files") != null) {
+                excludedFiles = getOptions("excluded-files").Split(",").Select(a => a.Trim()).ToArray();
+            }
+
             if(_mode == "pre" || _mode == "both") {
-                qe.execute(GlobalConfig.getPreQueriesPath());
+                qe.execute(GlobalConfig.getPreQueriesPath(), excludedFiles);
             }
 
             if(_mode == "post" || _mode == "both") {
-                qe.execute(GlobalConfig.getPostQueriesPath());
+                qe.execute(GlobalConfig.getPostQueriesPath(), excludedFiles);
             }
         }
     }
