@@ -3,6 +3,7 @@ using Npgsql;
 using SurplusMigrator.Libraries;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace SurplusMigrator.Models {
     class QueryExecutor {
@@ -15,14 +16,17 @@ namespace SurplusMigrator.Models {
             this._connection = connection;
         }
 
-        public void execute(string path) {
+        public void execute(string path, string[] excludedFiles = null) {
             FileAttributes attr = File.GetAttributes(path);
 
             if((attr & FileAttributes.Directory) == FileAttributes.Directory) {
                 string[] files = Directory.GetFiles(path, "*.sql", SearchOption.AllDirectories);
                 Array.Sort(files);
                 foreach(string filename in files) {
-                    execute(filename);
+                    if(excludedFiles != null && excludedFiles.Any(a => filename.EndsWith(a))) {
+                        continue;
+                    }
+                    execute(filename, excludedFiles);
                 }
             } else {
                 runQuery(path);
