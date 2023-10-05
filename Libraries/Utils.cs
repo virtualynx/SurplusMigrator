@@ -11,6 +11,9 @@ using System.Runtime.InteropServices;
 using System.Globalization;
 using System.Linq;
 using System.Collections;
+using System.Security.Policy;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
+using System.Diagnostics;
 
 namespace SurplusMigrator.Libraries {
     class Utils {
@@ -253,6 +256,65 @@ namespace SurplusMigrator.Libraries {
             } else {
                 throw new FileNotFoundException("File " + path + " not found");
             }
+        }
+
+        public static string executeCmd(string command, string workingDirectory = "") {
+            string result = null;
+
+            ProcessStartInfo procStartInfo = new ProcessStartInfo("cmd", "/c " + command);
+
+            procStartInfo.RedirectStandardOutput = true;
+            procStartInfo.RedirectStandardOutput = true;
+            procStartInfo.RedirectStandardError = true;
+            procStartInfo.UseShellExecute = false;
+            //procStartInfo.CreateNoWindow = true;
+            procStartInfo.UseShellExecute = false;
+            procStartInfo.WorkingDirectory = workingDirectory;
+
+            // wrap IDisposable into using (in order to release hProcess) 
+            using(Process process = new Process()) {
+                process.StartInfo = procStartInfo;
+                process.Start();
+
+                // Add this: wait until process does its work
+                process.WaitForExit();
+
+                // and only then read the result
+                result = process.StandardOutput.ReadToEnd();
+            }
+
+            return result;
+        }
+
+        public static string executeCmd(List<string> cmds, string workingDirectory = "") {
+            string result = null;
+
+            var psi = new ProcessStartInfo();
+            psi.FileName = "cmd.exe";
+            psi.RedirectStandardInput = true;
+            psi.RedirectStandardOutput = true;
+            psi.RedirectStandardError = true;
+            psi.UseShellExecute = false;
+            psi.WorkingDirectory = workingDirectory;
+
+            using(Process process = new Process()) {
+                process.StartInfo = psi;
+                process.Start();
+                process.OutputDataReceived += (sender, e) => { Console.WriteLine(e.Data); };
+                process.ErrorDataReceived += (sender, e) => { Console.WriteLine(e.Data); };
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+                using(StreamWriter sw = process.StandardInput) {
+                    foreach(var cmd in cmds) {
+                        sw.WriteLine(cmd);
+                    }
+                }
+                process.WaitForExit();
+
+                result = process.StandardOutput.ReadToEnd();
+            }
+
+            return result;
         }
     }
 }
