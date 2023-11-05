@@ -258,32 +258,58 @@ namespace SurplusMigrator.Libraries {
             }
         }
 
-        public static string executeCmd(string command, string workingDirectory = "") {
+        public static string executeCmd(string command, string workingDirectory = "", bool asyncOutput = false) {
             string result = null;
 
             ProcessStartInfo procStartInfo = new ProcessStartInfo("cmd", "/c " + command);
 
-            procStartInfo.RedirectStandardOutput = true;
-            procStartInfo.RedirectStandardOutput = true;
-            procStartInfo.RedirectStandardError = true;
-            procStartInfo.UseShellExecute = false;
-            //procStartInfo.CreateNoWindow = true;
+            if(asyncOutput) {
+                procStartInfo.RedirectStandardOutput = true;
+                procStartInfo.RedirectStandardError = true;
+            }
             procStartInfo.UseShellExecute = false;
             procStartInfo.WorkingDirectory = workingDirectory;
 
             // wrap IDisposable into using (in order to release hProcess) 
             using(Process process = new Process()) {
                 process.StartInfo = procStartInfo;
+
+                if(asyncOutput) {
+                    process.ErrorDataReceived += new DataReceivedEventHandler(ProcessErrorHandler);
+                    process.OutputDataReceived += new DataReceivedEventHandler(ProcessOutputHandler);
+                }
+
                 process.Start();
+
+                if(asyncOutput) {
+                    process.BeginOutputReadLine();
+                    process.BeginErrorReadLine();
+                }
 
                 // Add this: wait until process does its work
                 process.WaitForExit();
 
-                // and only then read the result
-                result = process.StandardOutput.ReadToEnd();
+                if(!asyncOutput) {
+                    // and only then read the result
+                    result = process.StandardOutput.ReadToEnd();
+                }
             }
 
             return result;
+        }
+
+        private static void ProcessErrorHandler(object sendingProcess, DataReceivedEventArgs outLine) {
+            //* Do your stuff with the output (write to console/log/StringBuilder)
+            if(!String.IsNullOrEmpty(outLine.Data)) {
+                MyConsole.Error(outLine.Data);
+            }
+        }
+
+        private static void ProcessOutputHandler(object sendingProcess, DataReceivedEventArgs outLine) {
+            //* Do your stuff with the output (write to console/log/StringBuilder)
+            if(!String.IsNullOrEmpty(outLine.Data)) {
+                MyConsole.Information(outLine.Data);
+            }
         }
 
         public static string executeCmd(List<string> cmds, string workingDirectory = "") {

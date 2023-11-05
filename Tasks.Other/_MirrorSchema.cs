@@ -3,8 +3,11 @@ using SurplusMigrator.Libraries;
 using SurplusMigrator.Models;
 using System;
 using System.Collections.Generic;
+using System.Data;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace SurplusMigrator.Tasks {
     class _MirrorSchema : _BaseTask {
@@ -15,8 +18,6 @@ namespace SurplusMigrator.Tasks {
         private bool _isModeTest = false;
         private bool _isModeNoQuery = false;
         private string _dotnetMigrationRepo = null;
-        private string _dotnetMigrationProjectPath = null;
-        private string _dotnetMigrationDbContext = null;
 
         private Dictionary<string, int> batchsizeMap = new Dictionary<string, int>() {
             { "transaction_budget", 1000},
@@ -76,14 +77,6 @@ namespace SurplusMigrator.Tasks {
                 _dotnetMigrationRepo = getOptions("dotnet-migration-repo");
             }
 
-            if(getOptions("dotnet-migration-project-path") != null) {
-                _dotnetMigrationProjectPath = getOptions("dotnet-migration-project-path");
-            }
-
-            if(getOptions("dotnet-migration-db-context") != null) {
-                _dotnetMigrationDbContext = getOptions("dotnet-migration-db-context");
-            }
-
             sourceConnection = connections.Where(a => a.GetDbLoginInfo().name == "mirror_source").First();
             targetConnection = connections.Where(a => a.GetDbLoginInfo().name == "mirror_target").First();
             Console.WriteLine("\n");
@@ -102,6 +95,9 @@ namespace SurplusMigrator.Tasks {
             QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault());
 
             if(_dotnetMigrationRepo != null) {
+                string tempFolder = "temp";
+                Utils.executeCmd("mkdir temp");
+
                 string gitCloneCommand = "git clone "+_dotnetMigrationRepo;
 
                 if(getOptions("dotnet-migration-repo-github-user-and-token") != null) {
@@ -114,11 +110,52 @@ namespace SurplusMigrator.Tasks {
                     gitCloneCommand = gitCloneCommand.Replace("git clone", "git clone --single-branch --branch " + dotnetMigrationRepoBranch);
                 }
 
-                if(_dotnetMigrationProjectPath != null) {
+                string dotnetMigrationProjectPath = "";
+                if(getOptions("dotnet-migration-project-path") != null) {
+                    dotnetMigrationProjectPath = getOptions("dotnet-migration-project-path");
                 }
-                if(_dotnetMigrationDbContext != null) { 
-                
+
+                Utils.executeCmd("rmdir " + tempFolder + "/" + dotnetMigrationProjectPath);
+                string res = Utils.executeCmd(gitCloneCommand, tempFolder, true);
+
+                string appsettingStr = File.ReadAllText(tempFolder + "/" + dotnetMigrationProjectPath + "/appsettings.Development.json");
+                var appsettingJson = JsonNode.Parse(appsettingStr);
+
+                var dbUrlConnProperties = appsettingJson["ConnectionStrings"]["PostgresConnection"].ToString().Split(";");
+
+                List<string> tempProps = dbUrlConnProperties.Where(a => !a.StartsWith("SearchPath=")).ToList();
+                tempProps.Add("SearchPath="+ targetConnection.GetDbLoginInfo().schema);
+
+                appsettingJson["ConnectionStrings"]["PostgresConnection"] = String.Join(";", tempProps);
+                appsettingStr = appsettingJson.ToString();
+
+                File.WriteAllText(tempFolder + "/" + dotnetMigrationProjectPath + "/appsettings.Development.json", appsettingStr);
+
+                //create migration table
+                try {
+                    QueryUtils.executeQuery(
+                        targetConnection,
+                        @"
+                            CREATE TABLE ""<schema>"".""__EFMigrationsHistory"" (
+                                migrationid text NOT NULL,
+                                productversion text NOT NULL,
+                                CONSTRAINT ""PK_HistoryRow"" PRIMARY KEY(migrationid)
+                            );
+                        "
+                        .Replace("<schema>", targetConnection.GetDbLoginInfo().schema)
+                    );
+                } catch(Exception e) {
+                    MyConsole.Warning(e.Message);
                 }
+
+                string dotnetMigrationCommand = "dotnet ef database update";
+                if(getOptions("dotnet-migration-db-context") != null) {
+                    dotnetMigrationCommand += " --context " + getOptions("dotnet-migration-db-context");
+                }
+
+                //res = Utils.executeCmd(new List<string>() { dotnetMigrationCommand }, dotnetMigrationProjectPath);
+                res = Utils.executeCmd(dotnetMigrationCommand, tempFolder+"/"+dotnetMigrationProjectPath, true);
+                MyConsole.WriteLine(res);
             }
 
             if(!_isModeNoQuery) {
@@ -239,6 +276,13 @@ namespace SurplusMigrator.Tasks {
             }
 
             return filtered;
+        }
+
+        private class AppSetting { 
+            public bool DetailedErrors { get; set; }
+            public dynamic Logging { get; set; }
+            public string Urls { get; set; }
+            public dynamic ConnectionStrings { get; set; }
         }
     }
 }

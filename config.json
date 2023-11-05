@@ -111,7 +111,7 @@
     {
       "name": "_MirrorSchema",
       "active": true,
-      "options": "no-query=true; skips=transaction_advance_detail_episode, transaction_budget, transaction_budget_detail, transaction_journal, table transaction_journal_detail, SL_Logproof, table_update_post_tx, transaction_glreport_detail_estimation, transaction_glreport_detail_pairing; dotnet-migration=false; dotnet-migration-repo=https://github.com/Trans-7/surplus.git; dotnet-migration-repo-branch=dev; dotnet-migration-repo-github-user-and-token=virtualynx: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; dotnet-migration-project-path=surplus/API/NewInsosys.API; dotnet-migration-db-context=PostgresDbContext"
+      "options": "no-query=false; dotnet-migration=true; dotnet-migration-repo=https://github.com/Trans-7/surplus.git; dotnet-migration-repo-branch=dev; dotnet-migration-repo-github-user-and-token=virtualynx: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; dotnet-migration-project-path=surplus/API/NewInsosys.API; dotnet-migration-db-context=PostgresDbContext; skips=transaction_advance_detail_episode, transaction_budget, transaction_budget_detail, transaction_journal, transaction_journal_detail, SL_Logproof, table_update_post_tx, transaction_glreport_detail_estimation, transaction_glreport_detail_pairing;"
     },
     {
       "name": "_RunPreparedQuery",
@@ -170,20 +170,20 @@
       "name": "_NewJournalInsosysToSurplus",
       "cascade": false,
       "active": false,
-      "options": "journalids=AP0223050009",
+      "options": "journalids=AP0223050018,JV0223050005,AP0223050013,AP0223050014,AP0223050015,JV0223050006,JV0223050007,JV0223050008,JV0223050009,JV0223050010,JV0223050011,JV0223050012,JV0223050013,JV0223050014,JV0223050015,JV0223050016,JV0223050017,JV0223050018,JV0223050019,JV0223050020,JV0223050021,JV0223050022,JV0223050023,JV0223050024,JV0223050025,JV0223050026,JV0223050027,JV0223050028,JV0223050029,JV0223050030,JV0223050031,JV0223050032,JV0223050033,JV0223050001,JV0223050002,JV0223050003,JV0223050004,JV0223050034,JV0223050035,JV0223050036,JV0223050037,JV0223050038,JV0223050040,JV0223050039",
       "options__": "filters='2023-03-01 00:00:00' <= created_dt and upper(jurnal_id) like 'SA%'",
       "options_": "filters='2023-04-01 00:00:00' <= jurnal_bookdate and jurnal_bookdate <= '2023-04-30 23:59:59'"
     },
     {
       "name": "_UpdateJournalInsosysToSurplus",
-      "cascade": false,
+      "cascade": true,
       "active": false,
       "options__": "journalids=AP0223020195,AP0223020196,AP0223020181",
       "options": "filters='2023-01-31 23:59:59' < jurnal_bookdate"
     },
     {
       "name": "_NewJournalSurplusToInsosys",
-      "cascade": true,
+      "cascade": false,
       "active": false,
       "options": "filters=bookdate >= '2022-12-01 00:00:00'"
     },
