@@ -17,7 +17,6 @@ namespace SurplusMigrator.Tasks {
         private const int DEFAULT_BATCH_SIZE = 200;
         private bool _isModeTest = false;
         private bool _isModeNoQuery = false;
-        private string _dotnetMigrationRepo = null;
 
         private Dictionary<string, int> batchsizeMap = new Dictionary<string, int>() {
             { "transaction_budget", 1000},
@@ -44,6 +43,8 @@ namespace SurplusMigrator.Tasks {
         private List<string> onlyMigrateTables = new List<string>() {
             
         };
+
+        private MigrationConfig migrationConfig = null;
 
         public _MirrorSchema(DbConnection_[] connections) : base(connections) {
             sources = new TableInfo[] {
@@ -73,8 +74,14 @@ namespace SurplusMigrator.Tasks {
                 _isModeNoQuery = getOptions("no-query") == "true";
             }
 
-            if(getOptions("dotnet-migration") == "true" && getOptions("dotnet-migration-repo") != null) {
-                _dotnetMigrationRepo = getOptions("dotnet-migration-repo");
+            if(getOptions("dotnet-migration") == "true") {
+                string migConfigStr;
+                if(getOptions("dotnet-migration-config-file") != null) {
+                    migConfigStr = File.ReadAllText(getOptions("dotnet-migration-config-file"));
+                } else {
+                    migConfigStr = File.ReadAllText("config.migration.json");
+                }
+                migrationConfig = JsonSerializer.Deserialize<MigrationConfig>(migConfigStr);
             }
 
             sourceConnection = connections.Where(a => a.GetDbLoginInfo().name == "mirror_source").First();
@@ -94,28 +101,27 @@ namespace SurplusMigrator.Tasks {
         protected override void onFinished() {
             QueryExecutor qe = new QueryExecutor(connections.Where(a => a.GetDbLoginInfo().name == "surplus").FirstOrDefault());
 
-            if(_dotnetMigrationRepo != null) {
+            if(migrationConfig != null) {
                 string tempFolder = "temp";
                 Utils.executeCmd("mkdir temp");
 
-                string gitCloneCommand = "git clone "+_dotnetMigrationRepo;
+                string gitCloneCommand = "git clone "+migrationConfig.git_repo;
 
-                if(getOptions("dotnet-migration-repo-github-user-and-token") != null) {
-                    string dotnetMigrationRepoGithubUserAndToken = getOptions("dotnet-migration-repo-github-user-and-token");
-                    gitCloneCommand = gitCloneCommand.Replace("https://", "https://"+ dotnetMigrationRepoGithubUserAndToken + "@");
+                if(migrationConfig.github_user_and_token != null) {
+                    gitCloneCommand = gitCloneCommand.Replace("https://", "https://"+ migrationConfig.github_user_and_token + "@");
                 }
 
-                if(getOptions("dotnet-migration-repo-branch") != null) {
-                    string dotnetMigrationRepoBranch = getOptions("dotnet-migration-repo-branch");
-                    gitCloneCommand = gitCloneCommand.Replace("git clone", "git clone --single-branch --branch " + dotnetMigrationRepoBranch);
+                if(migrationConfig.git_branch != null) {
+                    gitCloneCommand = gitCloneCommand.Replace("git clone", "git clone --single-branch --branch " + migrationConfig.git_branch);
                 }
 
                 string dotnetMigrationProjectPath = "";
-                if(getOptions("dotnet-migration-project-path") != null) {
-                    dotnetMigrationProjectPath = getOptions("dotnet-migration-project-path");
+                if(migrationConfig.path != null) {
+                    dotnetMigrationProjectPath = migrationConfig.path;
                 }
 
-                Utils.executeCmd("rmdir " + tempFolder + "/" + dotnetMigrationProjectPath);
+                //Utils.executeCmd("rmdir /s /q " + tempFolder + "/surplus");
+                Utils.deleteDirectory(tempFolder + "/surplus");
                 string res = Utils.executeCmd(gitCloneCommand, tempFolder, true);
 
                 string appsettingStr = File.ReadAllText(tempFolder + "/" + dotnetMigrationProjectPath + "/appsettings.Development.json");
@@ -149,8 +155,8 @@ namespace SurplusMigrator.Tasks {
                 }
 
                 string dotnetMigrationCommand = "dotnet ef database update";
-                if(getOptions("dotnet-migration-db-context") != null) {
-                    dotnetMigrationCommand += " --context " + getOptions("dotnet-migration-db-context");
+                if(migrationConfig.db_context != null) {
+                    dotnetMigrationCommand += " --context " + migrationConfig.db_context;
                 }
 
                 //res = Utils.executeCmd(new List<string>() { dotnetMigrationCommand }, dotnetMigrationProjectPath);
@@ -278,11 +284,12 @@ namespace SurplusMigrator.Tasks {
             return filtered;
         }
 
-        private class AppSetting { 
-            public bool DetailedErrors { get; set; }
-            public dynamic Logging { get; set; }
-            public string Urls { get; set; }
-            public dynamic ConnectionStrings { get; set; }
+        private class MigrationConfig { 
+            public string git_repo { get; set; }
+            public string git_branch { get; set; }
+            public string github_user_and_token { get; set; }
+            public string path { get; set; }
+            public string db_context { get; set; }
         }
     }
 }

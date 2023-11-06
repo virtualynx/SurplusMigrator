@@ -1,0 +1,7 @@
+{
+  "git_repo": "https://github.com/Trans-7/surplus.git",
+  "git_branch": "main",
+  "github_user_and_token": "virtualynx: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",
+  "path": "surplus/API/NewInsosys.API",
+  "db_context": "PostgresDbContext"
+}

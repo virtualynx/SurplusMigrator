@@ -42,7 +42,7 @@ namespace SurplusMigrator.Tasks {
                 string parentTaskName = new StackFrame(1).GetMethod().DeclaringType.Name;
                 MyConsole.Information("Run "+ parentTaskName +"'s dependency - "+ this.GetType().Name);
             }
-            //skips if excluded in config
+            //skips if excluded in migrationConfig
             if(
                 sources.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tablename)) ||
                 destinations.Any(tinfo => GlobalConfig.isExcludedTable(tinfo.tablename))
@@ -73,7 +73,7 @@ namespace SurplusMigrator.Tasks {
             List<string> printedLogFilename = new List<string>();
             List<DbInsertFail> allErrors = new List<DbInsertFail>();
             try {
-                //truncate options is in the config file
+                //truncate options is in the migrationConfig file
                 if(truncateOption.truncateBeforeInsert == false && destinations.Any(tinfo => GlobalConfig.isTruncatedTable(tinfo.tablename))) {
                     bool confirmTruncate = true;
                     if(GlobalConfig.getJobPlaylist().Length > 0) {

@@ -11,8 +11,6 @@ using System.Runtime.InteropServices;
 using System.Globalization;
 using System.Linq;
 using System.Collections;
-using System.Security.Policy;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 using System.Diagnostics;
 
 namespace SurplusMigrator.Libraries {
@@ -263,10 +261,8 @@ namespace SurplusMigrator.Libraries {
 
             ProcessStartInfo procStartInfo = new ProcessStartInfo("cmd", "/c " + command);
 
-            if(asyncOutput) {
-                procStartInfo.RedirectStandardOutput = true;
-                procStartInfo.RedirectStandardError = true;
-            }
+            procStartInfo.RedirectStandardOutput = true;
+            procStartInfo.RedirectStandardError = true;
             procStartInfo.UseShellExecute = false;
             procStartInfo.WorkingDirectory = workingDirectory;
 
@@ -299,14 +295,12 @@ namespace SurplusMigrator.Libraries {
         }
 
         private static void ProcessErrorHandler(object sendingProcess, DataReceivedEventArgs outLine) {
-            //* Do your stuff with the output (write to console/log/StringBuilder)
             if(!String.IsNullOrEmpty(outLine.Data)) {
                 MyConsole.Error(outLine.Data);
             }
         }
 
         private static void ProcessOutputHandler(object sendingProcess, DataReceivedEventArgs outLine) {
-            //* Do your stuff with the output (write to console/log/StringBuilder)
             if(!String.IsNullOrEmpty(outLine.Data)) {
                 MyConsole.Information(outLine.Data);
             }
@@ -339,8 +333,25 @@ namespace SurplusMigrator.Libraries {
 
                 result = process.StandardOutput.ReadToEnd();
             }
-
             return result;
+        }
+
+        public static void deleteDirectory(string path) {
+            DirectoryInfo dir = new DirectoryInfo(path);
+
+            if(dir.Exists) {
+                setAttributesNormal(dir);
+                dir.Delete(true);
+            }
+        }
+
+        private static void setAttributesNormal(DirectoryInfo dir) {
+            foreach(var subDir in dir.GetDirectories()) {
+                setAttributesNormal(subDir);
+            }
+            foreach(var file in dir.GetFiles()) {
+                file.Attributes = FileAttributes.Normal;
+            }
         }
     }
 }

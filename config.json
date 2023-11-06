@@ -111,7 +111,7 @@
     {
       "name": "_MirrorSchema",
       "active": true,
-      "options": "no-query=false; dotnet-migration=true; dotnet-migration-repo=https://github.com/Trans-7/surplus.git; dotnet-migration-repo-branch=dev; dotnet-migration-repo-github-user-and-token=virtualynx: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; dotnet-migration-project-path=surplus/API/NewInsosys.API; dotnet-migration-db-context=PostgresDbContext; skips=transaction_advance_detail_episode, transaction_budget, transaction_budget_detail, transaction_journal, transaction_journal_detail, SL_Logproof, table_update_post_tx, transaction_glreport_detail_estimation, transaction_glreport_detail_pairing;"
+      "options": "no-query=true; dotnet-migration=true; skips=transaction_advance_detail_episode, transaction_budget, transaction_budget_detail, transaction_journal, transaction_journal_detail, SL_Logproof, table_update_post_tx, transaction_glreport_detail_estimation, transaction_glreport_detail_pairing;"
     },
     {
       "name": "_RunPreparedQuery",
